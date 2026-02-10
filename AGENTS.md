@@ -1,5 +1,9 @@
 # Repository Guidelines
 
+# 주석 정보
+- 주석은 모두 한국어로 작성해줘
+- 나는 개발에 진심인 개발자로서 주석을 세세하게 작성하는 편이야, 코드 한줄에 주석 한줄을 작성하는 편이니깐 참고해줘
+
 ## Project Structure & Module Organization
 - `app/` contains the Spring Boot service.
 - `app/src/main/java/com/gizzi/web/` holds application source code (entry point: `WebServiceApplication`).
@@ -34,3 +38,13 @@ Run commands from `app/` unless noted.
 ## Security & Configuration Tips
 - Store environment-specific values in `app/src/main/resources/application.properties` and override via environment variables when deploying.
 - Avoid committing secrets; use `.env` or your deployment platform’s secret manager when needed.
+
+## 개발시 코딩 포맷 관련 요구 사항
+- 나는 데이터 형과 변수 등등을 동일한 열에 배치할 수 있게 공백을 맞추는걸 선호해
+(예시) 원하지 않는 방식
+  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
+  email VARCHAR(255) NOT NULL,
+(예시) 원하는 방식
+  id        CHAR(36)        PRIMARY KEY DEFAULT (UUID()),
+  email     VARCHAR(255)    NOT NULL,
+
