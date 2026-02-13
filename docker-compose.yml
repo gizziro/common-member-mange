@@ -1,17 +1,36 @@
 services:
-  app:
+  # 관리자 API (포트 5000)
+  admin-api:
     build:
-      context: ./app
+      context: ./backend
       dockerfile: Dockerfile
-    container_name: base-project-app
+      args:
+        MODULE_NAME: admin-api
+    container_name: member-mange-admin-api
     ports:
-      - "8080:8080"
+      - "5000:5000"
     depends_on:
       - db
+    profiles: [admin, full]
 
+  # 사용자 API (포트 6000)
+  user-api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        MODULE_NAME: user-api
+    container_name: member-mange-user-api
+    ports:
+      - "6000:6000"
+    depends_on:
+      - db
+    profiles: [user, full]
+
+  # MySQL 데이터베이스
   db:
     image: mysql:8.0
-    container_name: base-project-db
+    container_name: member-mange-db
     restart: unless-stopped
     ports:
       - "13306:3306"

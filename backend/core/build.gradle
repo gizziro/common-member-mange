@@ -1,0 +1,19 @@
+// core 모듈: 공통 도메인, 리포지토리, 서비스, 권한 로직, 예외처리
+plugins {
+	id 'com.gizzi.java-conventions'        // 공통 Java 빌드 설정
+	id 'io.spring.dependency-management'        // Spring BOM 의존성 관리
+}
+
+// Spring Boot BOM 임포트 (부트 플러그인 없이 의존성 버전만 관리)
+dependencyManagement {
+	imports {
+		mavenBom 'org.springframework.boot:spring-boot-dependencies:4.0.2'
+	}
+}
+
+description = 'Core - 공통 도메인/엔티티/리포지토리/서비스/권한/예외처리'
+
+dependencies {
+	// Spring MVC (공통 예외처리, 응답 래퍼에 필요)
+	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+}

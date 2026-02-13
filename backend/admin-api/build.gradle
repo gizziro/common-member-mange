@@ -1,0 +1,19 @@
+// admin-api 모듈: 관리자 기능 API (포트 5000)
+plugins {
+	id 'com.gizzi.java-conventions'        // 공통 Java 빌드 설정
+	id 'org.springframework.boot'              // Spring Boot 실행 가능 JAR 생성
+	id 'io.spring.dependency-management'        // Spring BOM 의존성 관리
+}
+
+description = 'Admin API - 시스템 설정/감사로그/관리자 기능 (포트 5000)'
+
+dependencies {
+	// core 모듈 의존
+	implementation project(':core')
+
+	// Spring MVC (웹 계층)
+	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+
+	// Actuator (헬스체크/모니터링)
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+}

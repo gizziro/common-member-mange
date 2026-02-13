@@ -5,18 +5,19 @@
 - 나는 개발에 진심인 개발자로서 주석을 세세하게 작성하는 편이야, 코드 한줄에 주석 한줄을 작성하는 편이니깐 참고해줘
 
 ## Project Structure & Module Organization
-- `app/` contains the Spring Boot service.
-- `app/src/main/java/com/gizzi/web/` holds application source code (entry point: `WebServiceApplication`).
-- `app/src/main/resources/` contains configuration such as `application.properties`.
-- `app/src/test/java/com/gizzi/web/` contains JUnit tests.
-- `docker-compose.yml` and `app/Dockerfile` define containerized builds and local runtime.
+- `backend/` contains the Spring Boot service.
+- `backend/src/main/java/com/gizzi/web/` holds application source code (entry point: `WebServiceApplication`).
+- `backend/src/main/resources/` contains configuration such as `application.properties`.
+- `backend/src/test/java/com/gizzi/web/` contains JUnit tests.
+- `frontend/` contains the frontend application.
+- `docker-compose.yml` and `backend/Dockerfile` define containerized builds and local runtime.
 
 ## Build, Test, and Development Commands
-Run commands from `app/` unless noted.
+Run commands from `backend/` unless noted.
 - `./gradlew clean build`: Compile and run all tests.
 - `./gradlew test`: Execute the JUnit test suite.
 - `./gradlew bootRun`: Start the application locally on port 8080.
-- `./gradlew bootJar`: Build the runnable Spring Boot JAR under `app/build/libs/`.
+- `./gradlew bootJar`: Build the runnable Spring Boot JAR under `backend/build/libs/`.
 - `docker compose up --build`: Build and run the container via `docker-compose.yml` (port 8080).
 
 ## Coding Style & Naming Conventions
@@ -27,7 +28,7 @@ Run commands from `app/` unless noted.
 
 ## Testing Guidelines
 - Tests use JUnit 5 (`@Test`, `@SpringBootTest`).
-- Name tests with `*Tests` or `*Test` and keep them under `app/src/test/java/...`.
+- Name tests with `*Tests` or `*Test` and keep them under `backend/src/test/java/...`.
 - Run locally with `./gradlew test` before opening a PR.
 
 ## Commit & Pull Request Guidelines
@@ -36,7 +37,7 @@ Run commands from `app/` unless noted.
 - PRs should include a short description, testing notes, and any relevant screenshots or logs when behavior changes.
 
 ## Security & Configuration Tips
-- Store environment-specific values in `app/src/main/resources/application.properties` and override via environment variables when deploying.
+- Store environment-specific values in `backend/src/main/resources/application.properties` and override via environment variables when deploying.
 - Avoid committing secrets; use `.env` or your deployment platform’s secret manager when needed.
 
 ## 개발시 코딩 포맷 관련 요구 사항

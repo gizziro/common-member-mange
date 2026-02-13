@@ -1,0 +1,40 @@
+// 공통 Java 빌드 설정을 정의하는 컨벤션 플러그인
+plugins {
+	id 'java'
+}
+
+// 그룹 및 버전 정보
+group   = 'com.gizzi'
+version = '0.0.1-SNAPSHOT'
+
+// Java 21 툴체인 설정
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+}
+
+// Lombok 설정 (compileOnly + annotationProcessor)
+configurations {
+	compileOnly {
+		extendsFrom annotationProcessor
+	}
+}
+
+// 의존성 저장소
+repositories {
+	mavenCentral()
+}
+
+// 모든 서브프로젝트 공통 의존성
+dependencies {
+	compileOnly         'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+	testImplementation  'org.springframework.boot:spring-boot-starter-webmvc-test'
+	testRuntimeOnly     'org.junit.platform:junit-platform-launcher'
+}
+
+// JUnit 5 플랫폼 사용
+tasks.named('test') {
+	useJUnitPlatform()
+}
