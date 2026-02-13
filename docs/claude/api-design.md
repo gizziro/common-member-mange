@@ -1,0 +1,204 @@
+# API 설계 규칙
+
+## URL 설계 원칙
+
+### 기본 규칙
+- RESTful 리소스 중심 URL (`/users`, `/groups/{id}`)
+- 복수형 명사 사용 (`/users`, `/groups`, `/modules`)
+- 소문자 + 하이픈(kebab-case) 사용 (`/auth/signup`, `/group-invites`)
+- URL에 동사 사용 금지 — HTTP 메서드로 행위 표현
+- 최대 3단계 중첩까지 허용 (`/groups/{id}/members/{memberId}`)
+
+### HTTP 메서드
+
+| 메서드 | 용도 | 예시 |
+|--------|------|------|
+| GET | 조회 (단건/목록) | `GET /users/{id}`, `GET /groups` |
+| POST | 생성, 비CRUD 행위 | `POST /auth/login`, `POST /groups` |
+| PUT | 전체 수정 | `PUT /users/{id}` |
+| PATCH | 부분 수정 | `PATCH /users/{id}/status` |
+| DELETE | 삭제 | `DELETE /groups/{id}` |
+
+### 계획된 API 엔드포인트
+
+```
+# 인증/회원
+POST   /auth/signup          # 회원가입
+POST   /auth/login           # 로그인
+POST   /auth/refresh         # 토큰 갱신
+POST   /auth/logout          # 로그아웃
+
+# 그룹
+POST   /groups               # 그룹 생성
+GET    /groups/{id}          # 그룹 조회
+POST   /groups/{id}/invites  # 그룹 초대
+POST   /groups/{id}/members  # 그룹 멤버 등록
+
+# 모듈
+POST   /modules                          # 모듈 등록
+GET    /modules                          # 모듈 목록
+POST   /modules/{code}/instances         # 모듈 인스턴스 생성
+GET    /modules/{code}/instances/{id}    # 인스턴스 조회
+
+# 권한
+POST   /permissions/grant    # 권한 부여
+POST   /permissions/revoke   # 권한 회수
+GET    /permissions/check    # 권한 확인
+```
+
+## 공통 응답 포맷
+
+모든 API 응답은 `ApiResponse<T>` 래퍼를 사용한다.
+
+### 성공 응답
+
+```json
+// 데이터 있는 응답
+{
+  "success": true,
+  "data": { ... }
+}
+
+// 데이터 없는 응답 (생성, 삭제 등)
+{
+  "success": true
+}
+```
+
+### 에러 응답
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "AUTH_001",
+    "message": "인증이 필요합니다"
+  }
+}
+```
+
+### null 필드 처리
+- `@JsonInclude(JsonInclude.Include.NON_NULL)` 적용
+- 성공 시 `error` 필드 제외, 에러 시 `data` 필드 제외
+
+## 에러 코드 체계
+
+### 코드 형식: `{카테고리}_{순번}`
+
+| 카테고리 | 접두사 | 용도 |
+|----------|--------|------|
+| 공통 | `COM_` | 서버 오류, 입력 검증, 404, 405 |
+| 인증 | `AUTH_` | 인증/인가 관련 |
+| 사용자 | `USER_` | 회원 관련 비즈니스 오류 |
+| 그룹 | `GROUP_` | 그룹 관련 비즈니스 오류 |
+| 모듈 | `MODULE_` | 모듈/인스턴스 관련 오류 |
+
+### 현재 정의된 에러 코드
+
+| 코드 | 메시지 | HTTP 상태 |
+|------|--------|-----------|
+| `COM_001` | 서버 내부 오류 | 500 |
+| `COM_002` | 유효하지 않은 입력값 | 400 |
+| `COM_003` | 리소스를 찾을 수 없음 | 404 |
+| `COM_004` | 허용되지 않은 메서드 | 405 |
+| `AUTH_001` | 인증이 필요합니다 | 401 |
+| `AUTH_002` | 접근 권한이 없습니다 | 403 |
+
+### 에러 코드 추가 규칙
+- `ErrorCode` enum에 정의 후 `BusinessException`으로 throw
+- 새 카테고리 추가 시 접두사 + 3자리 순번 (`USER_001`)
+- HTTP 상태 코드와 반드시 매핑
+
+## 요청/응답 DTO 규칙
+
+### DTO 네이밍
+
+| 유형 | 패턴 | 예시 |
+|------|------|------|
+| 요청 | `{행위}{도메인}Request` | `CreateGroupRequest`, `LoginRequest` |
+| 응답 | `{도메인}{상세}Response` | `UserProfileResponse`, `GroupDetailResponse` |
+| 목록 응답 | `{도메인}ListResponse` | `GroupListResponse` |
+
+### DTO 위치
+- **공통 DTO**: `core/common/dto/` (ApiResponse, ErrorDetail, PageResponse 등)
+- **도메인 DTO**: `core/domain/{도메인}/dto/` (각 도메인별 요청/응답)
+
+### 검증 (Bean Validation)
+- 요청 DTO에 `@Valid` 검증 적용
+- 검증 실패 시 `GlobalExceptionHandler`가 400 + `COM_002` 반환
+- 주요 어노테이션: `@NotBlank`, `@Email`, `@Size`, `@Pattern`
+
+```java
+// 예시: 회원가입 요청 DTO
+@Getter
+@Builder
+public class SignupRequest {
+    @NotBlank(message = "아이디는 필수입니다")
+    @Size(min = 4, max = 50, message = "아이디는 4~50자여야 합니다")
+    private String userId;
+
+    @NotBlank(message = "비밀번호는 필수입니다")
+    @Size(min = 8, max = 100, message = "비밀번호는 8~100자여야 합니다")
+    private String password;
+
+    @NotBlank(message = "이메일은 필수입니다")
+    @Email(message = "올바른 이메일 형식이 아닙니다")
+    private String email;
+}
+```
+
+## 페이징 규칙
+
+### 요청 파라미터
+
+| 파라미터 | 기본값 | 설명 |
+|----------|--------|------|
+| `page` | 0 | 페이지 번호 (0-based) |
+| `size` | 20 | 페이지 크기 |
+| `sort` | - | 정렬 기준 (`createdAt,desc`) |
+
+### 페이징 응답 구조
+
+```json
+{
+  "success": true,
+  "data": {
+    "content": [ ... ],
+    "page": 0,
+    "size": 20,
+    "totalElements": 150,
+    "totalPages": 8
+  }
+}
+```
+
+## 컨트롤러 작성 규칙
+
+```java
+@Slf4j
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/groups")
+public class GroupController {
+
+    // 서비스 의존성 주입 (생성자 주입)
+    private final GroupService groupService;
+
+    // 그룹 생성 API
+    @PostMapping
+    public ResponseEntity<ApiResponse<GroupResponse>> createGroup(
+            @Valid @RequestBody CreateGroupRequest request) {
+        // 서비스 호출 후 응답 래핑
+        GroupResponse response = groupService.createGroup(request);
+        return ResponseEntity
+            .status(HttpStatus.CREATED)
+            .body(ApiResponse.ok(response));
+    }
+}
+```
+
+### 원칙
+- 컨트롤러는 요청 검증 + 서비스 호출 + 응답 래핑만 담당
+- 비즈니스 로직은 반드시 Service 레이어에 위치
+- `@Valid`를 통한 요청 검증 필수
+- 생성 성공 시 `201 Created`, 조회는 `200 OK`, 삭제는 `204 No Content`
