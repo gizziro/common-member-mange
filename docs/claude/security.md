@@ -143,8 +143,8 @@ SEPARATOR 타입:
 
 ### Slug 기반 접근 제어
 - `/resolve/{module-slug}/{instance-slug}` 요청 시 사용자 권한 확인
-- 권한이 없는 모듈 인스턴스 접근 시 `AUTH_002` (403) 반환
-- 존재하지 않는 slug 접근 시 `COM_003` (404) 반환
+- 권한이 없는 모듈 인스턴스 접근 시 `AUTH_ACCESS_DENIED` (403) 반환
+- 존재하지 않는 slug 접근 시 `COM_RESOURCE_NOT_FOUND` (404) 반환
 - 응답에 리소스별 권한 목록 포함 → 프론트엔드가 UI를 동적 제어
 
 ## 입력 검증
@@ -158,7 +158,7 @@ SEPARATOR 타입:
 | 리포지토리 | DB 제약 조건 | UNIQUE, FK, NOT NULL |
 
 ### 검증 실패 응답
-- Bean Validation 실패 → `GlobalExceptionHandler` → `COM_002` (400)
+- Bean Validation 실패 → `GlobalExceptionHandler` → `COM_INVALID_INPUT` (400)
 - 비즈니스 규칙 위반 → `BusinessException` → 해당 ErrorCode
 
 ### XSS 방지

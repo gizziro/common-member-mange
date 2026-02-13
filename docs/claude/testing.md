@@ -100,13 +100,13 @@ class GroupControllerTest {
     @DisplayName("그룹 생성 API - 이름 누락 시 400")
     void createGroup_noName_returns400() throws Exception {
         // given: 이름 없는 요청
-        // when & then: 400 + COM_002 에러 코드 검증
+        // when & then: 400 + COM_INVALID_INPUT 에러 코드 검증
         mockMvc.perform(post("/groups")
                 .contentType(APPLICATION_JSON)
                 .content("{}"))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.success").value(false))
-            .andExpect(jsonPath("$.error.code").value("COM_002"));
+            .andExpect(jsonPath("$.error.code").value("COM_INVALID_INPUT"));
     }
 }
 ```

@@ -1,6 +1,7 @@
 // core 모듈: 공통 도메인, 리포지토리, 서비스, 권한 로직, 예외처리
 plugins {
 	id 'com.gizzi.java-conventions'        // 공통 Java 빌드 설정
+	id 'java-library'                          // api 의존성 노출 지원
 	id 'io.spring.dependency-management'        // Spring BOM 의존성 관리
 }
 
@@ -15,5 +16,14 @@ description = 'Core - 공통 도메인/엔티티/리포지토리/서비스/권�
 
 dependencies {
 	// Spring MVC (공통 예외처리, 응답 래퍼에 필요)
-	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+	api 'org.springframework.boot:spring-boot-starter-webmvc'
+
+	// Spring Data JPA (엔티티, 리포지토리)
+	api 'org.springframework.boot:spring-boot-starter-data-jpa'
+
+	// Bean Validation (요청 DTO 검증)
+	api 'org.springframework.boot:spring-boot-starter-validation'
+
+	// BCrypt 패스워드 해싱 (Spring Security 전체가 아닌 crypto 모듈만)
+	implementation 'org.springframework.security:spring-security-crypto'
 }

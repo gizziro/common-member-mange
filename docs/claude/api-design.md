@@ -187,7 +187,7 @@ GET    /resolve/{module-slug}/{instance-slug}   # MULTI 모듈 slug → 인스�
 {
   "success": false,
   "error": {
-    "code": "AUTH_001",
+    "code": "AUTH_UNAUTHORIZED",
     "message": "인증이 필요합니다"
   }
 }
@@ -199,7 +199,7 @@ GET    /resolve/{module-slug}/{instance-slug}   # MULTI 모듈 slug → 인스�
 
 ## 에러 코드 체계
 
-### 코드 형식: `{카테고리}_{순번}`
+### 코드 형식: `{카테고리}_{서술적_이름}`
 
 | 카테고리 | 접두사 | 용도 |
 |----------|--------|------|
@@ -214,16 +214,19 @@ GET    /resolve/{module-slug}/{instance-slug}   # MULTI 모듈 slug → 인스�
 
 | 코드 | 메시지 | HTTP 상태 |
 |------|--------|-----------|
-| `COM_001` | 서버 내부 오류 | 500 |
-| `COM_002` | 유효하지 않은 입력값 | 400 |
-| `COM_003` | 리소스를 찾을 수 없음 | 404 |
-| `COM_004` | 허용되지 않은 메서드 | 405 |
-| `AUTH_001` | 인증이 필요합니다 | 401 |
-| `AUTH_002` | 접근 권한이 없습니다 | 403 |
+| `COM_INTERNAL_ERROR` | 서버 내부 오류 | 500 |
+| `COM_INVALID_INPUT` | 유효하지 않은 입력값 | 400 |
+| `COM_RESOURCE_NOT_FOUND` | 리소스를 찾을 수 없음 | 404 |
+| `COM_METHOD_NOT_ALLOWED` | 허용되지 않은 메서드 | 405 |
+| `AUTH_UNAUTHORIZED` | 인증이 필요합니다 | 401 |
+| `AUTH_ACCESS_DENIED` | 접근 권한이 없습니다 | 403 |
+| `USER_DUPLICATE_ID` | 이미 사용 중인 아이디입니다 | 409 |
+| `USER_DUPLICATE_EMAIL` | 이미 사용 중인 이메일입니다 | 409 |
+| `USER_NOT_FOUND` | 사용자를 찾을 수 없습니다 | 404 |
 
 ### 에러 코드 추가 규칙
 - `ErrorCode` enum에 정의 후 `BusinessException`으로 throw
-- 새 카테고리 추가 시 접두사 + 3자리 순번 (`USER_001`)
+- 새 에러 코드 추가 시 `{카테고리}_{서술적_이름}` 형식 (`USER_DUPLICATE_ID`)
 - HTTP 상태 코드와 반드시 매핑
 
 ## 요청/응답 DTO 규칙
@@ -242,7 +245,7 @@ GET    /resolve/{module-slug}/{instance-slug}   # MULTI 모듈 slug → 인스�
 
 ### 검증 (Bean Validation)
 - 요청 DTO에 `@Valid` 검증 적용
-- 검증 실패 시 `GlobalExceptionHandler`가 400 + `COM_002` 반환
+- 검증 실패 시 `GlobalExceptionHandler`가 400 + `COM_INVALID_INPUT` 반환
 - 주요 어노테이션: `@NotBlank`, `@Email`, `@Size`, `@Pattern`
 
 ```java

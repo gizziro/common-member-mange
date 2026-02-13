@@ -8,12 +8,12 @@ plugins {
 description = 'User API - 로그인/회원/모듈/그룹/사용자 기능 (포트 6000)'
 
 dependencies {
-	// core 모듈 의존
+	// core 모듈 의존 (MVC, JPA, Validation 전이 포함)
 	implementation project(':core')
-
-	// Spring MVC (웹 계층)
-	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
 
 	// Actuator (헬스체크/모니터링)
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
+	// MySQL JDBC 드라이버 (런타임에만 필요)
+	runtimeOnly 'com.mysql:mysql-connector-j'
 }

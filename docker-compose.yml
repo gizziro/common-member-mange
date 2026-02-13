@@ -11,6 +11,10 @@ services:
       - "5000:5000"
     depends_on:
       - db
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/app_db
+      SPRING_DATASOURCE_USERNAME: app_user
+      SPRING_DATASOURCE_PASSWORD: app_password
     profiles: [admin, full]
 
   # 사용자 API (포트 6000)
@@ -25,6 +29,10 @@ services:
       - "6000:6000"
     depends_on:
       - db
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/app_db
+      SPRING_DATASOURCE_USERNAME: app_user
+      SPRING_DATASOURCE_PASSWORD: app_password
     profiles: [user, full]
 
   # MySQL 데이터베이스
