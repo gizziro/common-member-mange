@@ -44,7 +44,123 @@ GET    /modules/{code}/instances/{id}    # 인스턴스 조회
 POST   /permissions/grant    # 권한 부여
 POST   /permissions/revoke   # 권한 회수
 GET    /permissions/check    # 권한 확인
+
+# 메뉴 관리 (admin-api)
+POST   /menus                # 메뉴 항목 생성
+GET    /menus                # 메뉴 트리 전체 조회
+PUT    /menus/{id}           # 메뉴 항목 수정
+DELETE /menus/{id}           # 메뉴 항목 삭제
+PATCH  /menus/{id}/order     # 메뉴 정렬 순서 변경
+PATCH  /menus/{id}/toggle    # 메뉴 활성화/비활성화
+
+# 메뉴 조회 (user-api)
+GET    /menus/me             # 현재 사용자 권한 기반 메뉴 트리 조회
+
+# Slug 기반 동적 라우팅 (user-api)
+GET    /resolve/{module-slug}                  # SINGLE 모듈 slug → 모듈 정보
+GET    /resolve/{module-slug}/{instance-slug}   # MULTI 모듈 slug → 인스턴스 정보
 ```
+
+## Slug 기반 동적 라우팅
+
+### 개요
+모듈과 인스턴스에 slug를 부여하여 프론트엔드 URL을 동적으로 구성한다.
+
+### URL 패턴
+
+| 모듈 타입 | URL 패턴 | 예시 |
+|-----------|----------|------|
+| SINGLE | `/{module-slug}` | `/dashboard`, `/settings` |
+| MULTI | `/{module-slug}/{instance-slug}` | `/board/notice`, `/wiki/dev-guide` |
+
+### Slug 규칙
+- 소문자 영문 + 숫자 + 하이픈만 허용 (`^[a-z0-9]+(-[a-z0-9]+)*$`)
+- 최소 2자, 최대 50자
+- 모듈 slug: `tb_modules` 내에서 유니크
+- 인스턴스 slug: 동일 모듈 내에서 유니크 (`module_code` + `slug` 복합 유니크)
+
+### 프론트엔드 연동 흐름
+
+```
+1. 사용자가 /board/notice 접근
+2. 프론트엔드 → GET /resolve/board/notice
+3. 백엔드 → module_code='board', instance_slug='notice' 조회
+4. 응답: 모듈 정보 + 인스턴스 정보 + 사용자 권한
+5. 프론트엔드 → 해당 모듈 컴포넌트 렌더링
+```
+
+### Resolve API 응답 구조
+
+```json
+{
+  "success": true,
+  "data": {
+    "module": {
+      "code": "board",
+      "name": "게시판",
+      "slug": "board",
+      "type": "MULTI"
+    },
+    "instance": {
+      "instanceId": "uuid-...",
+      "name": "공지사항",
+      "slug": "notice",
+      "description": "공지사항 게시판"
+    },
+    "permissions": {
+      "post": ["read"],
+      "comment": ["read", "write"]
+    }
+  }
+}
+```
+
+프론트엔드에서 `permissions.post.includes('write')` 체크로 UI 동적 제어.
+
+### 메뉴 조회 API 응답 구조 (`GET /menus/me`)
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "menu-uuid-1",
+      "name": "커뮤니티",
+      "icon": "message-square",
+      "menuType": "SEPARATOR",
+      "children": [
+        {
+          "id": "menu-uuid-2",
+          "name": "공지사항",
+          "icon": "megaphone",
+          "menuType": "MODULE",
+          "url": "/board/notice",
+          "permissions": {
+            "post": ["read"],
+            "comment": ["read", "write"]
+          },
+          "children": []
+        },
+        {
+          "id": "menu-uuid-3",
+          "name": "자유게시판",
+          "menuType": "MODULE",
+          "url": "/board/free",
+          "permissions": {
+            "post": ["read", "write", "reply"],
+            "comment": ["read", "write", "anonymous"]
+          },
+          "children": []
+        }
+      ]
+    }
+  ]
+}
+```
+
+- MODULE 타입: `url`은 모듈/인스턴스 slug에서 자동 생성, `permissions`는 리소스별 액션 목록
+- LINK 타입: `url`은 `custom_url`, `permissions` 없음
+- SEPARATOR 타입: `url` 없음, `children`으로 하위 메뉴 그룹핑
 
 ## 공통 응답 포맷
 
@@ -92,6 +208,7 @@ GET    /permissions/check    # 권한 확인
 | 사용자 | `USER_` | 회원 관련 비즈니스 오류 |
 | 그룹 | `GROUP_` | 그룹 관련 비즈니스 오류 |
 | 모듈 | `MODULE_` | 모듈/인스턴스 관련 오류 |
+| 메뉴 | `MENU_` | 메뉴 관련 오류 |
 
 ### 현재 정의된 에러 코드
 

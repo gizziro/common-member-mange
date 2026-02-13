@@ -18,7 +18,11 @@
 common-member-mange/
 ├── backend/                    # Spring Boot 멀티모듈 (Gradle 루트)
 │   ├── buildSrc/               #   컨벤션 플러그인 (공통 빌드 설정)
-│   ├── core/                   #   공통 라이브러리 (도메인/서비스/예외처리)
+│   ├── core/                   #   공통 라이브러리 (도메인/서비스/모듈 프레임워크/예외처리)
+│   ├── modules/                #   기능 모듈 (각각 독립 Gradle 프로젝트)
+│   │   ├── module-board/       #     게시판 모듈
+│   │   ├── module-blog/        #     블로그 모듈
+│   │   └── module-accounting/  #     가계부 모듈
 │   ├── admin-api/              #   관리자 API (포트 5000)
 │   └── user-api/               #   사용자 API (포트 6000)
 ├── frontend/
@@ -36,12 +40,21 @@ common-member-mange/
 
 ```
 admin-api ──→ core
+          ──→ modules/module-board      (선택)
+          ──→ modules/module-blog       (선택)
+
 user-api  ──→ core
+          ──→ modules/module-board      (선택)
+          ──→ modules/module-blog       (선택)
+
+module-board ──→ core
+module-blog  ──→ core
 ```
 
-- `core`: 라이브러리 모듈 (실행 불가, `spring-boot` 플러그인 미적용)
-- `admin-api`, `user-api`: 실행 가능한 Spring Boot 애플리케이션 모듈
-- 각 API 모듈은 `scanBasePackages`로 core 패키지를 스캔
+- `core`: 라이브러리 모듈 (실행 불가, 모듈 프레임워크 + 공통 기능)
+- `modules/*`: 기능 모듈 (core 참조, `ModuleDefinition` 인터페이스 구현)
+- `admin-api`, `user-api`: 실행 가능한 Spring Boot 애플리케이션, 필요한 기능 모듈을 dependency로 선택
+- 기능 모듈 내 컨트롤러는 `@ConditionalOnProperty(name = "app.api-type")` 로 admin/user 선택적 활성화
 
 ## 빌드 & 실행 명령어
 

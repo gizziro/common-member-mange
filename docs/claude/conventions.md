@@ -46,22 +46,42 @@ com.gizzi.core/                    # core 모듈
       service/                     #   서비스
       dto/                         #   요청/응답 DTO
     group/                         # 그룹 도메인
-    module/                        # 모듈 도메인
+    menu/                          # 메뉴 관리 도메인
     auth/                          # 인증 도메인
+  module/                          # 모듈 시스템 프레임워크
+    ModuleDefinition.java          #   모듈 등록 인터페이스
+    ModuleRegistry.java            #   모듈 자동 발견/등록
+    SlugResolver.java              #   slug → 모듈/인스턴스 매핑
+    PermissionChecker.java         #   권한 체크 유틸리티
+
+com.gizzi.module.board/            # 게시판 기능 모듈
+  BoardModuleDefinition.java       #   모듈 메타데이터 (이름, slug, 리소스별 권한)
+  entity/                          #   게시판 엔티티 (Post, Comment 등)
+  repository/                      #   리포지토리
+  service/                         #   서비스 (admin/user 공용 비즈니스 로직)
+  dto/                             #   공통 DTO
+  admin/                           #   관리자 전용 (@ConditionalOnProperty api-type=admin)
+    controller/
+    dto/
+  api/                             #   사용자 전용 (@ConditionalOnProperty api-type=user)
+    controller/
+    dto/
 
 com.gizzi.admin/                   # admin-api 모듈
   config/                          # 관리자 전용 설정 (Security 등)
-  controller/                      # 관리자 API 컨트롤러
+  controller/                      # 관리자 API 컨트롤러 (core 도메인용)
     user/
     group/
+    menu/
     system/
 
 com.gizzi.user/                    # user-api 모듈
   config/                          # 사용자 전용 설정 (Security 등)
-  controller/                      # 사용자 API 컨트롤러
+  controller/                      # 사용자 API 컨트롤러 (core 도메인용)
     auth/
     profile/
     group/
+    menu/
 ```
 
 ### 포매팅
@@ -111,6 +131,26 @@ private final HttpStatus httpStatus;
 // 5. protected/package-private 메서드
 // 6. private 메서드
 ```
+
+### 모듈 권한 문자열 컨벤션
+
+권한은 `{MODULE}_{RESOURCE}_{ACTION}` 형식의 UPPER_SNAKE_CASE 플랫 문자열로 표현:
+
+```
+BOARD_POST_READ          # 게시판 - 게시글 읽기
+BOARD_POST_WRITE         # 게시판 - 게시글 작성
+BOARD_POST_MODIFY        # 게시판 - 게시글 수정
+BOARD_POST_DELETE        # 게시판 - 게시글 삭제
+BOARD_POST_REPLY         # 게시판 - 게시글 답글
+BOARD_COMMENT_READ       # 게시판 - 댓글 읽기
+BOARD_COMMENT_WRITE      # 게시판 - 댓글 작성
+BOARD_COMMENT_ANONYMOUS  # 게시판 - 댓글 익명 작성
+BLOG_POST_PUBLISH        # 블로그 - 글 발행
+```
+
+- DB에는 3컬럼(`module_code`, `resource`, `action`)으로 구조화 저장
+- 런타임에서 `UPPER(module_code) + "_" + UPPER(resource) + "_" + UPPER(action)` 으로 조합
+- 코드에서 권한 체크: `permissionChecker.hasPermission(userId, instanceId, "BOARD_POST_WRITE")`
 
 ## TypeScript/React 컨벤션 (Frontend)
 

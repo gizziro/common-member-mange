@@ -15,9 +15,9 @@ MySQL 8.0 기반, 23개 테이블로 구성. 전체 스키마는 `db/init/schema
 | 그룹 | `tb_groups` | 그룹 정보 |
 | | `tb_group_members` | 그룹-사용자 매핑 |
 | | `tb_group_invites` | 그룹 초대 |
-| 모듈 | `tb_modules` | 모듈 정의 (SINGLE/MULTI) |
-| | `tb_module_instances` | 모듈 인스턴스 |
-| | `tb_module_permissions` | 모듈별 액션 정의 |
+| 모듈 | `tb_modules` | 모듈 정의 (SINGLE/MULTI) + slug |
+| | `tb_module_instances` | 모듈 인스턴스 + slug |
+| | `tb_module_permissions` | 모듈별 리소스-액션 정의 |
 | 권한 부여 | `tb_user_module_permissions` | 사용자→모듈 권한 |
 | | `tb_group_module_permissions` | 그룹→모듈 권한 |
 | 전역 RBAC | `tb_resources` | 리소스 정의 |
@@ -27,8 +27,94 @@ MySQL 8.0 기반, 23개 테이블로 구성. 전체 스키마는 `db/init/schema
 | | `tb_user_roles` | 사용자-역할 매핑 |
 | | `tb_group_roles` | 그룹-역할 매핑 |
 | | `tb_group_member_roles` | 그룹 멤버-역할 매핑 |
+| 메뉴 | `tb_menus` | 네비게이션 메뉴 트리 |
 | 시스템 | `tb_system_settings` | 기능 플래그 |
 | | `tb_audit_logs` | 감사 로그 |
+
+### 스키마 변경 예정 사항
+
+모듈 시스템 (slug 라우팅, 3단계 권한, 메뉴 관리) 을 위해 아래 변경이 필요:
+
+#### tb_modules에 slug 컬럼 추가
+```sql
+slug      VARCHAR(50)     NOT NULL,                     -- URL slug (예: board, wiki)
+-- UNIQUE KEY uq_modules_slug (slug)
+```
+
+#### tb_module_instances에 slug 컬럼 추가
+```sql
+slug      VARCHAR(50)     NOT NULL,                     -- URL slug (예: notice, free-board)
+-- UNIQUE KEY uq_module_instances_slug (module_code, slug)
+```
+
+#### tb_module_permissions에 resource 컬럼 추가
+
+기존 `(module_code, action)` 구조에서 `(module_code, resource, action)` 3단계로 확장:
+
+```sql
+-- 변경 전
+module_code   VARCHAR(50)     NOT NULL,                     -- 모듈 코드
+action        VARCHAR(30)     NOT NULL,                     -- 권한 액션
+-- UNIQUE KEY (module_code, action)
+
+-- 변경 후
+module_code   VARCHAR(50)     NOT NULL,                     -- 모듈 코드
+resource      VARCHAR(50)     NOT NULL,                     -- 모듈 내 리소스 (post, comment 등)
+action        VARCHAR(30)     NOT NULL,                     -- 권한 액션 (read, write, delete 등)
+name          VARCHAR(100)    NOT NULL,                     -- 권한 표시명 (게시글 작성 등)
+-- UNIQUE KEY uq_module_permissions (module_code, resource, action)
+```
+
+예시 데이터:
+
+| module_code | resource | action | name |
+|-------------|----------|--------|------|
+| board | post | read | 게시글 읽기 |
+| board | post | write | 게시글 작성 |
+| board | post | modify | 게시글 수정 |
+| board | post | delete | 게시글 삭제 |
+| board | post | reply | 게시글 답글 |
+| board | comment | read | 댓글 읽기 |
+| board | comment | write | 댓글 작성 |
+| board | comment | modify | 댓글 수정 |
+| board | comment | delete | 댓글 삭제 |
+| board | comment | anonymous | 댓글 익명 작성 |
+
+런타임 권한 문자열: `UPPER(module_code) + "_" + UPPER(resource) + "_" + UPPER(action)`
+→ `BOARD_POST_WRITE`, `BOARD_COMMENT_ANONYMOUS`
+
+#### tb_menus 테이블 신규
+
+```sql
+CREATE TABLE tb_menus (
+  id                    CHAR(36)        PRIMARY KEY DEFAULT (UUID()),   -- 메뉴 PK
+  parent_id             CHAR(36)        NULL,                           -- 부모 메뉴 FK (NULL이면 최상위)
+  name                  VARCHAR(100)    NOT NULL,                       -- 메뉴 표시명
+  icon                  VARCHAR(50)     NULL,                           -- 아이콘 식별자
+  menu_type             VARCHAR(20)     NOT NULL DEFAULT 'MODULE',      -- 메뉴 유형 (MODULE/LINK/SEPARATOR)
+  module_instance_id    VARCHAR(50)     NULL,                           -- 연결된 모듈 인스턴스 FK (MODULE 타입)
+  custom_url            VARCHAR(500)    NULL,                           -- 커스텀 링크 URL (LINK 타입)
+  required_role         VARCHAR(50)     NULL,                           -- LINK 타입 가시성 제어용 역할
+  sort_order            INT             NOT NULL DEFAULT 0,             -- 정렬 순서
+  is_visible            TINYINT(1)      NOT NULL DEFAULT 1,             -- 관리자 수동 노출 제어
+  created_at            DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at            DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_menus_parent
+    FOREIGN KEY (parent_id) REFERENCES tb_menus(id) ON DELETE CASCADE,
+  CONSTRAINT fk_menus_module_instance
+    FOREIGN KEY (module_instance_id) REFERENCES tb_module_instances(instance_id) ON DELETE SET NULL,
+  KEY idx_menus_parent_id (parent_id),
+  KEY idx_menus_sort_order (sort_order)
+);
+```
+
+#### 메뉴 유형 (menu_type) 및 가시성 규칙
+
+| 유형 | 설명 | 가시성 결정 |
+|----|------|------------|
+| `MODULE` | 모듈 인스턴스에 연결, URL은 slug에서 자동 생성 | 연결된 인스턴스에 `*_*_READ` 권한 있으면 표시 |
+| `LINK` | 커스텀 URL 직접 지정 | `required_role`로 제어 (NULL이면 전체 공개) |
+| `SEPARATOR` | 구분선/그룹 헤더, 클릭 불가 | 하위 메뉴 중 하나라도 보이면 표시 |
 
 ## 네이밍 컨벤션
 

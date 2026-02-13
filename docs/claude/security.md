@@ -1,5 +1,8 @@
 # 보안 가이드라인
 
+- Spring Security및 커스텀 필터 체인을 구현하여 목표한 기능을 구현
+
+
 ## 인증 아키텍처
 
 ### 인증 흐름
@@ -90,8 +93,26 @@ public class UserSecurityConfig {
 2. **메서드 레벨**: `@PreAuthorize`, `@Secured`
 3. **비즈니스 레벨**: 서비스 내 권한 체크 유틸리티
 
-### 모듈 권한 체크 흐름
+### 모듈 권한 모델
 
+#### 3단계 구조: 모듈 → 리소스 → 액션
+```
+DB 저장: module_code=board, resource=post, action=write
+코드 사용: "BOARD_POST_WRITE" (플랫 문자열)
+```
+
+#### 권한 체크 코드 패턴
+
+```java
+// 서비스에서 한 줄 체크
+permissionChecker.hasPermission(userId, instanceId, "BOARD_POST_WRITE");
+
+// 어노테이션으로 체크
+@RequirePermission("BOARD_POST_WRITE")
+public void createPost(String instanceId, CreatePostRequest request) { ... }
+```
+
+#### PermissionChecker 내부 흐름
 ```
 1. 전역 역할 (tb_user_roles) → SUPER_ADMIN이면 즉시 허용
 2. 모듈 인스턴스 소유자 확인 → 소유자면 전체 권한
@@ -99,6 +120,32 @@ public class UserSecurityConfig {
 4. 소속 그룹 권한 (tb_group_module_permissions) 합산
 5. 직접 + 그룹 = additive (합산하여 최종 판단)
 ```
+
+## 메뉴 접근 제어
+
+### 메뉴 가시성 = 모듈 인스턴스 권한에서 파생
+
+메뉴 유형별 가시성 결정 규칙:
+
+```
+MODULE 타입:
+  → 연결된 인스턴스에 *_*_READ 이상 권한이 있으면 표시
+  → 별도 가시성 설정 불필요 (권한에서 자동 파생)
+  → 권한 설정 한 곳만 관리하면 메뉴 노출까지 자동 해결
+
+LINK 타입:
+  → required_role로 직접 제어 (NULL이면 전체 공개)
+
+SEPARATOR 타입:
+  → 하위 메뉴 중 하나라도 보이면 표시
+  → 전부 숨겨지면 자동 숨김
+```
+
+### Slug 기반 접근 제어
+- `/resolve/{module-slug}/{instance-slug}` 요청 시 사용자 권한 확인
+- 권한이 없는 모듈 인스턴스 접근 시 `AUTH_002` (403) 반환
+- 존재하지 않는 slug 접근 시 `COM_003` (404) 반환
+- 응답에 리소스별 권한 목록 포함 → 프론트엔드가 UI를 동적 제어
 
 ## 입력 검증
 
