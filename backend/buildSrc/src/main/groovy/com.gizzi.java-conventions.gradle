@@ -34,6 +34,11 @@ dependencies {
 	testRuntimeOnly     'org.junit.platform:junit-platform-launcher'
 }
 
+// Java 컴파일 옵션 — Spring Boot 4.0 생성자 바인딩에 -parameters 필수
+tasks.withType(JavaCompile).configureEach {
+	options.compilerArgs.add('-parameters')
+}
+
 // JUnit 5 플랫폼 사용
 tasks.named('test') {
 	useJUnitPlatform()

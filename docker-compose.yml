@@ -11,10 +11,12 @@ services:
       - "5000:5000"
     depends_on:
       - db
+      - redis
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/app_db
       SPRING_DATASOURCE_USERNAME: app_user
       SPRING_DATASOURCE_PASSWORD: app_password
+      SPRING_DATA_REDIS_HOST: redis
     profiles: [admin, full]
 
   # 사용자 API (포트 6100)
@@ -29,11 +31,21 @@ services:
       - "6100:6100"
     depends_on:
       - db
+      - redis
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/app_db
       SPRING_DATASOURCE_USERNAME: app_user
       SPRING_DATASOURCE_PASSWORD: app_password
+      SPRING_DATA_REDIS_HOST: redis
     profiles: [user, full]
+
+  # Redis (토큰 세션 저장)
+  redis:
+    image: redis:7-alpine
+    container_name: member-mange-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
 
   # MySQL 데이터베이스
   db:

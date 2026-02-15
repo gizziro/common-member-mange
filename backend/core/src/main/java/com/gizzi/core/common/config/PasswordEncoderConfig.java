@@ -6,7 +6,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 // 비밀번호 인코더 설정
-// Spring Security 전체가 아닌 spring-security-crypto 모듈만 사용하여 BCrypt 해싱을 제공한다
+// BCrypt 해싱을 제공하며 Spring Security 인증 매니저에서도 이 빈을 사용한다
 @Configuration
 public class PasswordEncoderConfig {
 

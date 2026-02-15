@@ -19,7 +19,7 @@ import java.util.UUID;
 @Table(name = "tb_users")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class User extends BaseEntity {
+public class UserEntity extends BaseEntity {
 
 	// 사용자 PK (UUID)
 	@Id
@@ -119,11 +119,14 @@ public class User extends BaseEntity {
 		}
 	}
 
+	// 최대 로그인 실패 허용 횟수 (초과 시 계정 잠금)
+	private static final int MAX_LOGIN_FAIL_COUNT = 5;
+
 	// 로컬 회원가입용 정적 팩토리 메서드
-	public static User createLocalUser(String userId, String username,
-	                                    String email, String encodedPassword) {
+	public static UserEntity createLocalUser(String userId, String username,
+	                                         String email, String encodedPassword) {
 		// 새 사용자 엔티티 생성
-		User user                = new User();
+		UserEntity user          = new UserEntity();
 		user.userId              = userId;
 		user.username            = username;
 		user.email               = email;
@@ -140,5 +143,37 @@ public class User extends BaseEntity {
 		user.userStatus          = "PENDING";
 		user.createdBy           = userId;
 		return user;
+	}
+
+	// 로그인 실패 횟수 증가 + 최대 횟수 초과 시 자동 잠금
+	public void incrementLoginFailCount() {
+		// 실패 횟수 1 증가
+		this.loginFailCount++;
+		// 최대 실패 횟수 이상이면 계정 잠금
+		if (this.loginFailCount >= MAX_LOGIN_FAIL_COUNT) {
+			this.isLocked = true;
+			this.lockedAt = LocalDateTime.now();
+		}
+	}
+
+	// 로그인 성공 시 실패 횟수 초기화
+	public void resetLoginFailCount() {
+		// 실패 횟수를 0으로 리셋
+		this.loginFailCount = 0;
+	}
+
+	// 계정 잠금 해제
+	public void unlock() {
+		// 잠금 상태 및 잠금 일시 초기화
+		this.isLocked = false;
+		this.lockedAt = null;
+		// 실패 횟수도 함께 초기화
+		this.loginFailCount = 0;
+	}
+
+	// 사용자 상태를 ACTIVE로 변경
+	public void activate() {
+		// 사용자 상태를 활성으로 전환
+		this.userStatus = "ACTIVE";
 	}
 }

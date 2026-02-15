@@ -1,0 +1,25 @@
+package com.gizzi.core.common.config;
+
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+
+// JWT 관련 설정값을 외부 프로퍼티에서 바인딩하는 설정 클래스
+// 환경변수로 주입하여 추후 DB 동적 설정 전환 대비
+@Getter
+@RequiredArgsConstructor
+@ConfigurationProperties(prefix = "app.jwt")
+public class JwtProperties {
+
+	// JWT 서명 비밀키 (Base64 인코딩, 최소 256bit)
+	private final String secretKey;
+
+	// Access Token 만료 시간 (밀리초, 기본 30분)
+	private final long accessTokenExpiration;
+
+	// Refresh Token 만료 시간 (밀리초, 기본 7일)
+	private final long refreshTokenExpiration;
+
+	// /auth/me 요청 시 토큰 만료 체크 여유 시간 (초, 네트워크 지연 고려)
+	private final int gracePeriodSeconds;
+}

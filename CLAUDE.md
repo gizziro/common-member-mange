@@ -19,4 +19,5 @@
 @docs/claude/api-design.md
 @docs/claude/database.md
 @docs/claude/security.md
+@docs/claude/redis.md
 @docs/claude/testing.md

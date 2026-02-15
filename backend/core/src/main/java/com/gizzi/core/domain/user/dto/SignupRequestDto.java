@@ -2,6 +2,7 @@ package com.gizzi.core.domain.user.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -13,16 +14,21 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class SignupRequest {
+public class SignupRequestDto {
 
-	// 로그인 ID (4~50자)
+	// 로그인 ID (4~50자, 영문과 숫자만 허용)
 	@NotBlank(message = "아이디는 필수입니다")
 	@Size(min = 4, max = 50, message = "아이디는 4~50자여야 합니다")
+	@Pattern(regexp = "^[a-zA-Z0-9]{4,50}$", message = "아이디는 영문과 숫자만 사용 가능합니다")
 	private String userId;
 
-	// 비밀번호 (8~100자)
+	// 비밀번호 (8~100자, 영문+숫자+특수문자 각 1자 이상 필수)
 	@NotBlank(message = "비밀번호는 필수입니다")
 	@Size(min = 8, max = 100, message = "비밀번호는 8~100자여야 합니다")
+	@Pattern(
+		regexp = "^(?=.*[A-Za-z])(?=.*\\d)(?=.*[@$!%*#?&])[A-Za-z\\d@$!%*#?&]{8,}$",
+		message = "비밀번호는 영문, 숫자, 특수문자를 각각 1자 이상 포함해야 합니다"
+	)
 	private String password;
 
 	// 사용자 이름 (2~100자)
