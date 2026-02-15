@@ -24,7 +24,7 @@ common-member-mange/
 │   │   ├── module-blog/        #     블로그 모듈
 │   │   └── module-accounting/  #     가계부 모듈
 │   ├── admin-api/              #   관리자 API (포트 5000)
-│   └── user-api/               #   사용자 API (포트 6000)
+│   └── user-api/               #   사용자 API (포트 6100)
 ├── frontend/
 │   ├── admin/                  # 관리자 웹 (Next.js)
 │   └── user/                   # 사용자 웹 (Next.js)
@@ -69,7 +69,7 @@ module-blog  ──→ core
 
 # 로컬 실행
 ./gradlew :admin-api:bootRun       # 관리자 API (localhost:5000)
-./gradlew :user-api:bootRun        # 사용자 API (localhost:6000)
+./gradlew :user-api:bootRun        # 사용자 API (localhost:6100)
 
 # 테스트
 ./gradlew test                     # 전체 테스트
@@ -102,7 +102,7 @@ cd frontend/user && npm run dev    # 사용자 프론트엔드 개발 서버
 | 서비스 | 주소 | 비고 |
 |--------|------|------|
 | Admin API | `localhost:5000` | 관리자 전용 |
-| User API | `localhost:6000` | 일반 사용자 |
+| User API | `localhost:6100` | 일반 사용자 |
 | MySQL | `localhost:13306` | 외부 포트 매핑 |
 | DB Name | `app_db` | |
 | DB User | `app_user` / `app_password` | |

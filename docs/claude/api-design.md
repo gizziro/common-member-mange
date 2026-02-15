@@ -322,3 +322,43 @@ public class GroupController {
 - 비즈니스 로직은 반드시 Service 레이어에 위치
 - `@Valid`를 통한 요청 검증 필수
 - 생성 성공 시 `201 Created`, 조회는 `200 OK`, 삭제는 `204 No Content`
+
+## 프론트엔드 API 통신 규칙
+
+### 요청 형식: JSON 필수
+- 프론트엔드에서 백엔드로의 모든 요청은 **`Content-Type: application/json`** 으로 전송
+- URL-encoded form 전송(`application/x-www-form-urlencoded`, `multipart/form-data`) 사용 금지
+  - 예외: 파일 업로드 시에만 `multipart/form-data` 허용
+- 백엔드 컨트롤러는 `@RequestBody`로 JSON 수신, `@ModelAttribute` 사용 금지
+
+### Next.js 데이터 요청 패턴
+- 클라이언트 컴포넌트에서 **표준 `fetch` API**로 JSON 요청 (저수준 API 사용 금지)
+- React Server Action(`"use server"`)은 **백엔드 API 호출 용도로 사용하지 않음**
+  - Server Action은 브라우저 → Next.js 서버 간 FormData(multipart) 프로토콜을 사용하므로 JSON 원칙에 위배
+- Next.js `rewrites`로 `/api/**` 경로를 백엔드로 프록시하여 CORS 우회
+- 공통 API 유틸리티(`src/lib/api.ts`)를 통해 요청
+
+```typescript
+// next.config.ts — 백엔드 프록시 설정
+async rewrites() {
+  return [{ source: "/api/:path*", destination: "http://localhost:6100/:path*" }];
+}
+
+// src/lib/api.ts — 공통 JSON 요청 유틸리티
+export async function apiPost<T>(path: string, body: unknown): Promise<ApiResponse<T>> {
+  const res = await fetch(`/api${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return res.json();
+}
+
+// 컴포넌트에서 사용
+const json = await apiPost<SignupResponse>("/auth/signup", { userId, password, username, email });
+```
+
+### 포트 제한 주의
+- Node.js `fetch`(undici)는 포트 6000 등 unsafe port를 차단함
+- 백엔드 서비스 포트는 unsafe port 목록을 피해서 설정할 것
+  - 참고: https://fetch.spec.whatwg.org/#port-blocking
