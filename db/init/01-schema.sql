@@ -111,13 +111,16 @@ CREATE TABLE tb_sessions (
 -- Groups
 CREATE TABLE tb_groups (
   id             CHAR(36)        PRIMARY KEY DEFAULT (UUID()), -- 그룹 PK
-  name           VARCHAR(100)    NOT NULL,                     -- 그룹 이름
+  group_code     VARCHAR(50)     NOT NULL,                     -- 그룹 코드 (프로그래밍 식별자)
+  name           VARCHAR(100)    NOT NULL,                     -- 그룹 표시명
   description    VARCHAR(255)    NULL,                         -- 그룹 설명
-  owner_user_id  CHAR(36)        NOT NULL,                     -- 그룹 소유자 사용자 FK
+  is_system      TINYINT(1)      NOT NULL DEFAULT 0,           -- 시스템 그룹 여부 (삭제/코드변경 불가)
+  owner_user_id  CHAR(36)        NULL,                         -- 그룹 소유자 (시스템 그룹은 NULL)
   created_at     DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP, -- 생성 일시
   updated_at     DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, -- 수정 일시
   CONSTRAINT fk_groups_owner
     FOREIGN KEY (owner_user_id) REFERENCES tb_users(id) ON DELETE RESTRICT,
+  UNIQUE KEY uq_groups_group_code (group_code),
   UNIQUE KEY uq_groups_name (name)
 );
 

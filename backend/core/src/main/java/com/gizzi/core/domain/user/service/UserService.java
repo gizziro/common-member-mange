@@ -2,6 +2,7 @@ package com.gizzi.core.domain.user.service;
 
 import com.gizzi.core.common.exception.BusinessException;
 import com.gizzi.core.common.exception.UserErrorCode;
+import com.gizzi.core.domain.group.service.GroupService;
 import com.gizzi.core.domain.user.dto.AvailabilityCheckResponseDto;
 import com.gizzi.core.domain.user.dto.SignupRequestDto;
 import com.gizzi.core.domain.user.dto.SignupResponseDto;
@@ -22,10 +23,13 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserService {
 
 	// 사용자 리포지토리
-	private final UserRepository userRepository;
+	private final UserRepository  userRepository;
 
 	// 비밀번호 인코더 (BCrypt)
 	private final PasswordEncoder passwordEncoder;
+
+	// 그룹 서비스 (기본 그룹 배정용)
+	private final GroupService    groupService;
 
 	// 로컬 회원가입 처리
 	@Transactional
@@ -53,6 +57,9 @@ public class UserService {
 
 		// DB 저장
 		UserEntity savedUser = userRepository.save(user);
+
+		// 기본 그룹(user) 자동 배정
+		groupService.assignToDefaultGroup(savedUser.getId());
 
 		log.info("회원가입 완료: userId={}, email={}", savedUser.getUserId(), savedUser.getEmail());
 
