@@ -20,6 +20,7 @@
 - [x] Access Token (30분) / Refresh Token (7일) 발급
 - [x] JWT Claim 설계 (sub=userPk, uid=userId, sid=sessionId)
 - [x] Refresh Token Rotation 정책 적용
+- [x] admin-api / user-api JWT 인증 분리 (별도 secret key + issuer 클레임으로 토큰 교차 사용 방지)
 
 ### 1.3 토큰 저장/검증
 - [x] Redis에 Access/Refresh 토큰 저장 (auth:access:{userPk}:{sessionId})
@@ -118,6 +119,12 @@
 - [ ] 애플리케이션 시작 시 캐시 로딩
 - [ ] 관리 API를 통한 실시간 수정
 
+### 7.3 시스템 초기 설정 (Setup Wizard)
+- [x] 초기화 상태 확인 (administrator 그룹 멤버 유무로 판단)
+- [x] 최초 관리자 계정 생성 API (POST /setup/initialize)
+- [x] SetupGuardFilter (미초기화 시 /setup/** 외 요청 차단)
+- [ ] 관리자 웹 초기 설정 위자드 페이지
+
 ## 8. API 설계 (구현 현황)
 
 ### 8.1 인증/회원 (user-api)
@@ -128,6 +135,10 @@
 - [x] GET `/auth/me` — 현재 사용자 정보 (grace period 5초)
 - [x] GET `/auth/check/user-id` — 아이디 중복 확인
 - [x] GET `/auth/check/email` — 이메일 중복 확인
+
+### 8.1-1 시스템 초기 설정 (admin-api)
+- [x] GET `/setup/status` — 시스템 초기화 상태 확인
+- [x] POST `/setup/initialize` — 최초 관리자 계정 생성
 
 ### 8.2 그룹 (admin-api)
 - [x] POST `/groups` — 그룹 생성
@@ -186,6 +197,7 @@
 - [x] 공통 응답 래퍼 (ApiResponseDto)
 - [x] Spring Security + JWT 필터 체인
 - [x] Redis 토큰 세션 관리
+- [x] application.properties → application.yml 형식 전환
 - [ ] 트랜잭션 처리 범위 정의
 - [ ] FK 제약 위반 대비 예외 처리
 - [ ] DB 마이그레이션 도입(Flyway 권장)
