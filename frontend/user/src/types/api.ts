@@ -28,3 +28,27 @@ export interface SignupResponse {
 	userStatus: string;
 	createdAt: string;
 }
+
+// 현재 사용자 정보 응답 DTO (백엔드 UserMeResponseDto 매핑)
+export interface UserMeResponse {
+	id: string;
+	userId: string;
+	username: string;
+	email: string;
+	userStatus: string;
+}
+
+// 로그인 요청 DTO (백엔드 LoginRequestDto 매핑)
+export interface LoginRequest {
+	userId: string;
+	password: string;
+}
+
+// 로그인 응답 DTO (백엔드 LoginResponseDto 매핑)
+export interface LoginResponse {
+	accessToken: string;
+	refreshToken: string;
+	userId: string;
+	username: string;
+	email: string;
+}
