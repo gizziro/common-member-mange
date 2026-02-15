@@ -13,9 +13,11 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.context.SecurityContextHolderFilter;
 
 // 관리자 API Spring Security 설정
 // 모든 엔드포인트에 인증이 필요하며, 향후 ROLE_ADMIN 제한 추가 예정
+// 시스템 미초기화 시 SetupGuardFilter가 /setup/** 외 요청을 차단한다
 @Configuration
 @EnableWebSecurity
 @EnableConfigurationProperties(JwtProperties.class)
@@ -27,6 +29,9 @@ public class SecurityConfig {
 
 	// 인증 실패 시 401 응답 처리기
 	private final JwtAuthenticationEntryPoint   jwtAuthenticationEntryPoint;
+
+	// 시스템 초기 설정 가드 필터 (미초기화 시 비셋업 요청 차단)
+	private final SetupGuardFilter             setupGuardFilter;
 
 	// Spring Security 필터 체인 설정
 	@Bean
@@ -45,12 +50,16 @@ public class SecurityConfig {
 
 			// URL 별 접근 권한 설정
 			.authorizeHttpRequests(authorize -> authorize
-				// Actuator 헬스체크만 허용
+				// 셋업 위자드 엔드포인트 인증 없이 허용
+				.requestMatchers("/setup/**").permitAll()
+				// Actuator 헬스체크 허용
 				.requestMatchers("/actuator/health", "/actuator/info").permitAll()
 				// 관리자 API는 모든 엔드포인트 인증 필수
 				.anyRequest().authenticated()
 			)
 
+			// SetupGuardFilter를 SecurityContextHolderFilter 직후에 추가 (필터 체인 초반에서 미초기화 조기 차단)
+			.addFilterAfter(setupGuardFilter, SecurityContextHolderFilter.class)
 			// JWT 인증 필터를 UsernamePasswordAuthenticationFilter 앞에 추가
 			.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

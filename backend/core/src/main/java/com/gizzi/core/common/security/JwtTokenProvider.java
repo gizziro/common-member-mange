@@ -42,8 +42,9 @@ public class JwtTokenProvider {
 		Instant now    = Instant.now();
 		Instant expiry = now.plusMillis(jwtProperties.getAccessTokenExpiration());
 
-		// Access Token JWT 빌드 (sub: userPk, uid: userId, sid: sessionId)
+		// Access Token JWT 빌드 (iss: 발급자, sub: userPk, uid: userId, sid: sessionId)
 		return Jwts.builder()
+			.issuer(jwtProperties.getIssuer())
 			.subject(userPk)
 			.claim("uid", userId)
 			.claim("sid", sessionId)
@@ -60,8 +61,9 @@ public class JwtTokenProvider {
 		Instant now    = Instant.now();
 		Instant expiry = now.plusMillis(jwtProperties.getRefreshTokenExpiration());
 
-		// Refresh Token JWT 빌드 (type: refresh 클레임으로 구분)
+		// Refresh Token JWT 빌드 (iss: 발급자, type: refresh 클레임으로 구분)
 		return Jwts.builder()
+			.issuer(jwtProperties.getIssuer())
 			.subject(userPk)
 			.claim("sid", sessionId)
 			.claim("type", "refresh")
@@ -71,11 +73,12 @@ public class JwtTokenProvider {
 			.compact();
 	}
 
-	// 토큰에서 클레임 파싱 (엄격 검증: 만료 시 예외 발생)
+	// 토큰에서 클레임 파싱 (엄격 검증: 서명 + issuer + 만료 검증)
 	public Claims parseClaims(String token) {
-		// 서명 검증 + 만료 체크 후 클레임 반환
+		// 서명 검증 + issuer 일치 확인 + 만료 체크 후 클레임 반환
 		return Jwts.parser()
 			.verifyWith(secretKey)
+			.requireIssuer(jwtProperties.getIssuer())
 			.build()
 			.parseSignedClaims(token)
 			.getPayload();
@@ -88,6 +91,14 @@ public class JwtTokenProvider {
 			// 먼저 엄격 파싱 시도
 			return parseClaims(token);
 		} catch (ExpiredJwtException e) {
+			// 만료된 토큰이라도 issuer가 다르면 거부 (교차 사용 방지)
+			String tokenIssuer = e.getClaims().getIssuer();
+			if (!jwtProperties.getIssuer().equals(tokenIssuer)) {
+				log.debug("만료 토큰 issuer 불일치: expected={}, actual={}",
+					jwtProperties.getIssuer(), tokenIssuer);
+				throw e;
+			}
+
 			// 만료된 토큰의 만료 시각 추출
 			Date expiration = e.getClaims().getExpiration();
 			// 현재 시각과 만료 시각 사이의 차이 계산 (초 단위)

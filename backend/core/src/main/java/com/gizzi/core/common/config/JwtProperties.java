@@ -22,4 +22,7 @@ public class JwtProperties {
 
 	// /auth/me 요청 시 토큰 만료 체크 여유 시간 (초, 네트워크 지연 고려)
 	private final int gracePeriodSeconds;
+
+	// JWT 발급자 식별자 (admin / user) — 토큰 교차 사용 방지
+	private final String issuer;
 }

@@ -1,0 +1,42 @@
+# 관리자 API 애플리케이션 설정
+spring:
+  application:
+    name: Admin API
+
+  # MySQL 데이터소스 설정
+  datasource:
+    url: jdbc:mysql://localhost:13306/app_db
+    username: app_user
+    password: app_password
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  # JPA 설정
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+
+  # Redis 설정
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+
+server:
+  port: 5000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+# JWT 설정 (환경변수 우선, 기본값 폴백)
+# admin-api 전용 secret key — user-api와 분리하여 토큰 교차 사용 방지
+app:
+  jwt:
+    secret-key: ${JWT_SECRET_KEY:admin-secret-key-must-be-at-least-32-characters-long!!}
+    access-token-expiration: ${JWT_ACCESS_EXPIRATION:1800000}
+    refresh-token-expiration: ${JWT_REFRESH_EXPIRATION:604800000}
+    grace-period-seconds: ${JWT_GRACE_PERIOD:5}
+    issuer: ${JWT_ISSUER:admin}
