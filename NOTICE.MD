@@ -8,8 +8,8 @@
 - [x] 로컬 회원가입(아이디/비밀번호 기반)
 - [x] 로컬 로그인 (JWT Access + Refresh Token 발급)
 - [x] 로그아웃 (Redis 토큰 폐기)
-- [ ] 소셜 회원가입(OAuth2: Google/Kakao/GitHub 등)
-- [ ] 로컬/소셜 계정 병합 정책(동일 이메일 처리)
+- [x] 소셜 회원가입(OAuth2: Google/Kakao/Naver)
+- [x] 로컬/소셜 계정 병합 정책(동일 이메일 시 로컬 ID/PW 확인 후 연동)
 
 ### 1.1-1 2차 인증(2FA)
 - [ ] 이메일/휴대폰 2차 인증 지원
@@ -143,20 +143,31 @@
 - [x] GET `/auth/me` — 현재 사용자 정보 (grace period 5초)
 - [x] GET `/auth/check/user-id` — 아이디 중복 확인
 - [x] GET `/auth/check/email` — 이메일 중복 확인
+- [x] GET `/auth/oauth2/providers` — 활성 소셜 Provider 목록
+- [x] GET `/auth/oauth2/authorize/{provider}` — Authorization URL 생성
+- [x] GET `/auth/oauth2/callback/{provider}` — OAuth2 콜백 처리
+- [x] POST `/auth/oauth2/link-confirm` — 소셜 연동 확인 (로컬 ID/PW 검증)
+- [x] GET `/auth/oauth2/identities` — 내 소셜 연동 목록
+- [x] GET `/auth/oauth2/link/{provider}` — 마이페이지 연동용 Authorization URL
+- [x] GET `/auth/oauth2/link-callback/{provider}` — 마이페이지 연동 콜백
+- [x] DELETE `/auth/oauth2/identities/{id}` — 소셜 연동 해제
 
 ### 8.1-1 인증/회원 (admin-api)
 - [x] POST `/auth/login` — 관리자 로그인
 - [x] POST `/auth/logout` — 관리자 로그아웃
 - [x] POST `/auth/refresh` — 관리자 토큰 갱신
 - [x] GET `/auth/me` — 관리자 현재 사용자 정보
+- [x] GET `/auth/providers` — 소셜 Provider 전체 목록
+- [x] PUT `/auth/providers/{id}` — Provider 설정 수정
 
 ### 8.1-2 회원 관리 (admin-api)
 - [x] GET `/users` — 회원 목록 (페이지네이션)
 - [x] GET `/users/{id}` — 회원 상세 조회
 - [x] PUT `/users/{id}` — 회원 정보 수정 (이름/이메일/상태)
 - [x] PUT `/users/{id}/password` — 회원 비밀번호 변경
-- [x] DELETE `/users/{id}` — 회원 삭제 (자기 자신/관리자 그룹 소속 보호)
+- [x] DELETE `/users/{id}` — 회원 삭제 (자기 자신/관리자 그룹 소속 보호, Redis 토큰 정리)
 - [x] PUT `/users/{id}/unlock` — 회원 잠금 해제
+- [x] GET `/users/{id}/identities` — 회원 소셜 연동 목록
 
 ### 8.1-3 시스템 초기 설정 (admin-api)
 - [x] GET `/setup/status` — 시스템 초기화 상태 확인
@@ -198,9 +209,12 @@
 
 ### 9.1 사용자 웹 (frontend/user)
 - [x] 회원가입 페이지
-- [x] 로그인 페이지
-- [x] 프로필 페이지
+- [x] 로그인 페이지 (소셜 로그인 버튼 포함)
+- [x] 프로필 페이지 (소셜 계정 연동/해제)
 - [x] 소개 페이지
+- [x] 소셜 로그인 콜백 처리 페이지
+- [x] 소셜 연동 확인 페이지 (기존 계정 발견 시 로컬 ID/PW 입력)
+- [x] 소셜 연동 성공 콜백 페이지
 - [x] shadcn/ui 컴포넌트 전환
 - [x] toast 알림 (sonner) 적용
 - [ ] 동적 메뉴 렌더링
@@ -210,8 +224,9 @@
 - [x] 초기 설정 위자드 페이지
 - [x] 대시보드 페이지
 - [x] 회원 목록 페이지 (인라인 상태 변경, 삭제)
-- [x] 회원 상세 페이지 (정보 수정, 비밀번호 변경, 잠금 해제)
+- [x] 회원 상세 페이지 (정보 수정, 비밀번호 변경, 잠금 해제, 소셜 연동 표시)
 - [x] 그룹 관리 페이지 (목록/상세/멤버 관리)
+- [x] 소셜 Provider 설정 관리 페이지 (settings/auth-providers)
 - [x] shadcn/ui 컴포넌트 전환
 - [x] JWT 인증 컨텍스트 및 API 유틸리티
 - [ ] 모듈/인스턴스 관리 페이지
