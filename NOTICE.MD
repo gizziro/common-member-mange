@@ -123,7 +123,7 @@
 - [x] 초기화 상태 확인 (administrator 그룹 멤버 유무로 판단)
 - [x] 최초 관리자 계정 생성 API (POST /setup/initialize)
 - [x] SetupGuardFilter (미초기화 시 /setup/** 외 요청 차단)
-- [ ] 관리자 웹 초기 설정 위자드 페이지
+- [x] 관리자 웹 초기 설정 위자드 페이지
 
 ## 8. API 설계 (구현 현황)
 
@@ -136,7 +136,21 @@
 - [x] GET `/auth/check/user-id` — 아이디 중복 확인
 - [x] GET `/auth/check/email` — 이메일 중복 확인
 
-### 8.1-1 시스템 초기 설정 (admin-api)
+### 8.1-1 인증/회원 (admin-api)
+- [x] POST `/auth/login` — 관리자 로그인
+- [x] POST `/auth/logout` — 관리자 로그아웃
+- [x] POST `/auth/refresh` — 관리자 토큰 갱신
+- [x] GET `/auth/me` — 관리자 현재 사용자 정보
+
+### 8.1-2 회원 관리 (admin-api)
+- [x] GET `/users` — 회원 목록 (페이지네이션)
+- [x] GET `/users/{id}` — 회원 상세 조회
+- [x] PUT `/users/{id}` — 회원 정보 수정 (이름/이메일/상태)
+- [x] PUT `/users/{id}/password` — 회원 비밀번호 변경
+- [x] DELETE `/users/{id}` — 회원 삭제 (자기 자신/관리자 그룹 소속 보호)
+- [x] PUT `/users/{id}/unlock` — 회원 잠금 해제
+
+### 8.1-3 시스템 초기 설정 (admin-api)
 - [x] GET `/setup/status` — 시스템 초기화 상태 확인
 - [x] POST `/setup/initialize` — 최초 관리자 계정 생성
 
@@ -177,14 +191,21 @@
 ### 9.1 사용자 웹 (frontend/user)
 - [x] 회원가입 페이지
 - [x] 로그인 페이지
-- [x] 인증 테스트 페이지
+- [x] 프로필 페이지
+- [x] 소개 페이지
+- [x] shadcn/ui 컴포넌트 전환
+- [x] toast 알림 (sonner) 적용
 - [ ] 동적 메뉴 렌더링
-- [ ] 프로필 관리 페이지
 
 ### 9.2 관리자 웹 (frontend/admin)
-- [ ] 관리자 로그인 페이지
-- [ ] 사용자 관리 페이지
-- [ ] 그룹 관리 페이지
+- [x] 관리자 로그인 페이지
+- [x] 초기 설정 위자드 페이지
+- [x] 대시보드 페이지
+- [x] 회원 목록 페이지 (인라인 상태 변경, 삭제)
+- [x] 회원 상세 페이지 (정보 수정, 비밀번호 변경, 잠금 해제)
+- [x] 그룹 관리 페이지 (목록/상세/멤버 관리)
+- [x] shadcn/ui 컴포넌트 전환
+- [x] JWT 인증 컨텍스트 및 API 유틸리티
 - [ ] 모듈/인스턴스 관리 페이지
 - [ ] 메뉴 관리 페이지
 - [ ] 시스템 설정 페이지
@@ -198,6 +219,8 @@
 - [x] Spring Security + JWT 필터 체인
 - [x] Redis 토큰 세션 관리
 - [x] application.properties → application.yml 형식 전환
+- [x] 필터 체인 에러 응답 ApiResponseDto 직렬화 통일 (FilterErrorResponseWriter)
+- [x] 페이지네이션 공통 응답 DTO (PageResponseDto)
 - [ ] 트랜잭션 처리 범위 정의
 - [ ] FK 제약 위반 대비 예외 처리
 - [ ] DB 마이그레이션 도입(Flyway 권장)
