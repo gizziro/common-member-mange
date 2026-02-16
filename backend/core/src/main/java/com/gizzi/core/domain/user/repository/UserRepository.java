@@ -19,4 +19,7 @@ public interface UserRepository extends JpaRepository<UserEntity, String> {
 
 	// 특정 사용자를 제외한 이메일 중복 검증 (수정 시 자기 자신 제외)
 	boolean existsByEmailAndIdNot(String email, String id);
+
+	// 이메일로 사용자 조회 (소셜 로그인 시 기존 계정 병합 확인)
+	Optional<UserEntity> findByEmail(String email);
 }

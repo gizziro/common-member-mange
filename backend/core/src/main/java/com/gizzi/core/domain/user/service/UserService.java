@@ -2,6 +2,8 @@ package com.gizzi.core.domain.user.service;
 
 import com.gizzi.core.common.exception.BusinessException;
 import com.gizzi.core.common.exception.UserErrorCode;
+import com.gizzi.core.domain.auth.repository.UserIdentityRepository;
+import com.gizzi.core.domain.auth.service.RedisTokenService;
 import com.gizzi.core.domain.group.entity.GroupEntity;
 import com.gizzi.core.domain.group.repository.GroupMemberRepository;
 import com.gizzi.core.domain.group.repository.GroupRepository;
@@ -34,19 +36,25 @@ import java.util.List;
 public class UserService {
 
 	// 사용자 리포지토리
-	private final UserRepository  userRepository;
+	private final UserRepository          userRepository;
 
 	// 비밀번호 인코더 (BCrypt)
-	private final PasswordEncoder passwordEncoder;
+	private final PasswordEncoder         passwordEncoder;
 
 	// 그룹 서비스 (기본 그룹 배정용)
-	private final GroupService    groupService;
+	private final GroupService            groupService;
 
 	// 그룹 리포지토리 (사용자 삭제 시 소유 그룹 owner 해제용)
-	private final GroupRepository       groupRepository;
+	private final GroupRepository         groupRepository;
 
 	// 그룹 멤버 리포지토리 (administrator 그룹 소속 확인용)
-	private final GroupMemberRepository groupMemberRepository;
+	private final GroupMemberRepository   groupMemberRepository;
+
+	// Redis 토큰 서비스 (사용자 삭제 시 활성 토큰 정리용)
+	private final RedisTokenService       redisTokenService;
+
+	// 소셜 연동 리포지토리 (사용자 삭제 시 연동 정보 정리용)
+	private final UserIdentityRepository  userIdentityRepository;
 
 	// 로컬 회원가입 처리
 	@Transactional
@@ -203,6 +211,12 @@ public class UserService {
 			group.clearOwner();
 			log.info("그룹 소유자 해제: groupId={}, groupCode={}", group.getId(), group.getGroupCode());
 		}
+
+		// 사용자의 모든 활성 토큰 삭제 (Redis)
+		redisTokenService.deleteAllUserTokens(user.getId());
+
+		// 소셜 연동 정보 명시적 삭제 (CASCADE에 의존하지 않음)
+		userIdentityRepository.deleteByUserId(id);
 
 		// 사용자 삭제 (CASCADE로 그룹 멤버십 등 자동 정리)
 		userRepository.delete(user);

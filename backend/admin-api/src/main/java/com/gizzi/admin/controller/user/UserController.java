@@ -2,6 +2,8 @@ package com.gizzi.admin.controller.user;
 
 import com.gizzi.core.common.dto.ApiResponseDto;
 import com.gizzi.core.common.dto.PageResponseDto;
+import com.gizzi.core.domain.auth.dto.UserIdentityResponseDto;
+import com.gizzi.core.domain.auth.repository.UserIdentityRepository;
 import com.gizzi.core.domain.group.dto.GroupResponseDto;
 import com.gizzi.core.domain.group.service.GroupService;
 import com.gizzi.core.domain.user.dto.ChangePasswordRequestDto;
@@ -37,10 +39,13 @@ import java.util.List;
 public class UserController {
 
 	// 사용자 서비스
-	private final UserService  userService;
+	private final UserService             userService;
 
 	// 그룹 서비스 (소속 그룹 조회용)
-	private final GroupService groupService;
+	private final GroupService            groupService;
+
+	// 소셜 연동 리포지토리 (소셜 계정 연동 조회용)
+	private final UserIdentityRepository  userIdentityRepository;
 
 	// 사용자 목록 조회 API (페이지네이션)
 	@GetMapping
@@ -121,6 +126,20 @@ public class UserController {
 			@PathVariable String id) {
 		// 사용자 소속 그룹 목록 조회
 		List<GroupResponseDto> response = groupService.getUserGroups(id);
+
+		// 200 OK 응답 반환
+		return ResponseEntity.ok(ApiResponseDto.ok(response));
+	}
+
+	// 사용자 소셜 연동 조회 API
+	@GetMapping("/{id}/identities")
+	public ResponseEntity<ApiResponseDto<List<UserIdentityResponseDto>>> getUserIdentities(
+			@PathVariable String id) {
+		// 사용자의 소셜 연동 목록 조회 → DTO 변환
+		List<UserIdentityResponseDto> response = userIdentityRepository.findByUserId(id)
+			.stream()
+			.map(UserIdentityResponseDto::from)
+			.toList();
 
 		// 200 OK 응답 반환
 		return ResponseEntity.ok(ApiResponseDto.ok(response));

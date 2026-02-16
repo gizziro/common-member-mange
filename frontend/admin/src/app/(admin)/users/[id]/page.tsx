@@ -73,6 +73,15 @@ interface Group {
   memberCount: number;
 }
 
+/** 소셜 연동 정보 */
+interface UserIdentity {
+  id: string;
+  providerCode: string;
+  providerName: string;
+  providerSubject: string;
+  linkedAt: string;
+}
+
 /** 사용자 상태 옵션 */
 const STATUS_OPTIONS = [
   { value: "ACTIVE", label: "활성" },
@@ -100,6 +109,10 @@ export default function UserDetailPage() {
   /* 소속 그룹 상태 */
   const [groups, setGroups] = useState<Group[]>([]);
   const [groupsLoading, setGroupsLoading] = useState(true);
+
+  /* 소셜 연동 상태 */
+  const [identities, setIdentities] = useState<UserIdentity[]>([]);
+  const [identitiesLoading, setIdentitiesLoading] = useState(true);
 
   /* 비밀번호 변경 다이얼로그 상태 */
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
@@ -143,10 +156,26 @@ export default function UserDetailPage() {
     }
   }, [userId]);
 
+  /* 소셜 연동 로드 */
+  const loadIdentities = useCallback(async () => {
+    setIdentitiesLoading(true);
+    try {
+      const res = await apiGet<UserIdentity[]>(`/users/${userId}/identities`);
+      if (res.success && res.data) {
+        setIdentities(res.data);
+      }
+    } catch {
+      /* 소셜 연동 조회 실패 시 빈 배열 유지 */
+    } finally {
+      setIdentitiesLoading(false);
+    }
+  }, [userId]);
+
   useEffect(() => {
     loadUser();
     loadGroups();
-  }, [loadUser, loadGroups]);
+    loadIdentities();
+  }, [loadUser, loadGroups, loadIdentities]);
 
   /* 사용자 정보 수정 */
   const handleSave = async (e: FormEvent) => {
@@ -419,7 +448,51 @@ export default function UserDetailPage() {
           </CardContent>
         </Card>
 
-        {/* Card 3: 소속 그룹 */}
+        {/* Card 3: 소셜 계정 연동 */}
+        {identities.length > 0 && (
+          <Card>
+            <CardHeader className="border-b">
+              <CardTitle>소셜 계정 연동 ({identities.length})</CardTitle>
+            </CardHeader>
+            <CardContent className="!p-0">
+              {identitiesLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="h-5 w-5 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      <TableHead className="px-5">제공자</TableHead>
+                      <TableHead className="px-5">소셜 ID</TableHead>
+                      <TableHead className="px-5">연동 일시</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {identities.map((identity) => (
+                      <TableRow key={identity.id}>
+                        <TableCell className="px-5 font-medium">
+                          {identity.providerName}
+                          <span className="ml-2 text-xs text-muted-foreground font-mono">
+                            ({identity.providerCode})
+                          </span>
+                        </TableCell>
+                        <TableCell className="px-5 font-mono text-xs text-muted-foreground">
+                          {identity.providerSubject}
+                        </TableCell>
+                        <TableCell className="px-5 text-muted-foreground text-sm">
+                          {new Date(identity.linkedAt).toLocaleString("ko-KR")}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Card 4: 소속 그룹 */}
         <Card>
           <CardHeader className="border-b">
             <CardTitle>소속 그룹 ({groups.length})</CardTitle>

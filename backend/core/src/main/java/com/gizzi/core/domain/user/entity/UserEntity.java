@@ -145,6 +145,35 @@ public class UserEntity extends BaseEntity {
 		return user;
 	}
 
+	// 소셜 회원가입용 정적 팩토리 메서드
+	// providerCode: 소셜 제공자 코드 (GOOGLE, KAKAO, NAVER)
+	// providerSubject: 소셜 제공자 사용자 고유 키
+	public static UserEntity createSocialUser(String providerCode, String providerSubject,
+	                                          String email, String username, String encodedRandomPassword) {
+		// 새 소셜 사용자 엔티티 생성
+		UserEntity user          = new UserEntity();
+		// 로그인 ID: {provider}_{subject} (소셜 사용자 고유 ID)
+		user.userId              = providerCode.toLowerCase() + "_" + providerSubject;
+		user.username            = username;
+		user.email               = email;
+		// 소셜 로그인은 비밀번호를 직접 사용하지 않으므로 랜덤 해시 설정
+		user.passwordHash        = encodedRandomPassword;
+		user.provider            = providerCode.toUpperCase();
+		user.providerId          = providerSubject;
+		user.passwordChangeDate  = LocalDateTime.now();
+		// 소셜 로그인 사용자는 이메일 인증 처리 완료로 간주
+		user.emailVerified       = true;
+		user.phoneVerified       = false;
+		user.socialJoinVerified  = true;
+		user.isOtpUse            = false;
+		user.loginFailCount      = 0;
+		user.isLocked            = false;
+		// 소셜 로그인 사용자는 바로 ACTIVE 상태
+		user.userStatus          = "ACTIVE";
+		user.createdBy           = providerCode.toLowerCase();
+		return user;
+	}
+
 	// 로그인 실패 횟수 증가 + 최대 횟수 초과 시 자동 잠금
 	public void incrementLoginFailCount() {
 		// 실패 횟수 1 증가

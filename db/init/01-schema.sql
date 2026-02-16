@@ -59,13 +59,23 @@ CREATE TABLE tb_users (
   UNIQUE KEY uq_users_email (email)
 );
 
--- Auth providers (e.g., local, google, github)
+-- Auth providers (e.g., local, google, kakao, naver)
 CREATE TABLE tb_auth_providers (
-  id         CHAR(36)        PRIMARY KEY DEFAULT (UUID()), -- 제공자 PK
-  code       VARCHAR(50)     NOT NULL,                     -- 제공자 코드
-  name       VARCHAR(100)    NOT NULL,                     -- 제공자 이름
-  is_enabled TINYINT(1)      NOT NULL DEFAULT 1,           -- 사용 여부
-  created_at DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP, -- 생성 일시
+  id                CHAR(36)        PRIMARY KEY DEFAULT (UUID()), -- 제공자 PK
+  code              VARCHAR(50)     NOT NULL,                     -- 제공자 코드 (local, google, kakao, naver)
+  name              VARCHAR(100)    NOT NULL,                     -- 제공자 표시명
+  is_enabled        TINYINT(1)      NOT NULL DEFAULT 1,           -- 사용 여부
+  client_id         VARCHAR(255)    NULL,                         -- OAuth2 Client ID
+  client_secret     VARCHAR(255)    NULL,                         -- OAuth2 Client Secret
+  redirect_uri      VARCHAR(500)    NULL,                         -- 인가 코드 콜백 URL
+  authorization_uri VARCHAR(500)    NULL,                         -- 인가 엔드포인트
+  token_uri         VARCHAR(500)    NULL,                         -- 토큰 교환 엔드포인트
+  userinfo_uri      VARCHAR(500)    NULL,                         -- 사용자 정보 조회 엔드포인트
+  scope             VARCHAR(500)    NULL,                         -- 요청 Scope (공백 구분)
+  icon_url          VARCHAR(500)    NULL,                         -- 로그인 버튼 아이콘 URL
+  display_order     INT             NOT NULL DEFAULT 0,           -- 로그인 버튼 표시 순서
+  created_at        DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP, -- 생성 일시
+  updated_at        DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, -- 수정 일시
   UNIQUE KEY uq_auth_providers_code (code)
 );
 

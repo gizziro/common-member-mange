@@ -44,3 +44,22 @@ export async function apiGet<T>(
 
 	return res.json();
 }
+
+// 백엔드 API DELETE 요청 유틸리티
+export async function apiDelete<T>(
+	path: string,
+	token?: string
+): Promise<ApiResponse<T>> {
+	// 요청 헤더 구성 (선택적 인증 토큰)
+	const headers: Record<string, string> = {};
+	if (token) {
+		headers["Authorization"] = `Bearer ${token}`;
+	}
+
+	const res = await fetch(`${API_PREFIX}${path}`, {
+		method: "DELETE",
+		headers,
+	});
+
+	return res.json();
+}

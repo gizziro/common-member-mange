@@ -31,6 +31,7 @@
 - [ ] 이메일/휴대폰 인증 처리 (`email_verified`, `phone_verified`)
 - [x] 잠금 정책 (`login_fail_count` 5회 초과 시 `is_locked` = true)
 - [x] 계정 상태 관리 (`user_status`: PENDING → ACTIVE → SUSPENDED)
+- [ ] 회원가입 시 자동 인증(ACTIVE) On/Off 설정 (시스템 설정 연동)
 
 ### 1.5 페이지/리소스별 2FA 정책
 - [ ] 특정 페이지/기능 접근 시 2FA 요구 정책 정의
@@ -111,13 +112,20 @@
 ## 7. 시스템 설정
 
 ### 7.1 기능 플래그
+- [ ] 회원가입 활성화 여부 (`tb_system_settings`, 비활성 시 가입 API 차단)
+- [ ] 회원가입 시 자동 인증 On/Off (`tb_system_settings`, On이면 가입 즉시 ACTIVE, Off면 PENDING)
 - [ ] 소셜 로그인 사용 여부 (`tb_system_settings`)
-- [ ] 가입 허용 여부 (`tb_system_settings`)
 - [ ] 2차 인증 필수 여부 및 적용 범위 (`tb_system_settings`)
 
-### 7.2 설정 적용 방식
+### 7.2 관리자 페이지 접근 제어
+- [ ] admin-api 접근 시 administrator 그룹 소속 여부 검증 (JWT 필터 또는 SecurityConfig에서 차단)
+- [ ] 관리자 페이지 접근 가능한 사용자/그룹 관리 (시스템 설정 또는 별도 테이블)
+- [ ] 비관리자가 admin-api 로그인 시도 시 적절한 에러 응답 (AUTH_ACCESS_DENIED)
+
+### 7.3 설정 적용 방식
 - [ ] 애플리케이션 시작 시 캐시 로딩
 - [ ] 관리 API를 통한 실시간 수정
+- [ ] 설정 CRUD API (admin-api: GET/PUT /settings)
 
 ### 7.3 시스템 초기 설정 (Setup Wizard)
 - [x] 초기화 상태 확인 (administrator 그룹 멤버 유무로 판단)
@@ -221,6 +229,7 @@
 - [x] application.properties → application.yml 형식 전환
 - [x] 필터 체인 에러 응답 ApiResponseDto 직렬화 통일 (FilterErrorResponseWriter)
 - [x] 페이지네이션 공통 응답 DTO (PageResponseDto)
+- [ ] **admin-api 접근 제어: administrator 그룹 소속자만 허용 (보안 필수)**
 - [ ] 트랜잭션 처리 범위 정의
 - [ ] FK 제약 위반 대비 예외 처리
 - [ ] DB 마이그레이션 도입(Flyway 권장)

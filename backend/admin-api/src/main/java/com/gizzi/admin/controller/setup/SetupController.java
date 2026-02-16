@@ -44,8 +44,8 @@ public class SetupController {
 	// 최초 관리자 계정 생성 API
 	// 시스템이 미초기화 상태일 때만 호출 가능
 	@PostMapping("/initialize")
-	public ResponseEntity<ApiResponseDto<SignupResponseDto>> initialize(
-			@Valid @RequestBody SystemSetupRequestDto request) {
+	public ResponseEntity<ApiResponseDto<SignupResponseDto>> initialize(@Valid @RequestBody SystemSetupRequestDto request)
+	{
 		// 관리자 계정 생성 서비스 호출
 		SignupResponseDto response = systemInitService.setupAdmin(request);
 

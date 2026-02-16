@@ -47,6 +47,8 @@ public class SecurityConfig {
 			.authorizeHttpRequests(authorize -> authorize
 				// 인증 관련 엔드포인트는 모두 허용
 				.requestMatchers("/auth/signup", "/auth/login", "/auth/refresh", "/auth/me").permitAll()
+				// 소셜 로그인 엔드포인트는 모두 허용
+				.requestMatchers("/auth/oauth2/**").permitAll()
 				// 아이디/이메일 중복 확인 엔드포인트는 모두 허용
 				.requestMatchers("/auth/check/**").permitAll()
 				// Actuator 헬스체크는 모두 허용
