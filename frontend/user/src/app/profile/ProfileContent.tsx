@@ -1,11 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
-import { apiGet, apiDelete } from "@/lib/api";
+import { apiGet, apiPost, apiDelete } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
 	Card,
 	CardContent,
@@ -13,6 +15,17 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+	AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { LockIcon } from "lucide-react";
 import { toast } from "sonner";
 
@@ -60,13 +73,24 @@ function getProviderBadgeStyle(code: string): string {
 
 // 마이페이지 콘텐츠 (Client Component, 인증 상태 확인)
 export default function ProfileContent() {
-	const { user, loading, logout } = useAuth();
+	const { user, loading, logout, refresh } = useAuth();
 
 	// 소셜 연동 상태
 	const [identities, setIdentities]               = useState<UserIdentity[]>([]);
 	const [identitiesLoading, setIdentitiesLoading]  = useState(false);
 	const [providers, setProviders]                   = useState<OAuth2Provider[]>([]);
 	const [unlinking, setUnlinking]                   = useState<string | null>(null);
+
+	// 비밀번호 설정 폼 상태 (소셜 전용 사용자용)
+	const [newUserId, setNewUserId]         = useState("");
+	const [newPassword, setNewPassword]     = useState("");
+	const [settingPassword, setSettingPassword] = useState(false);
+
+	// 회원 탈퇴 상태
+	const [withdrawing, setWithdrawing] = useState(false);
+
+	// 소셜 전용 사용자 여부 (비밀번호 미설정)
+	const isLocalUser = user?.provider === "LOCAL";
 
 	// 소셜 연동 목록 로드
 	const loadIdentities = useCallback(async () => {
@@ -105,6 +129,46 @@ export default function ProfileContent() {
 			loadProviders();
 		}
 	}, [user, loadIdentities, loadProviders]);
+
+	// 비밀번호 설정 핸들러 (소셜 전용 사용자 → 로컬 전환)
+	async function handleSetPassword(e: FormEvent) {
+		e.preventDefault();
+
+		if (!newUserId.trim() || !newPassword) {
+			toast.error("아이디와 비밀번호를 입력해주세요.");
+			return;
+		}
+
+		const token = localStorage.getItem("accessToken");
+		if (!token) return;
+
+		setSettingPassword(true);
+		try {
+			const res = await apiPost("/auth/oauth2/set-password", {
+				userId: newUserId,
+				password: newPassword,
+			}, token);
+
+			if (res.success) {
+				toast.success("비밀번호가 설정되었습니다.", {
+					description: "이제 소셜 계정 연동 관리가 가능합니다.",
+				});
+				// 사용자 정보 새로고침 (provider 변경 반영)
+				await refresh();
+				// 폼 초기화
+				setNewUserId("");
+				setNewPassword("");
+			} else {
+				toast.error("비밀번호 설정 실패", {
+					description: res.error?.message ?? "비밀번호를 설정할 수 없습니다.",
+				});
+			}
+		} catch {
+			toast.error("서버 연결 오류");
+		} finally {
+			setSettingPassword(false);
+		}
+	}
 
 	// 소셜 연동 추가 핸들러
 	async function handleLink(providerCode: string) {
@@ -146,6 +210,35 @@ export default function ProfileContent() {
 			toast.error("서버 연결 오류");
 		} finally {
 			setUnlinking(null);
+		}
+	}
+
+	// 회원 탈퇴 핸들러
+	async function handleWithdraw() {
+		const token = localStorage.getItem("accessToken");
+		if (!token) return;
+
+		setWithdrawing(true);
+		try {
+			const res = await apiDelete("/auth/withdraw", token);
+			if (res.success) {
+				// 로컬 토큰 삭제
+				localStorage.removeItem("accessToken");
+				localStorage.removeItem("refreshToken");
+
+				toast.success("회원 탈퇴가 완료되었습니다.");
+
+				// 홈으로 이동
+				window.location.href = "/";
+			} else {
+				toast.error("탈퇴 실패", {
+					description: res.error?.message ?? "회원 탈퇴를 처리할 수 없습니다.",
+				});
+			}
+		} catch {
+			toast.error("서버 연결 오류");
+		} finally {
+			setWithdrawing(false);
 		}
 	}
 
@@ -243,6 +336,14 @@ export default function ProfileContent() {
 							<span className="text-sm text-muted-foreground">상태</span>
 							{statusBadge(user.userStatus)}
 						</div>
+
+						{/* 로그인 방식 */}
+						<div className="flex items-center justify-between">
+							<span className="text-sm text-muted-foreground">로그인 방식</span>
+							<Badge variant={isLocalUser ? "secondary" : "outline"}>
+								{isLocalUser ? "자체 계정" : user.provider}
+							</Badge>
+						</div>
 					</div>
 
 					{/* 액션 버튼 */}
@@ -261,12 +362,67 @@ export default function ProfileContent() {
 				</CardContent>
 			</Card>
 
+			{/* 비밀번호 설정 카드 (소셜 전용 사용자만 표시) */}
+			{!isLocalUser && (
+				<Card className="mt-5">
+					<CardHeader>
+						<CardTitle className="text-lg">로컬 계정 설정</CardTitle>
+						<CardDescription>
+							아이디와 비밀번호를 설정하면 자체 로그인이 가능해지고,
+							다른 소셜 계정의 연동/해제를 관리할 수 있습니다.
+						</CardDescription>
+					</CardHeader>
+
+					<CardContent>
+						<form onSubmit={handleSetPassword} className="space-y-4">
+							{/* 새 로컬 아이디 */}
+							<div className="space-y-2">
+								<Label htmlFor="newUserId">아이디</Label>
+								<Input
+									id="newUserId"
+									type="text"
+									value={newUserId}
+									onChange={(e) => setNewUserId(e.target.value)}
+									placeholder="4~50자 로컬 로그인 아이디"
+									minLength={4}
+									maxLength={50}
+									required
+								/>
+							</div>
+
+							{/* 비밀번호 */}
+							<div className="space-y-2">
+								<Label htmlFor="newPassword">비밀번호</Label>
+								<Input
+									id="newPassword"
+									type="password"
+									value={newPassword}
+									onChange={(e) => setNewPassword(e.target.value)}
+									placeholder="8자 이상 비밀번호"
+									minLength={8}
+									maxLength={100}
+									required
+								/>
+							</div>
+
+							{/* 설정 버튼 */}
+							<Button type="submit" disabled={settingPassword} className="w-full">
+								{settingPassword ? "설정 중..." : "비밀번호 설정"}
+							</Button>
+						</form>
+					</CardContent>
+				</Card>
+			)}
+
 			{/* 소셜 계정 연동 카드 */}
 			<Card className="mt-5">
 				<CardHeader>
 					<CardTitle className="text-lg">소셜 계정 연동</CardTitle>
 					<CardDescription>
-						소셜 계정을 연동하여 간편하게 로그인할 수 있습니다
+						{isLocalUser
+							? "소셜 계정을 연동하여 간편하게 로그인할 수 있습니다"
+							: "비밀번호를 설정하면 소셜 계정 연동/해제를 관리할 수 있습니다"
+						}
 					</CardDescription>
 				</CardHeader>
 
@@ -294,19 +450,22 @@ export default function ProfileContent() {
 											</p>
 										</div>
 									</div>
-									<Button
-										variant="outline"
-										size="sm"
-										disabled={unlinking === identity.id}
-										onClick={() => handleUnlink(identity.id)}
-									>
-										{unlinking === identity.id ? "해제 중..." : "연동 해제"}
-									</Button>
+									{/* 로컬 사용자만 연동 해제 가능 */}
+									{isLocalUser && (
+										<Button
+											variant="outline"
+											size="sm"
+											disabled={unlinking === identity.id}
+											onClick={() => handleUnlink(identity.id)}
+										>
+											{unlinking === identity.id ? "해제 중..." : "연동 해제"}
+										</Button>
+									)}
 								</div>
 							))}
 
-							{/* 미연동 Provider */}
-							{unlinkedProviders.map((provider) => (
+							{/* 미연동 Provider (로컬 사용자만 연동 추가 가능) */}
+							{isLocalUser && unlinkedProviders.map((provider) => (
 								<div
 									key={provider.code}
 									className="flex items-center justify-between rounded-lg border border-dashed p-3"
@@ -333,6 +492,45 @@ export default function ProfileContent() {
 							)}
 						</div>
 					)}
+				</CardContent>
+			</Card>
+
+			{/* 회원 탈퇴 카드 */}
+			<Card className="mt-5 border-destructive/30">
+				<CardHeader>
+					<CardTitle className="text-lg text-destructive">위험 구역</CardTitle>
+					<CardDescription>
+						회원 탈퇴 시 모든 데이터가 삭제되며 복구할 수 없습니다
+					</CardDescription>
+				</CardHeader>
+
+				<CardContent>
+					<AlertDialog>
+						<AlertDialogTrigger asChild>
+							<Button variant="destructive" className="w-full" disabled={withdrawing}>
+								{withdrawing ? "탈퇴 처리 중..." : "회원 탈퇴"}
+							</Button>
+						</AlertDialogTrigger>
+						<AlertDialogContent>
+							<AlertDialogHeader>
+								<AlertDialogTitle>정말 탈퇴하시겠습니까?</AlertDialogTitle>
+								<AlertDialogDescription>
+									회원 탈퇴 시 계정, 소셜 연동, 그룹 멤버십 등
+									모든 데이터가 영구적으로 삭제됩니다.
+									이 작업은 되돌릴 수 없습니다.
+								</AlertDialogDescription>
+							</AlertDialogHeader>
+							<AlertDialogFooter>
+								<AlertDialogCancel>취소</AlertDialogCancel>
+								<AlertDialogAction
+									onClick={handleWithdraw}
+									className="bg-destructive text-white hover:bg-destructive/90"
+								>
+									탈퇴하기
+								</AlertDialogAction>
+							</AlertDialogFooter>
+						</AlertDialogContent>
+					</AlertDialog>
 				</CardContent>
 			</Card>
 		</>

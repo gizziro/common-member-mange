@@ -1,10 +1,12 @@
 package com.gizzi.user.controller.auth;
 
 import com.gizzi.core.common.dto.ApiResponseDto;
+import com.gizzi.core.common.exception.BusinessException;
 import com.gizzi.core.domain.auth.dto.LoginResponseDto;
 import com.gizzi.core.domain.auth.dto.OAuth2LinkConfirmRequestDto;
 import com.gizzi.core.domain.auth.dto.OAuth2LoginResultDto;
 import com.gizzi.core.domain.auth.dto.OAuth2ProviderDto;
+import com.gizzi.core.domain.auth.dto.SetPasswordRequestDto;
 import com.gizzi.core.domain.auth.dto.UserIdentityResponseDto;
 import com.gizzi.core.domain.auth.service.OAuth2Service;
 import jakarta.servlet.http.HttpServletRequest;
@@ -54,7 +56,11 @@ public class OAuth2Controller {
 		return ResponseEntity.ok(ApiResponseDto.ok(authorizationUrl));
 	}
 
-	// OAuth2 콜백 처리 → 결과에 따라 성공 또는 연동 확인 페이지로 리다이렉트
+	// OAuth2 콜백 처리 (통합: 로그인 + 마이페이지 연동)
+	// state 값의 모드에 따라 분기:
+	//   login 모드 → 소셜 로그인 (토큰 발급 or 연동 대기)
+	//   link 모드  → 마이페이지 소셜 연동 추가
+	// 에러 발생 시 JSON 대신 프론트엔드 에러 페이지로 리다이렉트
 	@GetMapping("/callback/{provider}")
 	public ResponseEntity<Void> callback(
 		@PathVariable("provider") String provider,
@@ -62,33 +68,83 @@ public class OAuth2Controller {
 		@RequestParam("state") String state,
 		HttpServletRequest request) {
 
-		// 클라이언트 IP, User-Agent 추출
-		String ipAddress = request.getRemoteAddr();
-		String userAgent = request.getHeader("User-Agent");
+		// state 모드 확인 (Redis 값 소비하지 않고 모드만 판별)
+		String mode = oauth2Service.peekStateMode(state);
 
-		// 콜백 처리 → 토큰 교환 → 사용자 조회/생성 → 결과 분기
-		OAuth2LoginResultDto result = oauth2Service.processCallback(provider, code, state, ipAddress, userAgent);
+		// link 모드: 마이페이지 소셜 연동 추가
+		if ("link".equals(mode)) {
+			try {
+				// 연동 콜백 처리 (기존 사용자에 연동 추가)
+				oauth2Service.processLinkCallback(provider, code, state);
 
-		String redirectUrl;
+				// 프론트엔드 연동 성공 페이지로 리다이렉트
+				String redirectUrl = "http://localhost:3020/auth/oauth2/link-success"
+					+ "?provider=" + URLEncoder.encode(provider, StandardCharsets.UTF_8);
 
-		if ("SUCCESS".equals(result.getType())) {
-			// 성공: 토큰과 함께 성공 페이지로 리다이렉트
-			redirectUrl = "http://localhost:3020/auth/oauth2/success"
-				+ "?token=" + URLEncoder.encode(result.getAccessToken(), StandardCharsets.UTF_8)
-				+ "&refresh=" + URLEncoder.encode(result.getRefreshToken(), StandardCharsets.UTF_8)
-				+ "&username=" + URLEncoder.encode(result.getUsername(), StandardCharsets.UTF_8);
+				log.info("OAuth2 연동 콜백 리다이렉트: provider={}", provider);
 
-			log.info("OAuth2 콜백 성공 리다이렉트: provider={}", provider);
-		} else {
-			// 연동 대기: 연동 확인 페이지로 리다이렉트
-			redirectUrl = "http://localhost:3020/auth/oauth2/link-confirm"
-				+ "?pendingId=" + URLEncoder.encode(result.getPendingId(), StandardCharsets.UTF_8)
-				+ "&email=" + URLEncoder.encode(result.getEmail(), StandardCharsets.UTF_8)
-				+ "&provider=" + URLEncoder.encode(result.getProviderCode(), StandardCharsets.UTF_8)
-				+ "&providerName=" + URLEncoder.encode(result.getProviderName(), StandardCharsets.UTF_8);
+				return ResponseEntity.status(302)
+					.location(URI.create(redirectUrl))
+					.build();
+			} catch (BusinessException e) {
+				// 연동 에러 시 프론트엔드 에러 페이지로 리다이렉트 (JSON 대신)
+				log.warn("OAuth2 연동 콜백 에러: provider={}, code={}, message={}",
+					provider, e.getErrorCode().getCode(), e.getMessage());
 
-			log.info("OAuth2 콜백 연동 대기 리다이렉트: provider={}, email={}", provider, result.getEmail());
+				return buildErrorRedirect("link", e.getErrorCode().getCode(), e.getMessage());
+			}
 		}
+
+		// login 모드: 소셜 로그인 (기본)
+		try {
+			// 클라이언트 정보 추출
+			String ipAddress = request.getRemoteAddr();
+			String userAgent = request.getHeader("User-Agent");
+
+			// 콜백 처리 → 토큰 교환 → 사용자 조회/생성 → 결과 분기
+			OAuth2LoginResultDto result = oauth2Service.processCallback(provider, code, state, ipAddress, userAgent);
+
+			String redirectUrl;
+
+			if ("SUCCESS".equals(result.getType())) {
+				// 성공: 토큰과 함께 성공 페이지로 리다이렉트
+				redirectUrl = "http://localhost:3020/auth/oauth2/success"
+					+ "?token=" + URLEncoder.encode(result.getAccessToken(), StandardCharsets.UTF_8)
+					+ "&refresh=" + URLEncoder.encode(result.getRefreshToken(), StandardCharsets.UTF_8)
+					+ "&username=" + URLEncoder.encode(result.getUsername(), StandardCharsets.UTF_8);
+
+				log.info("OAuth2 콜백 성공 리다이렉트: provider={}", provider);
+			} else {
+				// 연동 대기: 연동 확인 페이지로 리다이렉트
+				redirectUrl = "http://localhost:3020/auth/oauth2/link-confirm"
+					+ "?pendingId=" + URLEncoder.encode(result.getPendingId(), StandardCharsets.UTF_8)
+					+ "&email=" + URLEncoder.encode(result.getEmail(), StandardCharsets.UTF_8)
+					+ "&provider=" + URLEncoder.encode(result.getProviderCode(), StandardCharsets.UTF_8)
+					+ "&providerName=" + URLEncoder.encode(result.getProviderName(), StandardCharsets.UTF_8);
+
+				log.info("OAuth2 콜백 연동 대기 리다이렉트: provider={}, email={}", provider, result.getEmail());
+			}
+
+			return ResponseEntity.status(302)
+				.location(URI.create(redirectUrl))
+				.build();
+		} catch (BusinessException e) {
+			// 로그인 에러 시 프론트엔드 에러 페이지로 리다이렉트 (JSON 대신)
+			log.warn("OAuth2 로그인 콜백 에러: provider={}, code={}, message={}",
+				provider, e.getErrorCode().getCode(), e.getMessage());
+
+			return buildErrorRedirect("login", e.getErrorCode().getCode(), e.getMessage());
+		}
+	}
+
+	// OAuth2 콜백 에러 시 프론트엔드 에러 페이지로 리다이렉트 URL 생성
+	// mode: "login" 또는 "link" (에러 발생 맥락)
+	private ResponseEntity<Void> buildErrorRedirect(String mode, String errorCode, String message) {
+		// 프론트엔드 에러 페이지로 리다이렉트
+		String redirectUrl = "http://localhost:3020/auth/oauth2/error"
+			+ "?mode=" + URLEncoder.encode(mode, StandardCharsets.UTF_8)
+			+ "&code=" + URLEncoder.encode(errorCode, StandardCharsets.UTF_8)
+			+ "&message=" + URLEncoder.encode(message, StandardCharsets.UTF_8);
 
 		return ResponseEntity.status(302)
 			.location(URI.create(redirectUrl))
@@ -132,6 +188,7 @@ public class OAuth2Controller {
 	}
 
 	// 마이페이지 소셜 연동용 Authorization URL 생성 (인증 필요)
+	// 정책: 소셜 전용 사용자는 비밀번호 설정 후에만 연동 추가 가능
 	@GetMapping("/link/{provider}")
 	public ResponseEntity<ApiResponseDto<String>> linkProvider(
 		@PathVariable("provider") String provider,
@@ -146,28 +203,8 @@ public class OAuth2Controller {
 		return ResponseEntity.ok(ApiResponseDto.ok(authorizationUrl));
 	}
 
-	// 마이페이지 소셜 연동 콜백 처리 → 프론트엔드 연동 성공 페이지로 리다이렉트
-	@GetMapping("/link-callback/{provider}")
-	public ResponseEntity<Void> linkCallback(
-		@PathVariable("provider") String provider,
-		@RequestParam("code") String code,
-		@RequestParam("state") String state) {
-
-		// 연동 콜백 처리 (기존 사용자에 연동 추가)
-		oauth2Service.processLinkCallback(provider, code, state);
-
-		// 프론트엔드 연동 성공 페이지로 리다이렉트
-		String redirectUrl = "http://localhost:3020/auth/oauth2/link-success"
-			+ "?provider=" + URLEncoder.encode(provider, StandardCharsets.UTF_8);
-
-		log.info("OAuth2 연동 콜백 리다이렉트: provider={}", provider);
-
-		return ResponseEntity.status(302)
-			.location(URI.create(redirectUrl))
-			.build();
-	}
-
 	// 소셜 연동 해제 (인증 필요)
+	// 정책: 소셜 전용 사용자는 연동 해제 불가 (비밀번호 설정 필요)
 	@DeleteMapping("/identities/{identityId}")
 	public ResponseEntity<ApiResponseDto<Void>> unlinkProvider(
 		@PathVariable("identityId") String identityId,
@@ -178,6 +215,22 @@ public class OAuth2Controller {
 
 		// 연동 해제 처리
 		oauth2Service.unlinkProvider(userPk, identityId);
+
+		return ResponseEntity.ok(ApiResponseDto.ok(null));
+	}
+
+	// 소셜 전용 사용자의 로컬 자격증명 설정 (인증 필요)
+	// 로컬 ID + 비밀번호 설정 후 소셜 연동 추가/해제가 가능해진다
+	@PostMapping("/set-password")
+	public ResponseEntity<ApiResponseDto<Void>> setPassword(
+		@Valid @RequestBody SetPasswordRequestDto request,
+		Authentication authentication) {
+
+		// 현재 사용자 PK
+		String userPk = authentication.getName();
+
+		// 로컬 자격증명 설정
+		oauth2Service.setPassword(userPk, request);
 
 		return ResponseEntity.ok(ApiResponseDto.ok(null));
 	}

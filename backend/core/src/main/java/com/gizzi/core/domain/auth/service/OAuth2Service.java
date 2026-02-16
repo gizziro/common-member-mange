@@ -2,11 +2,13 @@ package com.gizzi.core.domain.auth.service;
 
 import com.gizzi.core.common.exception.BusinessException;
 import com.gizzi.core.common.exception.OAuth2ErrorCode;
+import com.gizzi.core.common.exception.UserErrorCode;
 import com.gizzi.core.common.security.JwtTokenProvider;
 import com.gizzi.core.domain.auth.dto.LoginResponseDto;
 import com.gizzi.core.domain.auth.dto.OAuth2LoginResultDto;
 import com.gizzi.core.domain.auth.dto.OAuth2ProviderDto;
 import com.gizzi.core.domain.auth.dto.OAuth2UserInfo;
+import com.gizzi.core.domain.auth.dto.SetPasswordRequestDto;
 import com.gizzi.core.domain.auth.dto.UserIdentityResponseDto;
 import com.gizzi.core.domain.auth.entity.AuthProviderEntity;
 import com.gizzi.core.domain.auth.entity.UserIdentityEntity;
@@ -462,7 +464,15 @@ public class OAuth2Service {
 
 	// 마이페이지 소셜 연동용 Authorization URL 생성
 	// state에 mode=link + userPk를 포함하여 콜백에서 기존 사용자에 연동 추가
+	// 정책: 소셜 전용 사용자(provider != LOCAL)는 비밀번호 설정 전까지 연동 추가 불가
 	public String getLinkAuthorizationUrl(String providerCode, String userPk) {
+		// 0. 사용자 조회 + 비밀번호 설정 여부 체크
+		UserEntity user = userRepository.findById(userPk)
+			.orElseThrow(() -> new BusinessException(OAuth2ErrorCode.LINK_CONFIRM_FAILED));
+		if (!"LOCAL".equals(user.getProvider())) {
+			throw new BusinessException(OAuth2ErrorCode.PASSWORD_REQUIRED);
+		}
+
 		// 1. Provider 조회 및 검증
 		AuthProviderEntity provider = getValidProvider(providerCode);
 
@@ -540,7 +550,8 @@ public class OAuth2Service {
 		log.info("마이페이지 소셜 연동 추가: userId={}, provider={}", user.getUserId(), providerCode);
 	}
 
-	// 소셜 연동 해제 (최소 1개 인증 수단 유지 체크)
+	// 소셜 연동 해제
+	// 정책: 소셜 전용 사용자(provider != LOCAL)는 연동 해제 불가 (비밀번호 설정 필요)
 	@Transactional
 	public void unlinkProvider(String userPk, String identityId) {
 		// 1. 연동 정보 조회
@@ -552,20 +563,57 @@ public class OAuth2Service {
 			throw new BusinessException(OAuth2ErrorCode.IDENTITY_NOT_FOUND);
 		}
 
-		// 3. 최소 인증 수단 체크: 로컬 비밀번호가 있거나 다른 소셜 연동이 있어야 함
-		UserEntity user           = identity.getUser();
-		boolean    isLocalUser    = "LOCAL".equals(user.getProvider());
-		int        identityCount  = userIdentityRepository.findByUserId(userPk).size();
-
-		// 로컬 사용자가 아니고 소셜 연동이 1개뿐이면 해제 불가
-		if (!isLocalUser && identityCount <= 1) {
-			throw new BusinessException(OAuth2ErrorCode.LAST_AUTH_METHOD);
+		// 3. 소셜 전용 사용자는 연동 해제 불가 (비밀번호 미설정)
+		UserEntity user = identity.getUser();
+		if (!"LOCAL".equals(user.getProvider())) {
+			throw new BusinessException(OAuth2ErrorCode.PASSWORD_REQUIRED);
 		}
 
 		// 4. 연동 삭제
 		userIdentityRepository.delete(identity);
 
 		log.info("소셜 연동 해제: userId={}, provider={}", user.getUserId(), identity.getProvider().getCode());
+	}
+
+	// OAuth2 state의 모드 확인 (Redis 값을 소비하지 않고 모드만 판별)
+	// 반환값: "link" = 마이페이지 연동, "login" = 일반 소셜 로그인, null = state 없음
+	public String peekStateMode(String state) {
+		// Redis에서 state 값 조회 (삭제하지 않음)
+		String redisKey = STATE_PREFIX + state;
+		String value    = redisTemplate.opsForValue().get(redisKey);
+
+		// state가 존재하지 않으면 null
+		if (value == null) {
+			return null;
+		}
+
+		// link 모드 여부 판별 (값에 "|link|" 포함)
+		return value.contains("|link|") ? "link" : "login";
+	}
+
+	// 소셜 전용 사용자에게 로컬 자격증명(ID + 비밀번호) 설정
+	// 설정 후 provider가 LOCAL로 변경되어 소셜 연동 추가/해제가 가능해진다
+	@Transactional
+	public void setPassword(String userPk, SetPasswordRequestDto request) {
+		// 1. 사용자 조회
+		UserEntity user = userRepository.findById(userPk)
+			.orElseThrow(() -> new BusinessException(OAuth2ErrorCode.LINK_CONFIRM_FAILED));
+
+		// 2. 이미 로컬 자격증명이 있으면 거부
+		if ("LOCAL".equals(user.getProvider())) {
+			throw new BusinessException(OAuth2ErrorCode.ALREADY_LOCAL);
+		}
+
+		// 3. 새 로컬 ID 중복 검증
+		if (userRepository.existsByUserId(request.getUserId())) {
+			throw new BusinessException(UserErrorCode.DUPLICATE_USER_ID);
+		}
+
+		// 4. 비밀번호 인코딩 + 로컬 자격증명 설정
+		String encodedPassword = passwordEncoder.encode(request.getPassword());
+		user.setLocalCredentials(request.getUserId(), encodedPassword);
+
+		log.info("소셜 사용자 로컬 자격증명 설정: userPk={}, newUserId={}", userPk, request.getUserId());
 	}
 
 	// 문자열의 SHA-256 해시 생성 (토큰 DB 저장용)

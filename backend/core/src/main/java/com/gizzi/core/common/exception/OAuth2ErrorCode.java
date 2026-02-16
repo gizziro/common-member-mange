@@ -43,7 +43,13 @@ public enum OAuth2ErrorCode implements ErrorCode {
 	LAST_AUTH_METHOD      ("OAUTH2_LAST_AUTH_METHOD",       "최소 1개의 인증 수단이 필요합니다",         "소셜 연동 해제 시 다른 인증 수단이 없으면 해제 불가",          HttpStatus.BAD_REQUEST),
 
 	// 연동 해제 대상을 찾을 수 없음
-	IDENTITY_NOT_FOUND    ("OAUTH2_IDENTITY_NOT_FOUND",     "연동 정보를 찾을 수 없습니다",             "해제하려는 Identity가 존재하지 않거나 본인 것이 아님",         HttpStatus.NOT_FOUND);
+	IDENTITY_NOT_FOUND    ("OAUTH2_IDENTITY_NOT_FOUND",     "연동 정보를 찾을 수 없습니다",             "해제하려는 Identity가 존재하지 않거나 본인 것이 아님",         HttpStatus.NOT_FOUND),
+
+	// 소셜 전용 사용자가 비밀번호 미설정 상태에서 연동 추가/해제 시도
+	PASSWORD_REQUIRED     ("OAUTH2_PASSWORD_REQUIRED",      "비밀번호 설정이 필요합니다",               "소셜 전용 사용자는 로컬 ID/PW 설정 후 연동 관리 가능",        HttpStatus.BAD_REQUEST),
+
+	// 이미 로컬 자격증명이 있는 사용자가 다시 설정 시도
+	ALREADY_LOCAL         ("OAUTH2_ALREADY_LOCAL",          "이미 비밀번호가 설정되어 있습니다",         "provider가 이미 LOCAL인 사용자의 set-password 시도",           HttpStatus.CONFLICT);
 
 	// 에러 코드 문자열
 	private final String     code;

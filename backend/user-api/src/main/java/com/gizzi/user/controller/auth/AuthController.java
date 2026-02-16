@@ -19,6 +19,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -139,5 +141,18 @@ public class AuthController {
 
 		// 200 OK 응답 반환
 		return ResponseEntity.ok(ApiResponseDto.ok(response));
+	}
+
+	// 사용자 본인 탈퇴 API (인증 필요)
+	@DeleteMapping("/withdraw")
+	public ResponseEntity<ApiResponseDto<Void>> withdraw(Authentication authentication) {
+		// 현재 로그인한 사용자 PK
+		String userPk = authentication.getName();
+
+		// 본인 탈퇴 처리 (Redis 토큰 + 소셜 연동 + 그룹 멤버십 정리 후 삭제)
+		userService.withdrawUser(userPk);
+
+		// 200 OK 응답 반환
+		return ResponseEntity.ok(ApiResponseDto.ok(null));
 	}
 }

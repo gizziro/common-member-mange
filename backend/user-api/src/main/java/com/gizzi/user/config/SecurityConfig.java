@@ -47,8 +47,15 @@ public class SecurityConfig {
 			.authorizeHttpRequests(authorize -> authorize
 				// 인증 관련 엔드포인트는 모두 허용
 				.requestMatchers("/auth/signup", "/auth/login", "/auth/refresh", "/auth/me").permitAll()
-				// 소셜 로그인 엔드포인트는 모두 허용
-				.requestMatchers("/auth/oauth2/**").permitAll()
+				// 소셜 로그인 공개 엔드포인트 (인증 불필요)
+				.requestMatchers(
+					"/auth/oauth2/providers",       // Provider 목록 조회 (로그인 페이지)
+					"/auth/oauth2/authorize/**",    // Authorization URL 생성 (로그인 페이지)
+					"/auth/oauth2/callback/**",     // OAuth2 콜백 (Provider 리다이렉트)
+					"/auth/oauth2/link-confirm"     // 연동 확인 (pendingId 기반)
+				).permitAll()
+				// /auth/oauth2/identities, /auth/oauth2/link/*, /auth/oauth2/set-password 등은
+				// anyRequest().authenticated()에 의해 인증 필요
 				// 아이디/이메일 중복 확인 엔드포인트는 모두 허용
 				.requestMatchers("/auth/check/**").permitAll()
 				// Actuator 헬스체크는 모두 허용

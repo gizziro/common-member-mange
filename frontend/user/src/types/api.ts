@@ -36,6 +36,7 @@ export interface UserMeResponse {
 	username: string;
 	email: string;
 	userStatus: string;
+	provider: string;
 }
 
 // 로그인 요청 DTO (백엔드 LoginRequestDto 매핑)

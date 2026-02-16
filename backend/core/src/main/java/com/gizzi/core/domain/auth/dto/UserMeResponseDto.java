@@ -24,6 +24,9 @@ public class UserMeResponseDto {
 	// 사용자 상태 (PENDING, ACTIVE, SUSPENDED)
 	private final String userStatus;
 
+	// 가입/로그인 제공자 (LOCAL, GOOGLE, KAKAO, NAVER)
+	private final String provider;
+
 	// UserEntity 엔티티로부터 응답 DTO 생성
 	public static UserMeResponseDto from(UserEntity user) {
 		return UserMeResponseDto.builder()
@@ -32,6 +35,7 @@ public class UserMeResponseDto {
 			.username(user.getUsername())
 			.email(user.getEmail())
 			.userStatus(user.getUserStatus())
+			.provider(user.getProvider())
 			.build();
 	}
 }

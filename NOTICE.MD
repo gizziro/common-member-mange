@@ -149,8 +149,9 @@
 - [x] POST `/auth/oauth2/link-confirm` — 소셜 연동 확인 (로컬 ID/PW 검증)
 - [x] GET `/auth/oauth2/identities` — 내 소셜 연동 목록
 - [x] GET `/auth/oauth2/link/{provider}` — 마이페이지 연동용 Authorization URL
-- [x] GET `/auth/oauth2/link-callback/{provider}` — 마이페이지 연동 콜백
 - [x] DELETE `/auth/oauth2/identities/{id}` — 소셜 연동 해제
+- [x] POST `/auth/oauth2/set-password` — 소셜 전용 사용자 로컬 자격증명(ID+PW) 설정
+- [x] DELETE `/auth/withdraw` — 사용자 본인 탈퇴
 
 ### 8.1-1 인증/회원 (admin-api)
 - [x] POST `/auth/login` — 관리자 로그인
@@ -210,7 +211,7 @@
 ### 9.1 사용자 웹 (frontend/user)
 - [x] 회원가입 페이지
 - [x] 로그인 페이지 (소셜 로그인 버튼 포함)
-- [x] 프로필 페이지 (소셜 계정 연동/해제)
+- [x] 프로필 페이지 (소셜 계정 연동/해제, 비밀번호 설정, 회원 탈퇴)
 - [x] 소개 페이지
 - [x] 소셜 로그인 콜백 처리 페이지
 - [x] 소셜 연동 확인 페이지 (기존 계정 발견 시 로컬 ID/PW 입력)
@@ -245,6 +246,7 @@
 - [x] 필터 체인 에러 응답 ApiResponseDto 직렬화 통일 (FilterErrorResponseWriter)
 - [x] 페이지네이션 공통 응답 DTO (PageResponseDto)
 - [ ] **admin-api 접근 제어: administrator 그룹 소속자만 허용 (보안 필수)**
+- [ ] **OAuth2 콜백 리다이렉트 URL 외부화**: `OAuth2Controller`의 프론트엔드 리다이렉트 URL(`http://localhost:3020/auth/oauth2/...`)이 하드코딩됨. `application.yml`에 `app.frontend-url` 등의 프로퍼티로 추출하여 환경별(로컬/운영) 설정 가능하도록 리팩토링 필요
 - [ ] 트랜잭션 처리 범위 정의
 - [ ] FK 제약 위반 대비 예외 처리
 - [ ] DB 마이그레이션 도입(Flyway 권장)

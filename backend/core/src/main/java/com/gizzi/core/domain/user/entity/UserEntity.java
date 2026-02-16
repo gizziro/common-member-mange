@@ -223,4 +223,19 @@ public class UserEntity extends BaseEntity {
 		// 비밀번호 변경 일시 갱신
 		this.passwordChangeDate = LocalDateTime.now();
 	}
+
+	// 소셜 전용 사용자에게 로컬 자격증명 설정 (로컬 ID + 비밀번호)
+	// 설정 후 provider가 LOCAL로 변경되어 소셜 연동 추가/해제가 가능해진다
+	public void setLocalCredentials(String newUserId, String encodedPassword) {
+		// 로컬 로그인 ID 설정
+		this.userId             = newUserId;
+		// 비밀번호 해시 설정
+		this.passwordHash       = encodedPassword;
+		// 제공자를 LOCAL로 전환
+		this.provider           = "LOCAL";
+		// providerId도 로컬 ID와 동일하게 설정
+		this.providerId         = newUserId;
+		// 비밀번호 변경 일시 갱신
+		this.passwordChangeDate = LocalDateTime.now();
+	}
 }

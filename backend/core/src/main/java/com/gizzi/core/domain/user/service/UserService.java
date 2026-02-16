@@ -224,6 +224,39 @@ public class UserService {
 		log.info("사용자 삭제: id={}, userId={}", id, user.getUserId());
 	}
 
+	// 사용자 본인 탈퇴 (마이페이지에서 호출)
+	@Transactional
+	public void withdrawUser(String userPk) {
+		// PK로 사용자 조회 (없으면 예외)
+		UserEntity user = userRepository.findById(userPk)
+			.orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
+
+		// administrator 그룹 소속 사용자 탈퇴 방지
+		groupRepository.findByGroupCode("administrator").ifPresent(adminGroup -> {
+			if (groupMemberRepository.existsByGroupIdAndUserId(adminGroup.getId(), userPk)) {
+				throw new BusinessException(UserErrorCode.ADMIN_USER_UNDELETABLE);
+			}
+		});
+
+		// 해당 사용자가 소유한 그룹의 owner를 null로 해제
+		List<GroupEntity> ownedGroups = groupRepository.findByOwnerUserId(userPk);
+		for (GroupEntity group : ownedGroups) {
+			group.clearOwner();
+			log.info("그룹 소유자 해제: groupId={}, groupCode={}", group.getId(), group.getGroupCode());
+		}
+
+		// 사용자의 모든 활성 토큰 삭제 (Redis)
+		redisTokenService.deleteAllUserTokens(user.getId());
+
+		// 소셜 연동 정보 명시적 삭제 (CASCADE에 의존하지 않음)
+		userIdentityRepository.deleteByUserId(userPk);
+
+		// 사용자 삭제 (CASCADE로 그룹 멤버십 등 자동 정리)
+		userRepository.delete(user);
+
+		log.info("사용자 본인 탈퇴: id={}, userId={}", userPk, user.getUserId());
+	}
+
 	// 관리자에 의한 비밀번호 변경
 	@Transactional
 	public void changePassword(String id, ChangePasswordRequestDto request) {
