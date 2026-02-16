@@ -1,10 +1,7 @@
 package com.gizzi.core.common.security;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.gizzi.core.common.dto.ApiResponseDto;
 import com.gizzi.core.common.exception.ErrorCode;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 
@@ -12,15 +9,16 @@ import java.io.IOException;
 
 // 필터 체인 에러 응답 유틸리티
 // Spring Security 필터 체인 내에서 발생하는 에러를
-// ApiResponseDto 형식으로 직렬화하여 응답한다
+// ApiResponseDto 동일 형식의 JSON으로 응답한다
 // GlobalExceptionHandler(@ControllerAdvice)는 컨트롤러 이후에서만 동작하므로
 // 필터 레벨 에러는 이 유틸리티를 통해 일관된 JSON 응답을 보장한다
 @Component
-@RequiredArgsConstructor
 public class FilterErrorResponseWriter {
 
-	// Jackson ObjectMapper (Spring Boot 자동 구성)
-	private final ObjectMapper objectMapper;
+	// ApiResponseDto 에러 응답 JSON 템플릿
+	// ApiResponseDto의 @JsonInclude(NON_NULL) 동작과 동일: success=false, data 필드 제외
+	private static final String ERROR_JSON_TEMPLATE =
+		"{\"success\":false,\"error\":{\"code\":\"%s\",\"message\":\"%s\",\"description\":\"%s\"}}";
 
 	// ErrorCode 기반 에러 응답 작성
 	// HTTP 상태 코드는 ErrorCode.getHttpStatus()에서 자동 추출
@@ -32,8 +30,23 @@ public class FilterErrorResponseWriter {
 		response.setContentType(MediaType.APPLICATION_JSON_VALUE);
 		response.setCharacterEncoding("UTF-8");
 
-		// ApiResponseDto 에러 객체를 JSON으로 직렬화하여 응답 본문에 작성
-		ApiResponseDto<Void> body = ApiResponseDto.error(errorCode);
-		response.getWriter().write(objectMapper.writeValueAsString(body));
+		// ErrorCode의 code, message, description을 JSON 템플릿에 삽입
+		String json = String.format(ERROR_JSON_TEMPLATE,
+			escapeJson(errorCode.getCode()),
+			escapeJson(errorCode.getMessage()),
+			escapeJson(errorCode.getDescription()));
+
+		response.getWriter().write(json);
+	}
+
+	// JSON 문자열 내 특수문자 이스케이프 (인젝션 방지)
+	private static String escapeJson(String value) {
+		if (value == null) return "";
+		return value
+			.replace("\\", "\\\\")
+			.replace("\"", "\\\"")
+			.replace("\n", "\\n")
+			.replace("\r", "\\r")
+			.replace("\t", "\\t");
 	}
 }
