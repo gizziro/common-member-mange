@@ -1,5 +1,12 @@
 import type { Metadata } from "next";
 import SignupForm from "./SignupForm";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@/components/ui/card";
 
 // 페이지 메타데이터
 export const metadata: Metadata = {
@@ -12,18 +19,18 @@ export default function SignupPage() {
 	return (
 		<div className="flex min-h-screen items-center justify-center px-4">
 			<div className="w-full max-w-md">
-				{/* 헤더 */}
-				<div className="mb-8 text-center">
-					<h1 className="text-2xl font-bold text-gray-900">회원가입</h1>
-					<p className="mt-2 text-sm text-gray-500">
-						아래 정보를 입력하여 계정을 만드세요
-					</p>
-				</div>
-
 				{/* 폼 카드 */}
-				<div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-					<SignupForm />
-				</div>
+				<Card>
+					<CardHeader className="text-center">
+						<CardTitle className="text-2xl">회원가입</CardTitle>
+						<CardDescription>
+							아래 정보를 입력하여 계정을 만드세요
+						</CardDescription>
+					</CardHeader>
+					<CardContent>
+						<SignupForm />
+					</CardContent>
+				</Card>
 			</div>
 		</div>
 	);

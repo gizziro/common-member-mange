@@ -176,4 +176,22 @@ public class UserEntity extends BaseEntity {
 		// 사용자 상태를 활성으로 전환
 		this.userStatus = "ACTIVE";
 	}
+
+	// 관리자에 의한 사용자 정보 수정
+	public void updateByAdmin(String username, String email, String userStatus) {
+		// 사용자 이름 변경
+		this.username   = username;
+		// 이메일 변경
+		this.email      = email;
+		// 사용자 상태 변경
+		this.userStatus = userStatus;
+	}
+
+	// 비밀번호 변경 (관리자 또는 본인)
+	public void changePassword(String encodedPassword) {
+		// 새 비밀번호 해시로 교체
+		this.passwordHash       = encodedPassword;
+		// 비밀번호 변경 일시 갱신
+		this.passwordChangeDate = LocalDateTime.now();
+	}
 }

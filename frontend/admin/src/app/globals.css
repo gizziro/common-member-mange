@@ -1,26 +1,241 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Limitless Admin — 글로벌 디자인 토큰
+ * BS5 SCSS 변수에서 추출하여 Tailwind v4 테마로 매핑
+ * + shadcn/ui CSS 변수 통합
+ */
+
+@theme {
+  /* ===========================
+   * Limitless 색상 시스템
+   * =========================== */
+
+  /* 확장 색상 — Limitless 전용 */
+  --color-indigo: #5C6BC0;
+  --color-purple: #8e70c1;
+  --color-pink: #f35c86;
+  --color-teal: #26A69A;
+  --color-yellow: #ffd648;
+  --color-orange: #f58646;
+  --color-cyan: #049aad;
+
+  /* Limitless 시맨틱 색상 */
+  --color-success: #059669;
+  --color-info: #049aad;
+  --color-warning: #f58646;
+  --color-danger: #EF4444;
+  --color-light: #F3F4F6;
+  --color-dark: #252b36;
+
+  /* 그레이스케일 */
+  --color-gray-50: #F9FAFB;
+  --color-gray-100: #F3F4F6;
+  --color-gray-200: #E5E7EB;
+  --color-gray-300: #D1D5DB;
+  --color-gray-400: #9CA3AF;
+  --color-gray-500: #6B7280;
+  --color-gray-600: #4B5563;
+  --color-gray-700: #374151;
+  --color-gray-800: #1F2937;
+  --color-gray-900: #111827;
+
+  /* Limitless 레이아웃 색상 */
+  --color-card-bg: #ffffff;
+  --color-sidebar-bg: #ffffff;
+  --color-sidebar-dark-bg: #252b36;
+  --color-page-header-light-bg: #ffffff;
+  --color-page-header-dark-bg: #273246;
+
+  /* ===========================
+   * 타이포그래피
+   * =========================== */
+
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", "Liberation Sans", Arial, sans-serif;
+  --font-mono: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+
+  /* 폰트 크기 — BS5 기준 매핑 */
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 1.75rem;
+  --text-4xl: 2rem;
+  --text-5xl: 2.5rem;
+
+  /* ===========================
+   * 박스 쉐도우 (Limitless)
+   * =========================== */
+
+  --shadow-sm: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  --shadow-md: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+  --shadow-lg: 0 1rem 3rem rgba(0, 0, 0, 0.175);
+
+  /* ===========================
+   * 사이드바 크기
+   * =========================== */
+
+  --spacing-sidebar: 18.75rem;
+  --spacing-sidebar-mini: 3.5rem;
+  --spacing-navbar: 3.5rem;
+
+  /* 사이드바 다크 테마 색상 */
+  --color-sidebar-dark-nav-link: rgba(255, 255, 255, 0.85);
+  --color-sidebar-dark-nav-hover-bg: rgba(255, 255, 255, 0.1);
+  --color-sidebar-dark-nav-active-bg: rgba(255, 255, 255, 0.15);
+  --color-sidebar-dark-nav-active-color: #ffffff;
 }
+
+/* ===========================
+ * shadcn/ui CSS 변수 — Tailwind 매핑
+ * =========================== */
 
 @theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+  --radius-pill: 50rem;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* ===========================
+ * shadcn/ui 라이트 모드 CSS 변수
+ * Limitless 브랜드 컬러와 통합
+ * =========================== */
+
+:root {
+  --radius: 0.5rem;
+  --background: #ffffff;
+  --foreground: #1F2937;
+  --card: #ffffff;
+  --card-foreground: #1F2937;
+  --popover: #ffffff;
+  --popover-foreground: #1F2937;
+  --primary: #0c83ff;
+  --primary-foreground: #ffffff;
+  --secondary: #F3F4F6;
+  --secondary-foreground: #1F2937;
+  --muted: #F3F4F6;
+  --muted-foreground: #6B7280;
+  --accent: #F3F4F6;
+  --accent-foreground: #1F2937;
+  --destructive: #EF4444;
+  --border: #E5E7EB;
+  --input: #E5E7EB;
+  --ring: #0c83ff;
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: #ffffff;
+  --sidebar-foreground: #1F2937;
+  --sidebar-primary: #0c83ff;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #F3F4F6;
+  --sidebar-accent-foreground: #1F2937;
+  --sidebar-border: #E5E7EB;
+  --sidebar-ring: #0c83ff;
+}
+
+/* shadcn/ui 다크 모드 CSS 변수 */
+.dark {
+  --background: #1e2330;
+  --foreground: #ededed;
+  --card: #252b36;
+  --card-foreground: #ededed;
+  --popover: #252b36;
+  --popover-foreground: #ededed;
+  --primary: #0c83ff;
+  --primary-foreground: #ffffff;
+  --secondary: #374151;
+  --secondary-foreground: #ededed;
+  --muted: #374151;
+  --muted-foreground: #9CA3AF;
+  --accent: #374151;
+  --accent-foreground: #ededed;
+  --destructive: #EF4444;
+  --border: rgba(255, 255, 255, 0.1);
+  --input: rgba(255, 255, 255, 0.15);
+  --ring: #0c83ff;
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: #252b36;
+  --sidebar-foreground: #ededed;
+  --sidebar-primary: #0c83ff;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #374151;
+  --sidebar-accent-foreground: #ededed;
+  --sidebar-border: rgba(255, 255, 255, 0.1);
+  --sidebar-ring: #0c83ff;
+}
+
+/* ===========================
+ * 기본 스타일
+ * =========================== */
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* 스크린 리더 전용 */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
 }

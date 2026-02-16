@@ -52,6 +52,8 @@ public class SecurityConfig {
 			.authorizeHttpRequests(authorize -> authorize
 				// 셋업 위자드 엔드포인트 인증 없이 허용
 				.requestMatchers("/setup/**").permitAll()
+				// 인증 엔드포인트 (로그인, 토큰 갱신) 인증 없이 허용
+				.requestMatchers("/auth/login", "/auth/refresh").permitAll()
 				// Actuator 헬스체크 허용
 				.requestMatchers("/actuator/health", "/actuator/info").permitAll()
 				// 관리자 API는 모든 엔드포인트 인증 필수

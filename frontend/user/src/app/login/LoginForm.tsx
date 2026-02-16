@@ -3,6 +3,10 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { apiPost } from "@/lib/api";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import type { LoginResponse } from "@/types/api";
 
 // 필드별 유효성 검증 에러
@@ -53,13 +57,11 @@ export default function LoginForm() {
 	// UI 상태
 	const [pending, setPending]         = useState(false);
 	const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
-	const [serverError, setServerError] = useState("");
 
 	// 폼 제출 핸들러
 	async function handleSubmit(e: FormEvent<HTMLFormElement>) {
 		e.preventDefault();
 		setFieldErrors({});
-		setServerError("");
 
 		// 1. 클라이언트 유효성 검증
 		const errors = validate({ userId, password });
@@ -83,6 +85,11 @@ export default function LoginForm() {
 				localStorage.setItem("accessToken", json.data.accessToken);
 				localStorage.setItem("refreshToken", json.data.refreshToken);
 
+				// 성공 toast
+				toast.success("로그인 성공", {
+					description: `${json.data.username}님, 환영합니다!`,
+				});
+
 				// 홈으로 이동 (새로고침으로 인증 상태 반영)
 				window.location.href = "/";
 				return;
@@ -91,9 +98,12 @@ export default function LoginForm() {
 			// 4. 백엔드 에러 응답 처리
 			const errorCode    = json.error?.code || "";
 			const errorMessage = json.error?.message || "로그인에 실패했습니다";
-			setServerError(getErrorMessage(errorCode, errorMessage));
+			const msg = getErrorMessage(errorCode, errorMessage);
+			toast.error("로그인 실패", { description: msg });
 		} catch {
-			setServerError("서버에 연결할 수 없습니다");
+			toast.error("서버 연결 오류", {
+				description: "서버에 연결할 수 없습니다",
+			});
 		} finally {
 			setPending(false);
 		}
@@ -101,80 +111,51 @@ export default function LoginForm() {
 
 	return (
 		<form onSubmit={handleSubmit} className="space-y-5">
-			{/* 서버 에러 메시지 */}
-			{serverError && (
-				<div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
-					{serverError}
-				</div>
-			)}
-
 			{/* 아이디 */}
-			<div>
-				<label
-					htmlFor="userId"
-					className="mb-1.5 block text-sm font-medium text-gray-700"
-				>
-					아이디
-				</label>
-				<input
+			<div className="space-y-2">
+				<Label htmlFor="userId">아이디</Label>
+				<Input
 					id="userId"
 					type="text"
 					value={userId}
 					onChange={(e) => setUserId(e.target.value)}
 					required
 					placeholder="아이디를 입력하세요"
-					className={`w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none transition-colors
-						placeholder:text-gray-400
-						focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20
-						${fieldErrors.userId ? "border-red-400 bg-red-50" : "border-gray-300 bg-white"}`}
+					aria-invalid={!!fieldErrors.userId}
 				/>
 				{fieldErrors.userId && (
-					<p className="mt-1 text-xs text-red-500">{fieldErrors.userId}</p>
+					<p className="text-xs text-destructive">{fieldErrors.userId}</p>
 				)}
 			</div>
 
 			{/* 비밀번호 */}
-			<div>
-				<label
-					htmlFor="password"
-					className="mb-1.5 block text-sm font-medium text-gray-700"
-				>
-					비밀번호
-				</label>
-				<input
+			<div className="space-y-2">
+				<Label htmlFor="password">비밀번호</Label>
+				<Input
 					id="password"
 					type="password"
 					value={password}
 					onChange={(e) => setPassword(e.target.value)}
 					required
 					placeholder="비밀번호를 입력하세요"
-					className={`w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none transition-colors
-						placeholder:text-gray-400
-						focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20
-						${fieldErrors.password ? "border-red-400 bg-red-50" : "border-gray-300 bg-white"}`}
+					aria-invalid={!!fieldErrors.password}
 				/>
 				{fieldErrors.password && (
-					<p className="mt-1 text-xs text-red-500">{fieldErrors.password}</p>
+					<p className="text-xs text-destructive">{fieldErrors.password}</p>
 				)}
 			</div>
 
 			{/* 제출 버튼 */}
-			<button
-				type="submit"
-				disabled={pending}
-				className="w-full rounded-lg bg-blue-600 py-2.5 text-sm font-medium text-white
-					hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-400
-					transition-colors"
-			>
+			<Button type="submit" disabled={pending} className="w-full">
 				{pending ? "로그인 중..." : "로그인"}
-			</button>
+			</Button>
 
 			{/* 회원가입 링크 */}
-			<p className="text-center text-sm text-gray-500">
+			<p className="text-center text-sm text-muted-foreground">
 				계정이 없으신가요?{" "}
 				<Link
 					href="/sign-up"
-					className="font-medium text-blue-600 hover:text-blue-700"
+					className="font-medium text-primary hover:underline"
 				>
 					회원가입
 				</Link>

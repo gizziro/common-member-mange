@@ -1,6 +1,9 @@
 -- Schema initialization
 -- WARNING: This is executed only on first container initialization (empty data dir)
 
+-- 클라이언트 인코딩을 utf8mb4로 설정 (한국어 깨짐 방지)
+SET NAMES utf8mb4;
+
 -- Drop existing tables if re-running manually
 SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS tb_group_member_roles;

@@ -89,4 +89,10 @@ public class GroupEntity extends BaseEntity {
 		// 그룹 설명 변경
 		this.description = description;
 	}
+
+	// 그룹 소유자 해제 (소유자 사용자 삭제 시 사용)
+	public void clearOwner() {
+		// 소유자를 null로 설정
+		this.ownerUserId = null;
+	}
 }

@@ -2,6 +2,28 @@
 
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@/components/ui/card";
+import { LockIcon } from "lucide-react";
+
+// 상태 배지 variant 매핑
+function statusBadge(status: string) {
+	switch (status) {
+		case "ACTIVE":
+			return <Badge className="bg-green-100 text-green-700 border-green-200 hover:bg-green-100">활성</Badge>;
+		case "PENDING":
+			return <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200 hover:bg-yellow-100">대기</Badge>;
+		default:
+			return <Badge variant="destructive">{status}</Badge>;
+	}
+}
 
 // 마이페이지 콘텐츠 (Client Component, 인증 상태 확인)
 export default function ProfileContent() {
@@ -10,9 +32,9 @@ export default function ProfileContent() {
 	// 로딩 중 스피너
 	if (loading) {
 		return (
-			<div className="text-center py-12">
-				<div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-blue-600" />
-				<p className="mt-3 text-sm text-gray-500">인증 확인 중...</p>
+			<div className="py-12 text-center">
+				<div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary" />
+				<p className="mt-3 text-sm text-muted-foreground">인증 확인 중...</p>
 			</div>
 		);
 	}
@@ -20,46 +42,28 @@ export default function ProfileContent() {
 	// 미인증 상태: 로그인 유도
 	if (!user) {
 		return (
-			<div className="rounded-xl border border-gray-200 bg-white p-8 shadow-sm text-center">
-				{/* 잠금 아이콘 */}
-				<div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
-					<svg
-						className="h-8 w-8 text-red-600"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							strokeLinecap="round"
-							strokeLinejoin="round"
-							strokeWidth={2}
-							d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-						/>
-					</svg>
-				</div>
-				<h2 className="mb-2 text-xl font-semibold text-gray-900">
-					인증이 필요합니다
-				</h2>
-				<p className="mb-6 text-sm text-gray-500">
-					이 페이지는 로그인한 사용자만 접근할 수 있습니다
-				</p>
-				<div className="flex justify-center gap-3">
-					<Link
-						href="/login"
-						className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white
-							hover:bg-blue-700 transition-colors"
-					>
-						로그인
-					</Link>
-					<Link
-						href="/"
-						className="rounded-lg border border-gray-300 px-5 py-2.5 text-sm text-gray-600
-							hover:bg-gray-50 transition-colors"
-					>
-						홈으로
-					</Link>
-				</div>
-			</div>
+			<Card className="text-center">
+				<CardContent className="pt-6">
+					{/* 잠금 아이콘 */}
+					<div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
+						<LockIcon className="h-8 w-8 text-red-600" />
+					</div>
+					<h2 className="mb-2 text-xl font-semibold">
+						인증이 필요합니다
+					</h2>
+					<p className="mb-6 text-sm text-muted-foreground">
+						이 페이지는 로그인한 사용자만 접근할 수 있습니다
+					</p>
+					<div className="flex justify-center gap-3">
+						<Button asChild>
+							<Link href="/login">로그인</Link>
+						</Button>
+						<Button variant="outline" asChild>
+							<Link href="/">홈으로</Link>
+						</Button>
+					</div>
+				</CardContent>
+			</Card>
 		);
 	}
 
@@ -68,80 +72,70 @@ export default function ProfileContent() {
 		<>
 			{/* 헤더 */}
 			<div className="mb-8 text-center">
-				<h1 className="text-2xl font-bold text-gray-900">마이페이지</h1>
-				<p className="mt-2 text-sm text-gray-500">
+				<h1 className="text-2xl font-bold">마이페이지</h1>
+				<p className="mt-2 text-sm text-muted-foreground">
 					내 계정 정보를 확인할 수 있습니다
 				</p>
 			</div>
 
 			{/* 프로필 카드 */}
-			<div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-				{/* 사용자 아바타 + 이름 */}
-				<div className="mb-6 flex items-center gap-4">
-					<div className="flex h-14 w-14 items-center justify-center rounded-full bg-purple-100 text-xl font-bold text-purple-700">
-						{user.username.charAt(0)}
+			<Card>
+				<CardHeader>
+					{/* 사용자 아바타 + 이름 */}
+					<div className="flex items-center gap-4">
+						<div className="flex h-14 w-14 items-center justify-center rounded-full bg-purple-100 text-xl font-bold text-purple-700">
+							{user.username.charAt(0)}
+						</div>
+						<div>
+							<CardTitle className="text-lg">{user.username}</CardTitle>
+							<CardDescription>@{user.userId}</CardDescription>
+						</div>
 					</div>
-					<div>
-						<h2 className="text-lg font-semibold text-gray-900">
-							{user.username}
-						</h2>
-						<p className="text-sm text-gray-500">@{user.userId}</p>
-					</div>
-				</div>
+				</CardHeader>
 
-				{/* 상세 정보 */}
-				<div className="space-y-4 border-t border-gray-100 pt-4">
-					{/* 사용자 PK */}
-					<div className="flex items-center justify-between">
-						<span className="text-sm text-gray-500">ID (PK)</span>
-						<span className="text-sm font-mono text-gray-700">{user.id}</span>
+				<CardContent>
+					{/* 상세 정보 */}
+					<div className="space-y-4 border-t pt-4">
+						{/* 사용자 PK */}
+						<div className="flex items-center justify-between">
+							<span className="text-sm text-muted-foreground">ID (PK)</span>
+							<span className="text-sm font-mono">{user.id}</span>
+						</div>
+
+						{/* 로그인 아이디 */}
+						<div className="flex items-center justify-between">
+							<span className="text-sm text-muted-foreground">아이디</span>
+							<span className="text-sm font-medium">{user.userId}</span>
+						</div>
+
+						{/* 이메일 */}
+						<div className="flex items-center justify-between">
+							<span className="text-sm text-muted-foreground">이메일</span>
+							<span className="text-sm">{user.email}</span>
+						</div>
+
+						{/* 계정 상태 */}
+						<div className="flex items-center justify-between">
+							<span className="text-sm text-muted-foreground">상태</span>
+							{statusBadge(user.userStatus)}
+						</div>
 					</div>
 
-					{/* 로그인 아이디 */}
-					<div className="flex items-center justify-between">
-						<span className="text-sm text-gray-500">아이디</span>
-						<span className="text-sm font-medium text-gray-900">{user.userId}</span>
+					{/* 액션 버튼 */}
+					<div className="mt-6 flex gap-3">
+						<Button
+							variant="destructive"
+							className="flex-1"
+							onClick={logout}
+						>
+							로그아웃
+						</Button>
+						<Button variant="outline" className="flex-1" asChild>
+							<Link href="/">홈으로</Link>
+						</Button>
 					</div>
-
-					{/* 이메일 */}
-					<div className="flex items-center justify-between">
-						<span className="text-sm text-gray-500">이메일</span>
-						<span className="text-sm text-gray-900">{user.email}</span>
-					</div>
-
-					{/* 계정 상태 */}
-					<div className="flex items-center justify-between">
-						<span className="text-sm text-gray-500">상태</span>
-						<span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-							user.userStatus === "ACTIVE"
-								? "bg-green-100 text-green-700"
-								: user.userStatus === "PENDING"
-									? "bg-yellow-100 text-yellow-700"
-									: "bg-red-100 text-red-700"
-						}`}>
-							{user.userStatus}
-						</span>
-					</div>
-				</div>
-
-				{/* 액션 버튼 */}
-				<div className="mt-6 flex gap-3">
-					<button
-						onClick={logout}
-						className="flex-1 rounded-lg border border-red-300 py-2.5 text-sm font-medium text-red-600
-							hover:bg-red-50 transition-colors"
-					>
-						로그아웃
-					</button>
-					<Link
-						href="/"
-						className="flex-1 rounded-lg border border-gray-300 py-2.5 text-center text-sm text-gray-600
-							hover:bg-gray-50 transition-colors"
-					>
-						홈으로
-					</Link>
-				</div>
-			</div>
+				</CardContent>
+			</Card>
 		</>
 	);
 }

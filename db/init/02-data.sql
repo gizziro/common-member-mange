@@ -1,3 +1,6 @@
+-- 클라이언트 인코딩을 utf8mb4로 설정 (한국어 깨짐 방지)
+SET NAMES utf8mb4;
+
 -- Seed data (optional)
 INSERT INTO tb_auth_providers (code, name) VALUES
   ('local', 'Local'),

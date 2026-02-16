@@ -3,6 +3,11 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { apiPost } from "@/lib/api";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { CircleCheckIcon } from "lucide-react";
 import type { SignupResponse } from "@/types/api";
 
 // 필드별 유효성 검증 에러
@@ -63,14 +68,12 @@ export default function SignupForm() {
 	// UI 상태
 	const [pending, setPending] = useState(false);
 	const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
-	const [serverError, setServerError] = useState("");
 	const [successData, setSuccessData] = useState<SignupResponse | null>(null);
 
 	// 폼 제출 핸들러
 	async function handleSubmit(e: FormEvent<HTMLFormElement>) {
 		e.preventDefault();
 		setFieldErrors({});
-		setServerError("");
 
 		// 1. 클라이언트 유효성 검증
 		const errors = validate({ userId, password, username, email });
@@ -93,6 +96,9 @@ export default function SignupForm() {
 			// 3. 성공 응답 처리
 			if (json.success && json.data) {
 				setSuccessData(json.data);
+				toast.success("회원가입 완료", {
+					description: `${json.data.userId}님, 환영합니다!`,
+				});
 				return;
 			}
 
@@ -105,10 +111,12 @@ export default function SignupForm() {
 			} else if (errorCode === "USER_DUPLICATE_EMAIL") {
 				setFieldErrors({ email: errorMessage });
 			} else {
-				setServerError(errorMessage);
+				toast.error("회원가입 실패", { description: errorMessage });
 			}
 		} catch {
-			setServerError("서버에 연결할 수 없습니다");
+			toast.error("서버 연결 오류", {
+				description: "서버에 연결할 수 없습니다",
+			});
 		} finally {
 			setPending(false);
 		}
@@ -120,55 +128,28 @@ export default function SignupForm() {
 			<div className="text-center">
 				<div className="mb-6">
 					<div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-						<svg
-							className="h-8 w-8 text-green-600"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								strokeLinecap="round"
-								strokeLinejoin="round"
-								strokeWidth={2}
-								d="M5 13l4 4L19 7"
-							/>
-						</svg>
+						<CircleCheckIcon className="h-8 w-8 text-green-600" />
 					</div>
 				</div>
-				<h2 className="mb-2 text-xl font-semibold text-gray-900">
+				<h2 className="mb-2 text-xl font-semibold">
 					회원가입이 완료되었습니다
 				</h2>
-				<p className="mb-6 text-sm text-gray-500">
+				<p className="mb-6 text-sm text-muted-foreground">
 					<strong>{successData.userId}</strong>님, 환영합니다!
 				</p>
-				<Link
-					href="/"
-					className="inline-block rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
-				>
-					홈으로 이동
-				</Link>
+				<Button asChild>
+					<Link href="/">홈으로 이동</Link>
+				</Button>
 			</div>
 		);
 	}
 
 	return (
 		<form onSubmit={handleSubmit} className="space-y-5">
-			{/* 서버 에러 메시지 */}
-			{serverError && (
-				<div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
-					{serverError}
-				</div>
-			)}
-
 			{/* 아이디 */}
-			<div>
-				<label
-					htmlFor="userId"
-					className="mb-1.5 block text-sm font-medium text-gray-700"
-				>
-					아이디
-				</label>
-				<input
+			<div className="space-y-2">
+				<Label htmlFor="userId">아이디</Label>
+				<Input
 					id="userId"
 					type="text"
 					value={userId}
@@ -177,25 +158,17 @@ export default function SignupForm() {
 					minLength={4}
 					maxLength={50}
 					placeholder="4자 이상 입력"
-					className={`w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none transition-colors
-						placeholder:text-gray-400
-						focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20
-						${fieldErrors.userId ? "border-red-400 bg-red-50" : "border-gray-300 bg-white"}`}
+					aria-invalid={!!fieldErrors.userId}
 				/>
 				{fieldErrors.userId && (
-					<p className="mt-1 text-xs text-red-500">{fieldErrors.userId}</p>
+					<p className="text-xs text-destructive">{fieldErrors.userId}</p>
 				)}
 			</div>
 
 			{/* 비밀번호 */}
-			<div>
-				<label
-					htmlFor="password"
-					className="mb-1.5 block text-sm font-medium text-gray-700"
-				>
-					비밀번호
-				</label>
-				<input
+			<div className="space-y-2">
+				<Label htmlFor="password">비밀번호</Label>
+				<Input
 					id="password"
 					type="password"
 					value={password}
@@ -204,25 +177,17 @@ export default function SignupForm() {
 					minLength={8}
 					maxLength={100}
 					placeholder="8자 이상 입력"
-					className={`w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none transition-colors
-						placeholder:text-gray-400
-						focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20
-						${fieldErrors.password ? "border-red-400 bg-red-50" : "border-gray-300 bg-white"}`}
+					aria-invalid={!!fieldErrors.password}
 				/>
 				{fieldErrors.password && (
-					<p className="mt-1 text-xs text-red-500">{fieldErrors.password}</p>
+					<p className="text-xs text-destructive">{fieldErrors.password}</p>
 				)}
 			</div>
 
 			{/* 이름 */}
-			<div>
-				<label
-					htmlFor="username"
-					className="mb-1.5 block text-sm font-medium text-gray-700"
-				>
-					이름
-				</label>
-				<input
+			<div className="space-y-2">
+				<Label htmlFor="username">이름</Label>
+				<Input
 					id="username"
 					type="text"
 					value={username}
@@ -231,58 +196,41 @@ export default function SignupForm() {
 					minLength={2}
 					maxLength={100}
 					placeholder="이름을 입력하세요"
-					className={`w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none transition-colors
-						placeholder:text-gray-400
-						focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20
-						${fieldErrors.username ? "border-red-400 bg-red-50" : "border-gray-300 bg-white"}`}
+					aria-invalid={!!fieldErrors.username}
 				/>
 				{fieldErrors.username && (
-					<p className="mt-1 text-xs text-red-500">{fieldErrors.username}</p>
+					<p className="text-xs text-destructive">{fieldErrors.username}</p>
 				)}
 			</div>
 
 			{/* 이메일 */}
-			<div>
-				<label
-					htmlFor="email"
-					className="mb-1.5 block text-sm font-medium text-gray-700"
-				>
-					이메일
-				</label>
-				<input
+			<div className="space-y-2">
+				<Label htmlFor="email">이메일</Label>
+				<Input
 					id="email"
 					type="email"
 					value={email}
 					onChange={(e) => setEmail(e.target.value)}
 					required
 					placeholder="example@email.com"
-					className={`w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none transition-colors
-						placeholder:text-gray-400
-						focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20
-						${fieldErrors.email ? "border-red-400 bg-red-50" : "border-gray-300 bg-white"}`}
+					aria-invalid={!!fieldErrors.email}
 				/>
 				{fieldErrors.email && (
-					<p className="mt-1 text-xs text-red-500">{fieldErrors.email}</p>
+					<p className="text-xs text-destructive">{fieldErrors.email}</p>
 				)}
 			</div>
 
 			{/* 제출 버튼 */}
-			<button
-				type="submit"
-				disabled={pending}
-				className="w-full rounded-lg bg-blue-600 py-2.5 text-sm font-medium text-white
-					hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-400
-					transition-colors"
-			>
+			<Button type="submit" disabled={pending} className="w-full">
 				{pending ? "가입 처리 중..." : "회원가입"}
-			</button>
+			</Button>
 
 			{/* 로그인 링크 */}
-			<p className="text-center text-sm text-gray-500">
+			<p className="text-center text-sm text-muted-foreground">
 				이미 계정이 있으신가요?{" "}
 				<Link
 					href="/login"
-					className="font-medium text-blue-600 hover:text-blue-700"
+					className="font-medium text-primary hover:underline"
 				>
 					로그인
 				</Link>
