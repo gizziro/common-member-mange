@@ -18,6 +18,9 @@ dependencies {
 	// Spring MVC (공통 예외처리, 응답 래퍼에 필요)
 	api 'org.springframework.boot:spring-boot-starter-webmvc'
 
+	// Jackson ObjectMapper (필터 에러 응답 직렬화에 필요, webmvc의 transitive이나 java-library에서 직접 참조 불가하므로 명시)
+	api 'com.fasterxml.jackson.core:jackson-databind'
+
 	// Spring Data JPA (엔티티, 리포지토리)
 	api 'org.springframework.boot:spring-boot-starter-data-jpa'
 

@@ -3,8 +3,8 @@ package com.gizzi.core.common.security;
 import com.gizzi.core.common.exception.AuthErrorCode;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.MediaType;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.stereotype.Component;
@@ -15,15 +15,11 @@ import java.io.IOException;
 // Spring Security에서 인증 실패 시 ApiResponse JSON 형식으로 응답한다
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
 
-	// 401 응답 JSON 고정 문자열 (ApiResponse 에러 형식)
-	private static final String UNAUTHORIZED_RESPONSE = String.format(
-		"{\"success\":false,\"error\":{\"code\":\"%s\",\"message\":\"%s\",\"description\":\"%s\"}}",
-		AuthErrorCode.UNAUTHORIZED.getCode(),
-		AuthErrorCode.UNAUTHORIZED.getMessage(),
-		AuthErrorCode.UNAUTHORIZED.getDescription()
-	);
+	// 필터 에러 응답 유틸리티 (ApiResponseDto JSON 직렬화)
+	private final FilterErrorResponseWriter filterErrorResponseWriter;
 
 	@Override
 	public void commence(HttpServletRequest request,
@@ -32,12 +28,7 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
 		// 인증 실패 로그 기록
 		log.debug("인증 실패: uri={}, message={}", request.getRequestURI(), authException.getMessage());
 
-		// 401 Unauthorized 응답 설정
-		response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-		response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-		response.setCharacterEncoding("UTF-8");
-
-		// 고정 JSON 응답 출력
-		response.getWriter().write(UNAUTHORIZED_RESPONSE);
+		// 401 Unauthorized — ApiResponseDto 형식으로 응답
+		filterErrorResponseWriter.writeError(response, AuthErrorCode.UNAUTHORIZED);
 	}
 }
