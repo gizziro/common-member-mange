@@ -59,8 +59,8 @@
 - [x] 그룹 목록/상세 조회 (admin-api: GET /groups, GET /groups/{id})
 - [x] 시스템 그룹 보호 (administrator, user — 삭제/코드변경 불가)
 - [x] 회원가입 시 기본 그룹(user) 자동 배정
-- [x] 그룹 멤버 추가/제거 (admin-api: POST/DELETE /groups/{id}/members)
-- [x] 그룹 멤버 목록 조회 (admin-api: GET /groups/{id}/members)
+- [x] 그룹 멤버 추가/제거 (admin-api: POST/DELETE /groups/{id}/members — 로그인 ID 기반)
+- [x] 그룹 멤버 목록 조회 (admin-api: GET /groups/{id}/members — 로그인 ID 표시)
 - [x] 내 소속 그룹 조회 (user-api: GET /groups/me)
 - [ ] 그룹 소유자 변경/관리자 정책
 - [ ] 그룹 멤버 초대(`tb_group_invites`) 및 가입 처리
@@ -260,8 +260,8 @@
 - [x] PUT `/groups/{id}` — 그룹 수정
 - [x] DELETE `/groups/{id}` — 그룹 삭제
 - [x] GET `/groups/{id}/members` — 그룹 멤버 목록
-- [x] POST `/groups/{id}/members` — 멤버 추가
-- [x] DELETE `/groups/{id}/members/{userId}` — 멤버 제거
+- [x] POST `/groups/{id}/members` — 멤버 추가 (로그인 ID 기반)
+- [x] DELETE `/groups/{id}/members/{loginId}` — 멤버 제거 (로그인 ID 기반)
 
 ### 8.3 그룹 (user-api)
 - [x] GET `/groups/me` — 내 소속 그룹 목록
