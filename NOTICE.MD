@@ -89,13 +89,19 @@
 - [x] 별칭(Alias) fallback 해석 (SlugResolver.resolveByAlias — 모듈 slug 미매칭 시 메뉴 alias_path로 재시도)
 
 ### 4.3 페이지 모듈 (module-page)
-- [x] PageModuleDefinition — SINGLE 타입 모듈 (code=page, slug=page)
-- [x] 페이지 CRUD (tb_page_pages: slug, title, content, content_type, is_published)
+- [x] PageModuleDefinition — MULTI 타입 모듈 (code=page, slug=page, 페이지별 모듈 인스턴스)
+- [x] 페이지 CRUD (tb_page_pages: slug, title, content, content_type, is_published, module_instance_id FK)
+- [x] 페이지 생성/삭제 시 ModuleInstance 동시 생성/삭제 (cascade로 권한도 삭제)
+- [x] 페이지 수정 시 slug/title 변경 → 모듈 인스턴스도 동기화
 - [x] 콘텐츠 유형: HTML / MARKDOWN / TEXT
 - [x] Admin API: POST/GET/GET/{id}/PUT/{id}/DELETE/{id}/PATCH/{id}/publish
-- [x] User API: GET /pages/{slug} (공개 페이지), GET /pages (공개 목록)
+- [x] User API: GET /pages/{slug} (공개 페이지), GET /pages (공개 목록, 권한 필터링)
 - [x] 모듈 스키마 자동 초기화 (db/page-schema.sql)
-- [x] 권한 API: GET /pages/permissions, GET/PUT /pages/permissions/groups (그룹별 권한 매트릭스)
+- [x] 가시성 모델: 비공개(is_published=false) / 권한 미설정(전체 공개) / 권한 설정(해당 그룹·사용자만)
+- [x] 보안: 접근 권한 없는 페이지도 404 반환 (존재 여부 노출 방지)
+- [x] 권한 정의 5개: page:read, page:write, page:delete, admin:access, admin:manage
+- [x] 그룹 권한 API: GET /pages/permission-definitions, GET/PUT /pages/{id}/permissions
+- [x] 사용자 개인 권한 API: GET/PUT /pages/{id}/user-permissions
 
 ## 5. 권한 체크 로직
 
@@ -107,7 +113,15 @@
 
 ### 5.2 권한 체크 구현 위치
 - [x] PermissionChecker 유틸리티 (플랫 문자열 기반: BOARD_POST_WRITE, 소유자/직접/그룹 합산)
+- [x] hasAnyPermissionGranted(instanceId) — 인스턴스에 권한 설정 여부 판별 (전체 공개 vs 제한)
 - [ ] @RequirePermission 어노테이션
+
+### 5.3 사용자 개인 권한 관리
+- [x] ModulePermissionService.getUserPermissions(instanceId) — 인스턴스별 사용자 권한 현황
+- [x] ModulePermissionService.setUserPermissions(instanceId, request) — 사용자별 권한 일괄 설정
+- [x] ModulePermissionService.getUserPermissionSummary(userPk) — 사용자 전체 모듈 권한 요약 (직접+그룹)
+- [x] ModulePermissionService.getGroupPermissionSummary(groupId) — 그룹 전체 모듈 권한 요약
+- [x] DTO: UserInstancePermissionDto, SetUserPermissionsRequestDto, PermissionSummaryDto, PermissionItemDto
 
 ## 6. 메뉴 관리 (URL 단축/Alias 시스템)
 
@@ -248,6 +262,7 @@
 - [x] PUT `/users/{id}/unlock` — 회원 잠금 해제
 - [x] GET `/users/{id}/groups` — 회원 소속 그룹 목록
 - [x] GET `/users/{id}/identities` — 회원 소셜 연동 목록
+- [x] GET `/users/{id}/permissions` — 회원 모듈 권한 요약 (직접+그룹, 읽기 전용)
 
 ### 8.1-3 시스템 초기 설정 (admin-api)
 - [x] GET `/setup/status` — 시스템 초기화 상태 확인
@@ -262,6 +277,7 @@
 - [x] GET `/groups/{id}/members` — 그룹 멤버 목록
 - [x] POST `/groups/{id}/members` — 멤버 추가 (로그인 ID 기반)
 - [x] DELETE `/groups/{id}/members/{loginId}` — 멤버 제거 (로그인 ID 기반)
+- [x] GET `/groups/{id}/permissions` — 그룹 모듈 권한 요약 (읽기 전용)
 
 ### 8.3 그룹 (user-api)
 - [x] GET `/groups/me` — 내 소속 그룹 목록
@@ -278,9 +294,11 @@
 - [ ] POST `/permissions/grant` — 범용 권한 부여 (미구현)
 - [ ] POST `/permissions/revoke` — 범용 권한 회수 (미구현)
 - [ ] GET `/permissions/check` — 범용 권한 확인 (미구현)
-- [x] GET `/pages/permissions` — 페이지 모듈 권한 정의 목록 (admin-api)
-- [x] GET `/pages/permissions/groups` — 페이지 모듈 그룹별 권한 현황 (admin-api)
-- [x] PUT `/pages/permissions/groups` — 페이지 모듈 그룹별 권한 설정 (admin-api)
+- [x] GET `/pages/permission-definitions` — 페이지 모듈 권한 정의 목록 (admin-api)
+- [x] GET `/pages/{id}/permissions` — 페이지별 그룹 권한 현황 (admin-api)
+- [x] PUT `/pages/{id}/permissions` — 페이지별 그룹 권한 설정 (admin-api)
+- [x] GET `/pages/{id}/user-permissions` — 페이지별 사용자 개인 권한 현황 (admin-api)
+- [x] PUT `/pages/{id}/user-permissions` — 페이지별 사용자 개인 권한 설정 (admin-api)
 
 ### 8.6 메뉴 (구현 완료)
 - [x] POST `/menus` — 메뉴 생성 (admin-api)
@@ -294,13 +312,13 @@
 - [x] GET `/menus/me` — 공개 메뉴 트리 (user-api, 인증 불필요)
 
 ### 8.7 페이지 모듈 (구현 완료)
-- [x] POST `/pages` — 페이지 생성 (admin-api)
-- [x] GET `/pages` — 페이지 목록 (admin-api / user-api)
+- [x] POST `/pages` — 페이지 생성 + 모듈 인스턴스 동시 생성 (admin-api)
+- [x] GET `/pages` — 페이지 목록 (admin-api: 전체 / user-api: 공개+권한 필터링)
 - [x] GET `/pages/{id}` — 페이지 상세 (admin-api)
-- [x] PUT `/pages/{id}` — 페이지 수정 (admin-api)
-- [x] DELETE `/pages/{id}` — 페이지 삭제 (admin-api)
+- [x] PUT `/pages/{id}` — 페이지 수정 + 모듈 인스턴스 동기화 (admin-api)
+- [x] DELETE `/pages/{id}` — 페이지 삭제 + 모듈 인스턴스 삭제 (admin-api)
 - [x] PATCH `/pages/{id}/publish` — 공개/비공개 토글 (admin-api)
-- [x] GET `/pages/{slug}` — 공개 페이지 조회 (user-api)
+- [x] GET `/pages/{slug}` — 공개 페이지 조회 + 권한 체크 (user-api, 미인가 시 404)
 
 ## 9. 프론트엔드
 
@@ -316,8 +334,9 @@
 - [x] shadcn/ui 컴포넌트 전환
 - [x] toast 알림 (sonner) 적용
 - [x] 동적 메뉴 렌더링 (Header.tsx — 공개 메뉴 API 기반, aliasPath 우선 URL)
-- [x] 동적 라우팅 ([...slug]/page.tsx — resolve API + 별칭 subPath 통합)
-- [x] 페이지 뷰어 (PageViewer.tsx — HTML/Markdown/Text 렌더링)
+- [x] 동적 라우팅 ([...slug]/page.tsx — resolve API + 별칭 subPath 통합 + MULTI 인스턴스 slug 지원)
+- [x] 페이지 뷰어 (PageViewer.tsx — HTML/Markdown/Text 렌더링, 미인가 시 404 표시)
+- [x] 페이지 목록 뷰 (PageListView — /page 접근 시 공개 페이지 목록 표시)
 
 ### 9.2 관리자 웹 (frontend/admin)
 - [x] 관리자 로그인 페이지
@@ -330,8 +349,12 @@
 - [x] shadcn/ui 컴포넌트 전환
 - [x] JWT 인증 컨텍스트 및 API 유틸리티
 - [x] 메뉴 관리 페이지 (메뉴 CRUD + alias/contentPath 입력 + 모듈/인스턴스 선택)
-- [x] 페이지 관리 페이지 (페이지 CRUD + 공개/비공개 토글 + 그룹별 권한 매트릭스)
-- [x] 페이지 편집 페이지 (/pages/[id] — 제목/슬러그/콘텐츠 편집)
+- [x] 페이지 관리 페이지 (페이지 CRUD + 공개/비공개 토글)
+- [x] 페이지 편집 페이지 (/pages/[id] — 콘텐츠 탭 + 권한 설정 탭)
+  - 콘텐츠 탭: 제목/슬러그/콘텐츠 유형/콘텐츠 편집
+  - 권한 설정 탭: 그룹 권한 매트릭스 + 사용자 개인 권한 매트릭스 (5개 권한 열)
+- [x] 회원 상세 — 권한 요약 카드 (읽기 전용, 직접/그룹 출처 표시)
+- [x] 그룹 상세 — 권한 요약 카드 (읽기 전용)
 - [ ] 모듈/인스턴스 관리 페이지
 - [ ] 시스템 설정 페이지
 - [ ] 감사 로그 조회 페이지
