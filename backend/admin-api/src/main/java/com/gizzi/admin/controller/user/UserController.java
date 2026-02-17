@@ -6,6 +6,8 @@ import com.gizzi.core.domain.auth.dto.UserIdentityResponseDto;
 import com.gizzi.core.domain.auth.repository.UserIdentityRepository;
 import com.gizzi.core.domain.group.dto.GroupResponseDto;
 import com.gizzi.core.domain.group.service.GroupService;
+import com.gizzi.core.module.dto.PermissionSummaryDto;
+import com.gizzi.core.module.service.ModulePermissionService;
 import com.gizzi.core.domain.user.dto.ChangePasswordRequestDto;
 import com.gizzi.core.domain.user.dto.UpdateUserRequestDto;
 import com.gizzi.core.domain.user.dto.UserListResponseDto;
@@ -42,10 +44,13 @@ public class UserController {
 	private final UserService             userService;
 
 	// 그룹 서비스 (소속 그룹 조회용)
-	private final GroupService            groupService;
+	private final GroupService             groupService;
+
+	// 모듈 권한 서비스 (권한 요약 조회용)
+	private final ModulePermissionService  permissionService;
 
 	// 소셜 연동 리포지토리 (소셜 계정 연동 조회용)
-	private final UserIdentityRepository  userIdentityRepository;
+	private final UserIdentityRepository   userIdentityRepository;
 
 	// 사용자 목록 조회 API (페이지네이션)
 	@GetMapping
@@ -126,6 +131,17 @@ public class UserController {
 			@PathVariable String id) {
 		// 사용자 소속 그룹 목록 조회
 		List<GroupResponseDto> response = groupService.getUserGroups(id);
+
+		// 200 OK 응답 반환
+		return ResponseEntity.ok(ApiResponseDto.ok(response));
+	}
+
+	// 사용자의 전체 모듈 권한 요약 조회 API (읽기 전용)
+	@GetMapping("/{id}/permissions")
+	public ResponseEntity<ApiResponseDto<List<PermissionSummaryDto>>> getUserPermissions(
+			@PathVariable String id) {
+		// 사용자의 직접 + 그룹 권한 요약 조회
+		List<PermissionSummaryDto> response = permissionService.getUserPermissionSummary(id);
 
 		// 200 OK 응답 반환
 		return ResponseEntity.ok(ApiResponseDto.ok(response));

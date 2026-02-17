@@ -312,11 +312,14 @@ CREATE TABLE tb_page_pages (
   content_type          VARCHAR(20)     NOT NULL DEFAULT 'HTML',        -- 콘텐츠 유형 (HTML/MARKDOWN/TEXT)
   is_published          TINYINT(1)      NOT NULL DEFAULT 0,             -- 공개 여부
   sort_order            INT             NOT NULL DEFAULT 0,             -- 정렬 순서
+  module_instance_id    VARCHAR(50)     NULL,                           -- 연결된 모듈 인스턴스 ID (권한 관리용)
   created_by            VARCHAR(100)    NOT NULL,                       -- 작성자
   created_at            DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,  -- 생성 일시
   updated_by            VARCHAR(100)    NULL,                           -- 수정자
   updated_at            DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, -- 수정 일시
-  UNIQUE KEY uq_page_pages_slug (slug)
+  UNIQUE KEY uq_page_pages_slug (slug),
+  CONSTRAINT fk_page_pages_module_instance
+    FOREIGN KEY (module_instance_id) REFERENCES tb_module_instances(instance_id) ON DELETE SET NULL
 );
 
 CREATE TABLE tb_roles (

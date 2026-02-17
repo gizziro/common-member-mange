@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import Link from "next/link";
 import { apiGet } from "@/lib/api";
 import { PageViewer } from "@/components/PageViewer";
 
@@ -168,28 +169,27 @@ export default function DynamicPage() {
 
 /**
  * 모듈 코드에 따라 적절한 뷰 컴포넌트 렌더링
- * - page: PageViewer (SINGLE, subPath = 페이지 slug)
+ * - page (MULTI): 인스턴스 자체가 페이지 — instance.slug로 PageViewer 렌더링
+ * - page (랜딩): /page만 접근 시 PageListView로 페이지 목록 표시
  * - 기타: 기본 모듈 정보 표시 (향후 모듈별 컴포넌트 추가)
  */
 function renderModule(resolved: ResolveResponse, subPath: string | null) {
 	const { module: mod, instance } = resolved;
 
-	// 페이지 모듈 — subPath를 페이지 slug로 사용
+	// 페이지 모듈
 	if (mod.code === "page") {
+		// MULTI 모듈: 인스턴스가 해석된 경우 → 인스턴스 slug = 페이지 slug
+		if (mod.type === "MULTI" && instance.slug) {
+			return <PageViewer slug={instance.slug} />;
+		}
+
+		// subPath가 있는 경우 (별칭 등) → 페이지 slug로 사용
 		if (subPath) {
-			// /page/{page-slug} 또는 별칭 경로 → 개별 페이지 뷰어
 			return <PageViewer slug={subPath} />;
 		}
 
-		// /page (하위 경로 없음) → 모듈 랜딩
-		return (
-			<div className="mx-auto max-w-3xl px-6 py-12">
-				<h1 className="text-2xl font-bold">{mod.name}</h1>
-				<p className="mt-2 text-muted-foreground">
-					{instance.description || "페이지 목록"}
-				</p>
-			</div>
-		);
+		// /page (하위 경로 없음) → 페이지 목록 표시
+		return <PageListView />;
 	}
 
 	// 미구현 모듈 — 기본 정보 표시
@@ -200,6 +200,97 @@ function renderModule(resolved: ResolveResponse, subPath: string | null) {
 			<p className="mt-4 text-sm text-muted-foreground">
 				모듈: {mod.name} ({mod.code}) · 타입: {mod.type}
 			</p>
+		</div>
+	);
+}
+
+/* ===========================
+ * 페이지 목록 뷰 (/page 랜딩)
+ * 공개된 페이지 목록을 표시한다
+ * =========================== */
+
+/** 페이지 목록 항목 */
+interface PageListItem {
+	id: string;
+	slug: string;
+	title: string;
+	contentType: string;
+	isPublished: boolean;
+	createdAt: string;
+	updatedAt: string;
+}
+
+/** 페이지 목록 컴포넌트 — /page 접근 시 공개 페이지 목록 표시 */
+function PageListView() {
+	const [pages, setPages] = useState<PageListItem[]>([]);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState<string | null>(null);
+
+	useEffect(() => {
+		const loadPages = async () => {
+			setLoading(true);
+			try {
+				// 인증 토큰 (권한 기반 필터링에 필요)
+				const token = localStorage.getItem("accessToken") ?? undefined;
+				const res = await apiGet<PageListItem[]>("/pages", token);
+				if (res.success && res.data) {
+					setPages(res.data);
+				} else {
+					setError(res.error?.message ?? "페이지 목록을 불러올 수 없습니다.");
+				}
+			} catch {
+				setError("서버에 연결할 수 없습니다.");
+			} finally {
+				setLoading(false);
+			}
+		};
+		loadPages();
+	}, []);
+
+	// 로딩
+	if (loading) {
+		return (
+			<div className="flex items-center justify-center py-24">
+				<div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+			</div>
+		);
+	}
+
+	// 에러
+	if (error) {
+		return (
+			<div className="mx-auto max-w-3xl px-6 py-24 text-center">
+				<p className="text-muted-foreground">{error}</p>
+			</div>
+		);
+	}
+
+	return (
+		<div className="mx-auto max-w-3xl px-6 py-12">
+			<h1 className="text-2xl font-bold">페이지</h1>
+			<p className="mt-2 text-muted-foreground">페이지 목록</p>
+
+			{pages.length === 0 ? (
+				<p className="mt-8 text-center text-muted-foreground">
+					등록된 페이지가 없습니다.
+				</p>
+			) : (
+				<ul className="mt-6 divide-y">
+					{pages.map((page) => (
+						<li key={page.id}>
+							<Link
+								href={`/page/${page.slug}`}
+								className="block py-4 hover:bg-muted/50 -mx-4 px-4 rounded-lg transition-colors"
+							>
+								<h2 className="text-lg font-medium">{page.title}</h2>
+								<p className="mt-1 text-sm text-muted-foreground">
+									{new Date(page.updatedAt).toLocaleDateString("ko-KR")}
+								</p>
+							</Link>
+						</li>
+					))}
+				</ul>
+			)}
 		</div>
 	);
 }

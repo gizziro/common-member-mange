@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, type FormEvent } from "react";
 import Link from "next/link";
-import { apiGet, apiPost, apiDelete, apiPatch, apiPut, type ApiResponse } from "@/lib/api";
+import { apiGet, apiPost, apiDelete, apiPatch, type ApiResponse } from "@/lib/api";
 import { PageHeader } from "@/components/layout/PageHeader";
 import {
   Card,
@@ -14,7 +14,7 @@ import {
   FormGroup,
   Alert,
 } from "@/components/ui";
-import { Plus, Pencil, Trash, Eye, EyeSlash, ShieldCheck } from "@phosphor-icons/react";
+import { Plus, Pencil, Trash, Eye, EyeSlash } from "@phosphor-icons/react";
 import { toast } from "sonner";
 
 /* ===========================
@@ -29,25 +29,9 @@ interface PageItem {
   contentType: string;
   isPublished: boolean;
   sortOrder: number;
+  moduleInstanceId: string | null;
   createdAt: string;
   updatedAt: string;
-}
-
-/** 권한 정의 (모듈에서 정의한 리소스-액션) */
-interface PermissionDef {
-  id: string;
-  resource: string;
-  action: string;
-  name: string;
-  flatCode: string;
-}
-
-/** 그룹별 권한 현황 */
-interface GroupPermission {
-  groupId: string;
-  groupName: string;
-  groupCode: string;
-  grantedPermissionIds: string[];
 }
 
 /** 페이지 관리 목록 페이지 */
@@ -66,13 +50,6 @@ export default function PagesPage() {
   /* 삭제 확인 */
   const [deleteTarget, setDeleteTarget] = useState<PageItem | null>(null);
   const [deleting, setDeleting] = useState(false);
-
-  /* 권한 설정 모달 */
-  const [permOpen, setPermOpen] = useState(false);
-  const [permLoading, setPermLoading] = useState(false);
-  const [permSaving, setPermSaving] = useState(false);
-  const [availablePerms, setAvailablePerms] = useState<PermissionDef[]>([]);
-  const [groupPerms, setGroupPerms] = useState<GroupPermission[]>([]);
 
   /* 페이지 목록 로드 */
   const loadPages = useCallback(async () => {
@@ -171,71 +148,6 @@ export default function PagesPage() {
     }
   };
 
-  /* ─── 권한 관리 ─── */
-
-  /* 권한 모달 열기 — 권한 정의 + 그룹별 현황 동시 로드 */
-  const openPermModal = async () => {
-    setPermOpen(true);
-    setPermLoading(true);
-
-    try {
-      // 권한 정의 + 그룹별 현황 병렬 조회
-      const [defsRes, grpRes] = await Promise.all([
-        apiGet<PermissionDef[]>("/pages/permissions"),
-        apiGet<GroupPermission[]>("/pages/permissions/groups"),
-      ]);
-
-      if (defsRes.success && defsRes.data) {
-        setAvailablePerms(defsRes.data);
-      }
-      if (grpRes.success && grpRes.data) {
-        setGroupPerms(grpRes.data);
-      }
-    } catch {
-      toast.error("권한 정보를 불러올 수 없습니다.");
-    } finally {
-      setPermLoading(false);
-    }
-  };
-
-  /* 그룹의 권한 체크박스 토글 (로컬 상태만 변경) */
-  const togglePermission = (groupId: string, permId: string) => {
-    setGroupPerms((prev) =>
-      prev.map((gp) => {
-        if (gp.groupId !== groupId) return gp;
-
-        // 이미 부여된 권한이면 제거, 없으면 추가
-        const has = gp.grantedPermissionIds.includes(permId);
-        return {
-          ...gp,
-          grantedPermissionIds: has
-            ? gp.grantedPermissionIds.filter((id) => id !== permId)
-            : [...gp.grantedPermissionIds, permId],
-        };
-      })
-    );
-  };
-
-  /* 권한 저장 — 그룹별로 순차 저장 */
-  const savePermissions = async () => {
-    setPermSaving(true);
-    try {
-      // 모든 그룹의 권한을 순차 저장
-      for (const gp of groupPerms) {
-        await apiPut("/pages/permissions/groups", {
-          groupId: gp.groupId,
-          permissionIds: gp.grantedPermissionIds,
-        });
-      }
-      toast.success("권한이 저장되었습니다.");
-      setPermOpen(false);
-    } catch {
-      toast.error("권한 저장에 실패했습니다.");
-    } finally {
-      setPermSaving(false);
-    }
-  };
-
   /* 날짜 포맷 */
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString("ko-KR", {
@@ -249,16 +161,10 @@ export default function PagesPage() {
         title="페이지 관리"
         subtitle="텍스트/HTML 페이지를 관리합니다"
         actions={
-          <div className="flex items-center gap-2">
-            <Button variant="light" size="sm" onClick={openPermModal}>
-              <ShieldCheck size={16} className="mr-1.5" />
-              권한 설정
-            </Button>
-            <Button variant="primary" size="sm" onClick={() => setCreateOpen(true)}>
-              <Plus size={16} className="mr-1.5" />
-              페이지 생성
-            </Button>
-          </div>
+          <Button variant="primary" size="sm" onClick={() => setCreateOpen(true)}>
+            <Plus size={16} className="mr-1.5" />
+            페이지 생성
+          </Button>
         }
       />
 
@@ -405,71 +311,6 @@ export default function PagesPage() {
           <span className="font-semibold">{deleteTarget?.title}</span> 페이지를 삭제하시겠습니까?
           이 작업은 되돌릴 수 없습니다.
         </p>
-      </Modal>
-
-      {/* 권한 설정 모달 */}
-      <Modal
-        open={permOpen}
-        onClose={() => setPermOpen(false)}
-        title="페이지 모듈 권한 설정"
-        size="lg"
-        footer={
-          <>
-            <Button variant="light" onClick={() => setPermOpen(false)}>취소</Button>
-            <Button variant="primary" loading={permSaving} onClick={savePermissions}>
-              저장
-            </Button>
-          </>
-        }
-      >
-        {permLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="h-6 w-6 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-          </div>
-        ) : availablePerms.length === 0 ? (
-          <p className="py-8 text-center text-sm text-gray-500">
-            정의된 권한이 없습니다.
-          </p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-200 bg-gray-50">
-                  <th className="px-4 py-2.5 text-left font-medium text-gray-600">그룹</th>
-                  {availablePerms.map((perm) => (
-                    <th
-                      key={perm.id}
-                      className="px-3 py-2.5 text-center font-medium text-gray-600 whitespace-nowrap"
-                      title={perm.flatCode}
-                    >
-                      {perm.name}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {groupPerms.map((gp) => (
-                  <tr key={gp.groupId} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="px-4 py-2.5 font-medium text-gray-700 whitespace-nowrap">
-                      {gp.groupName}
-                      <span className="ml-1.5 text-xs text-gray-400">({gp.groupCode})</span>
-                    </td>
-                    {availablePerms.map((perm) => (
-                      <td key={perm.id} className="px-3 py-2.5 text-center">
-                        <input
-                          type="checkbox"
-                          checked={gp.grantedPermissionIds.includes(perm.id)}
-                          onChange={() => togglePermission(gp.groupId, perm.id)}
-                          className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
-                        />
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
       </Modal>
     </>
   );

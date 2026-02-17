@@ -28,6 +28,9 @@ public class PageListResponseDto {
 	// 정렬 순서
 	private final Integer sortOrder;
 
+	// 연결된 모듈 인스턴스 ID (권한 관리용)
+	private final String moduleInstanceId;
+
 	// 생성 일시
 	private final LocalDateTime createdAt;
 

@@ -33,6 +33,9 @@ public class PageResponseDto {
 	// 정렬 순서
 	private final Integer sortOrder;
 
+	// 연결된 모듈 인스턴스 ID (권한 관리용)
+	private final String moduleInstanceId;
+
 	// 생성자
 	private final String createdBy;
 

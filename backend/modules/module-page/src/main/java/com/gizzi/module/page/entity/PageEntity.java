@@ -54,6 +54,10 @@ public class PageEntity {
 	@Column(name = "sort_order", nullable = false)
 	private Integer sortOrder;
 
+	// 연결된 모듈 인스턴스 ID (권한 관리용)
+	@Column(name = "module_instance_id", length = 50)
+	private String moduleInstanceId;
+
 	// 생성자
 	@Column(name = "created_by", nullable = false, length = 100)
 	private String createdBy;
@@ -84,15 +88,17 @@ public class PageEntity {
 
 	// 페이지 생성 팩토리 메서드
 	public static PageEntity create(String slug, String title, String content,
-	                                 PageContentType contentType, String createdBy) {
-		PageEntity entity = new PageEntity();
-		entity.slug        = slug;
-		entity.title       = title;
-		entity.content     = content;
-		entity.contentType = contentType != null ? contentType : PageContentType.HTML;
-		entity.isPublished = false;
-		entity.sortOrder   = 0;
-		entity.createdBy   = createdBy;
+	                                 PageContentType contentType, String moduleInstanceId,
+	                                 String createdBy) {
+		PageEntity entity      = new PageEntity();
+		entity.slug             = slug;
+		entity.title            = title;
+		entity.content          = content;
+		entity.contentType      = contentType != null ? contentType : PageContentType.HTML;
+		entity.isPublished      = false;
+		entity.sortOrder        = 0;
+		entity.moduleInstanceId = moduleInstanceId;
+		entity.createdBy        = createdBy;
 		return entity;
 	}
 
@@ -105,6 +111,11 @@ public class PageEntity {
 		this.contentType = contentType;
 		this.updatedBy   = updatedBy;
 		this.updatedAt   = LocalDateTime.now();
+	}
+
+	// 모듈 인스턴스 ID 설정 (레거시 데이터 마이그레이션용)
+	public void setModuleInstanceId(String moduleInstanceId) {
+		this.moduleInstanceId = moduleInstanceId;
 	}
 
 	// 공개/비공개 토글

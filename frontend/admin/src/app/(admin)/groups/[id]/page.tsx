@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, type FormEvent } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { apiGet, apiPut, apiPost, apiDelete, type ApiResponse } from "@/lib/api";
+import { Badge as ShadcnBadge } from "@/components/ui/Badge";
 import { PageHeader } from "@/components/layout/PageHeader";
 import {
   Card,
@@ -38,6 +39,24 @@ interface GroupMember {
   joinedAt: string;
 }
 
+/** 권한 항목 */
+interface PermissionItem {
+  resource: string;
+  action: string;
+  name: string;
+}
+
+/** 권한 요약 */
+interface PermissionSummary {
+  instanceId: string;
+  instanceName: string;
+  instanceSlug: string;
+  moduleCode: string;
+  moduleName: string;
+  source: string;
+  permissions: PermissionItem[];
+}
+
 /** 그룹 상세 + 멤버 관리 페이지 */
 export default function GroupDetailPage() {
   const params = useParams();
@@ -66,6 +85,10 @@ export default function GroupDetailPage() {
   /* 멤버 삭제 확인 */
   const [removeMemberTarget, setRemoveMemberTarget] = useState<GroupMember | null>(null);
   const [removingMember, setRemovingMember] = useState(false);
+
+  /* 권한 요약 상태 */
+  const [permSummary, setPermSummary] = useState<PermissionSummary[]>([]);
+  const [permSummaryLoading, setPermSummaryLoading] = useState(true);
 
   /* 그룹 정보 로드 */
   const loadGroup = useCallback(async () => {
@@ -101,10 +124,26 @@ export default function GroupDetailPage() {
     }
   }, [groupId]);
 
+  /* 권한 요약 로드 */
+  const loadPermSummary = useCallback(async () => {
+    setPermSummaryLoading(true);
+    try {
+      const res = await apiGet<PermissionSummary[]>(`/groups/${groupId}/permissions`);
+      if (res.success && res.data) {
+        setPermSummary(res.data);
+      }
+    } catch {
+      /* 권한 요약 조회 실패 시 빈 배열 유지 */
+    } finally {
+      setPermSummaryLoading(false);
+    }
+  }, [groupId]);
+
   useEffect(() => {
     loadGroup();
     loadMembers();
-  }, [loadGroup, loadMembers]);
+    loadPermSummary();
+  }, [loadGroup, loadMembers, loadPermSummary]);
 
   /* 그룹 정보 수정 */
   const handleSave = async (e: FormEvent) => {
@@ -315,6 +354,52 @@ export default function GroupDetailPage() {
                             >
                               <Trash size={14} />
                             </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardBody>
+        </Card>
+        {/* 권한 요약 카드 */}
+        <Card>
+          <CardHeader title={`권한 요약 (${permSummary.length})`} />
+          <CardBody className="!p-0">
+            {permSummaryLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="h-5 w-5 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+              </div>
+            ) : permSummary.length === 0 ? (
+              <div className="py-8 text-center text-sm text-gray-500">
+                부여된 권한이 없습니다.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-200 bg-gray-50">
+                      <th className="px-5 py-3 text-left font-medium text-gray-600">모듈 인스턴스</th>
+                      <th className="px-5 py-3 text-left font-medium text-gray-600">권한</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {permSummary.map((summary, idx) => (
+                      <tr key={`${summary.instanceId}-${idx}`} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                        <td className="px-5 py-3">
+                          <span className="text-gray-400">{summary.moduleName}</span>
+                          <span className="mx-1 text-gray-400">&gt;</span>
+                          <span className="font-medium">{summary.instanceName}</span>
+                        </td>
+                        <td className="px-5 py-3">
+                          <div className="flex flex-wrap gap-1">
+                            {summary.permissions.map((perm, pidx) => (
+                              <ShadcnBadge key={pidx} variant="secondary" className="text-xs">
+                                {perm.name}
+                              </ShadcnBadge>
+                            ))}
                           </div>
                         </td>
                       </tr>

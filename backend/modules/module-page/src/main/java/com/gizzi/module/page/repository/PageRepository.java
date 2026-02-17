@@ -15,6 +15,9 @@ public interface PageRepository extends JpaRepository<PageEntity, String> {
 	// 슬러그 중복 확인
 	boolean existsBySlug(String slug);
 
+	// 모듈 인스턴스 ID로 페이지 조회
+	Optional<PageEntity> findByModuleInstanceId(String moduleInstanceId);
+
 	// 공개된 페이지 목록 조회 (정렬 순서)
 	List<PageEntity> findByIsPublishedTrueOrderBySortOrderAsc();
 

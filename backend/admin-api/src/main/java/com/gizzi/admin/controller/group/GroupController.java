@@ -7,6 +7,8 @@ import com.gizzi.core.domain.group.dto.GroupMemberResponseDto;
 import com.gizzi.core.domain.group.dto.GroupResponseDto;
 import com.gizzi.core.domain.group.dto.UpdateGroupRequestDto;
 import com.gizzi.core.domain.group.service.GroupService;
+import com.gizzi.core.module.dto.PermissionSummaryDto;
+import com.gizzi.core.module.service.ModulePermissionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,7 +35,10 @@ import java.util.List;
 public class GroupController {
 
 	// 그룹 서비스
-	private final GroupService groupService;
+	private final GroupService             groupService;
+
+	// 모듈 권한 서비스 (권한 요약 조회용)
+	private final ModulePermissionService  permissionService;
 
 	// 그룹 생성 API
 	@PostMapping
@@ -118,6 +123,17 @@ public class GroupController {
 		return ResponseEntity
 			.status(HttpStatus.CREATED)
 			.body(ApiResponseDto.ok());
+	}
+
+	// 그룹의 전체 모듈 권한 요약 조회 API (읽기 전용)
+	@GetMapping("/{groupId}/permissions")
+	public ResponseEntity<ApiResponseDto<List<PermissionSummaryDto>>> getGroupPermissions(
+			@PathVariable String groupId) {
+		// 그룹의 인스턴스별 권한 요약 조회
+		List<PermissionSummaryDto> response = permissionService.getGroupPermissionSummary(groupId);
+
+		// 200 OK 응답 반환
+		return ResponseEntity.ok(ApiResponseDto.ok(response));
 	}
 
 	// 그룹 멤버 제거 API (로그인 ID 기반)

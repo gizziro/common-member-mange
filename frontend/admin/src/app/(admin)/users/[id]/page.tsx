@@ -82,6 +82,24 @@ interface UserIdentity {
   linkedAt: string;
 }
 
+/** 권한 항목 */
+interface PermissionItem {
+  resource: string;
+  action: string;
+  name: string;
+}
+
+/** 권한 요약 */
+interface PermissionSummary {
+  instanceId: string;
+  instanceName: string;
+  instanceSlug: string;
+  moduleCode: string;
+  moduleName: string;
+  source: string;
+  permissions: PermissionItem[];
+}
+
 /** 사용자 상태 옵션 */
 const STATUS_OPTIONS = [
   { value: "ACTIVE", label: "활성" },
@@ -113,6 +131,10 @@ export default function UserDetailPage() {
   /* 소셜 연동 상태 */
   const [identities, setIdentities] = useState<UserIdentity[]>([]);
   const [identitiesLoading, setIdentitiesLoading] = useState(true);
+
+  /* 권한 요약 상태 */
+  const [permSummary, setPermSummary] = useState<PermissionSummary[]>([]);
+  const [permSummaryLoading, setPermSummaryLoading] = useState(true);
 
   /* 비밀번호 변경 다이얼로그 상태 */
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
@@ -171,11 +193,27 @@ export default function UserDetailPage() {
     }
   }, [userId]);
 
+  /* 권한 요약 로드 */
+  const loadPermSummary = useCallback(async () => {
+    setPermSummaryLoading(true);
+    try {
+      const res = await apiGet<PermissionSummary[]>(`/users/${userId}/permissions`);
+      if (res.success && res.data) {
+        setPermSummary(res.data);
+      }
+    } catch {
+      /* 권한 요약 조회 실패 시 빈 배열 유지 */
+    } finally {
+      setPermSummaryLoading(false);
+    }
+  }, [userId]);
+
   useEffect(() => {
     loadUser();
     loadGroups();
     loadIdentities();
-  }, [loadUser, loadGroups, loadIdentities]);
+    loadPermSummary();
+  }, [loadUser, loadGroups, loadIdentities, loadPermSummary]);
 
   /* 사용자 정보 수정 */
   const handleSave = async (e: FormEvent) => {
@@ -541,7 +579,64 @@ export default function UserDetailPage() {
           </CardContent>
         </Card>
 
-        {/* Card 4: 비밀번호 변경 */}
+        {/* Card 5: 권한 요약 */}
+        <Card>
+          <CardHeader className="border-b">
+            <CardTitle>권한 요약 ({permSummary.length})</CardTitle>
+          </CardHeader>
+          <CardContent className="!p-0">
+            {permSummaryLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="h-5 w-5 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+              </div>
+            ) : permSummary.length === 0 ? (
+              <div className="py-8 text-center text-sm text-muted-foreground">
+                부여된 권한이 없습니다.
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead className="px-5">모듈 인스턴스</TableHead>
+                    <TableHead className="px-5">권한</TableHead>
+                    <TableHead className="px-5">출처</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {permSummary.map((summary, idx) => (
+                    <TableRow key={`${summary.instanceId}-${summary.source}-${idx}`}>
+                      <TableCell className="px-5">
+                        <span className="text-muted-foreground">{summary.moduleName}</span>
+                        <span className="mx-1 text-muted-foreground">&gt;</span>
+                        <span className="font-medium">{summary.instanceName}</span>
+                      </TableCell>
+                      <TableCell className="px-5">
+                        <div className="flex flex-wrap gap-1">
+                          {summary.permissions.map((perm, pidx) => (
+                            <Badge key={pidx} variant="secondary" className="text-xs">
+                              {perm.name}
+                            </Badge>
+                          ))}
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-5">
+                        {summary.source === "DIRECT" ? (
+                          <Badge className="bg-blue-100 text-blue-700 text-xs">직접</Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-xs">
+                            {summary.source.replace("GROUP:", "")}
+                          </Badge>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Card 6: 비밀번호 변경 */}
         <Card>
           <CardHeader className="border-b">
             <CardTitle>비밀번호 관리</CardTitle>

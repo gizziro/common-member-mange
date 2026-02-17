@@ -50,6 +50,15 @@ public class PermissionChecker {
 	// 그룹 권한 리포지토리
 	private final GroupModulePermissionRepository   groupPermissionRepository;
 
+	// 해당 인스턴스에 권한이 하나라도 부여되어 있는지 확인
+	// (그룹/사용자 무관, 어떤 권한이든 설정된 적이 있는지)
+	// 반환값: true → 권한이 설정되어 있음 (접근 제한 모드), false → 권한 미설정 (전체 공개)
+	public boolean hasAnyPermissionGranted(String instanceId) {
+		long groupCount = groupPermissionRepository.countByModuleInstanceId(instanceId);
+		long userCount  = userPermissionRepository.countByModuleInstanceId(instanceId);
+		return (groupCount + userCount) > 0;
+	}
+
 	// 특정 권한 보유 여부 확인
 	// permission: 플랫 문자열 (예: "BOARD_POST_WRITE")
 	public boolean hasPermission(String userId, String instanceId, String permission) {

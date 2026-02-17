@@ -17,6 +17,9 @@ public interface GroupModulePermissionRepository
 	List<GroupModulePermissionEntity> findByGroupIdAndModuleInstanceId(
 			String groupId, String moduleInstanceId);
 
+	// 특정 인스턴스에 부여된 그룹 권한 레코드 수 조회 (권한 설정 여부 판별용)
+	long countByModuleInstanceId(String moduleInstanceId);
+
 	// 사용자가 소속된 모든 그룹의 특정 인스턴스에 대한 권한 ID 합산 조회
 	// tb_group_members JOIN tb_group_module_permissions로 사용자 소속 그룹의 권한을 한번에 조회한다
 	@Query("SELECT DISTINCT gmp.modulePermissionId FROM GroupModulePermissionEntity gmp " +
@@ -28,4 +31,7 @@ public interface GroupModulePermissionRepository
 	List<String> findPermissionIdsByUserGroupsAndInstanceId(
 			@Param("userId") String userId,
 			@Param("instanceId") String instanceId);
+
+	// 특정 그룹의 전체 인스턴스 권한 조회 (권한 요약용)
+	List<GroupModulePermissionEntity> findByGroupId(String groupId);
 }

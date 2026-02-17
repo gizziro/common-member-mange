@@ -52,8 +52,11 @@ export function PageViewer({ slug }: PageViewerProps) {
 			setError(null);
 
 			try {
-				// 공개 페이지 slug 조회 (인증 불필요)
-				const res = await apiGet<PageDetail>(`/pages/${slug}`);
+				// 인증 토큰 (권한 기반 페이지 접근에 필요)
+				const token = localStorage.getItem("accessToken") ?? undefined;
+
+				// 페이지 slug 조회 (인증 토큰 포함 — 권한 체크용)
+				const res = await apiGet<PageDetail>(`/pages/${slug}`, token);
 
 				if (res.success && res.data) {
 					setPage(res.data);
@@ -79,12 +82,14 @@ export function PageViewer({ slug }: PageViewerProps) {
 		);
 	}
 
-	// 에러 상태
+	// 에러 상태 — 권한 없음/존재하지 않음 모두 동일하게 "없는 페이지" 표시
 	if (error || !page) {
 		return (
 			<div className="mx-auto max-w-3xl px-6 py-24 text-center">
-				<h1 className="text-2xl font-bold text-destructive">페이지를 찾을 수 없습니다</h1>
-				<p className="mt-2 text-muted-foreground">{error}</p>
+				<h1 className="text-4xl font-bold text-muted-foreground">404</h1>
+				<p className="mt-4 text-muted-foreground">
+					없는 페이지입니다.
+				</p>
 			</div>
 		);
 	}
