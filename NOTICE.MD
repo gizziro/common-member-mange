@@ -72,11 +72,14 @@
 ## 4. 모듈/인스턴스 관리
 
 ### 4.1 모듈 관리
-- [ ] 모듈 정의 등록 (`tb_modules`)
-- [ ] 모듈 권한 등록 (`tb_module_permissions`)
-- [ ] ModuleDefinition 인터페이스 구현
-- [ ] ModuleRegistry (모듈 자동 발견/등록)
-- [ ] SlugResolver (slug → 모듈/인스턴스 매핑)
+- [x] 모듈 정의 등록 (`tb_modules` — slug, description, is_enabled, updated_at 추가)
+- [x] 모듈 권한 등록 (`tb_module_permissions` — resource 컬럼 추가, 3단계 권한 모델)
+- [x] ModuleDefinition 인터페이스 구현
+- [x] ModuleRegistry (모듈 자동 발견/등록, @Order(2) ApplicationRunner)
+- [x] ModuleSchemaInitializer (모듈별 schema.sql 자동 실행, @Order(1) ApplicationRunner)
+- [x] SlugResolver (slug → 모듈/인스턴스 매핑)
+- [x] ModuleContentProvider / ModuleContentRegistry (SPI 패턴, 모듈 간 콘텐츠 참조)
+- [x] ModuleErrorCode (9개 에러 코드)
 
 ### 4.2 모듈 인스턴스 관리
 - [ ] 인스턴스 생성/삭제 (`tb_module_instances`)
@@ -93,7 +96,7 @@
 4. [ ] 그룹 권한(`tb_group_module_permissions`) 확인
 
 ### 5.2 권한 체크 구현 위치
-- [ ] PermissionChecker 유틸리티 (플랫 문자열 기반: BOARD_POST_WRITE)
+- [x] PermissionChecker 유틸리티 (플랫 문자열 기반: BOARD_POST_WRITE, 소유자/직접/그룹 합산)
 - [ ] @RequirePermission 어노테이션
 
 ## 6. 메뉴 관리
@@ -121,6 +124,60 @@
 - [x] admin-api 접근 시 administrator 그룹 소속 여부 검증 (AdminGroupFilter — JwtAuthenticationFilter 이후 실행)
 - [x] 관리자 페이지 접근 가능한 사용자/그룹 관리 (AdminAccessService — administrator 그룹 PK 캐시)
 - [x] 비관리자가 admin-api 로그인 시도 시 적절한 에러 응답 (AUTH_ACCESS_DENIED)
+
+### 7.2-1 관리자 페이지 세분화 권한 (미구현 — 설계 검토 필요)
+
+> **현재**: AdminGroupFilter로 administrator 그룹 소속 여부만 확인 → 모든 관리자가 모든 관리 기능 사용 가능
+> **목표**: 관리자 페이지 내에서도 메뉴/기능별 접근 권한을 그룹·회원 단위로 제어
+
+#### 배경
+- 부 관리자 계정(또는 운영자 그룹)이 필요한 시점이 올 수 있음
+- 예: "회원 관리"만 가능한 운영자, "시스템 설정"까지 가능한 슈퍼 관리자
+- user-api 메뉴 권한 모델(MODULE 타입 메뉴 → 인스턴스 권한으로 가시성 파생)을 admin-api에도 적용하는 방향
+
+#### 선행 작업 (구현 순서)
+1. **모듈 시스템 프레임워크** — ModuleDefinition, ModuleRegistry, SlugResolver (§4.1)
+2. **메뉴 관리 시스템** — tb_menus CRUD, 메뉴 트리 조회 (§6)
+3. **PermissionChecker** — 플랫 문자열 기반 권한 체크 유틸리티 (§5)
+4. **admin-api 메뉴 권한 통합** — 아래 설계안 참조
+
+#### 설계 방향 (초안)
+
+```
+[현재 구조 — 1단계 게이트]
+  AdminGroupFilter → administrator 그룹 소속? → 전체 허용 / 전체 차단
+
+[목표 구조 — 2단계 게이트]
+  1단계: AdminGroupFilter → admin 접근 허용 그룹 소속? (administrator + 부관리자 그룹 등)
+  2단계: 컨트롤러/메뉴별 → PermissionChecker로 해당 기능 권한 확인
+```
+
+**방안 A — admin-api도 메뉴 시스템 공유**
+- tb_menus에 admin용 메뉴도 등록 (menu_scope = 'ADMIN' 같은 구분 컬럼 추가 또는 별도 admin 메뉴 트리)
+- admin 메뉴 항목에 모듈 인스턴스 연결 → 기존 권한 모델 그대로 적용
+- 장점: user-api와 동일한 권한 모델 재사용, 일관성
+- 단점: admin 기능(회원관리, 설정 등)을 모듈 인스턴스로 모델링해야 함
+
+**방안 B — admin 전용 권한 테이블**
+- admin 기능별 권한 코드 정의 (ADMIN_USER_READ, ADMIN_USER_WRITE, ADMIN_SETTING_WRITE 등)
+- tb_admin_permissions 또는 기존 tb_module_permissions에 admin 모듈로 등록
+- AdminGroupFilter를 확장하여 요청 URL → 필요 권한 매핑 → PermissionChecker 호출
+- 장점: admin 특화 설계 가능, 메뉴 시스템과 독립
+- 단점: user-api와 별도 권한 체계 관리 필요
+
+**방안 C (권장) — 하이브리드**
+- 1단계 게이트: AdminGroupFilter는 "admin 접근 가능 그룹 목록"으로 확장 (administrator 외 추가 그룹 허용)
+- 2단계 게이트: admin 기능을 SINGLE 타입 모듈로 등록 (user-mgmt, group-mgmt, system-settings 등)
+  → 기존 3단계 권한 모델(모듈→리소스→액션) 적용
+  → 예: `ADMIN_USER_READ`, `ADMIN_USER_WRITE`, `ADMIN_SETTING_WRITE`
+- 메뉴 시스템으로 admin 사이드바도 동적 렌더링
+- 장점: 기존 인프라 최대 활용, user/admin 권한 모델 통일
+- 단점: 모듈 시스템 + 메뉴 시스템 완성이 선행 필수
+
+#### 결론
+- 모듈 시스템(§4) → 메뉴 관리(§6) → PermissionChecker(§5) 순서로 구현 후 admin 권한 세분화 진행
+- 현재 AdminGroupFilter는 그대로 유지 (1단계 게이트 역할)
+- 상세 설계는 메뉴 관리 구현 시점에 확정
 
 ### 7.3 설정 적용 방식
 - [ ] 애플리케이션 시작 시 캐시 로딩

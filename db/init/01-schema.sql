@@ -199,42 +199,50 @@ CREATE TABLE tb_system_settings (
 
 -- Modules (single or multi-instance)
 CREATE TABLE tb_modules (
-  id         CHAR(36)        PRIMARY KEY DEFAULT (UUID()), -- 모듈 PK
-  code       VARCHAR(50)     NOT NULL,                     -- 모듈 코드
-  name       VARCHAR(100)    NOT NULL,                     -- 모듈 이름
-  type       VARCHAR(20)     NOT NULL DEFAULT 'SINGLE',    -- 모듈 유형
-  created_at DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP, -- 생성 일시
-  UNIQUE KEY uq_modules_code (code)
+  id          CHAR(36)        PRIMARY KEY DEFAULT (UUID()),                                  -- 모듈 PK
+  code        VARCHAR(50)     NOT NULL,                                                      -- 모듈 코드 (영소문자, 프로그래밍 식별자)
+  name        VARCHAR(100)    NOT NULL,                                                      -- 모듈 표시명
+  slug        VARCHAR(50)     NOT NULL,                                                      -- URL 슬러그 (영소문자+숫자+하이픈)
+  description VARCHAR(500)    NULL,                                                          -- 모듈 설명
+  type        VARCHAR(20)     NOT NULL DEFAULT 'SINGLE',                                     -- 모듈 유형 (SINGLE / MULTI)
+  is_enabled  TINYINT(1)      NOT NULL DEFAULT 1,                                            -- 활성화 여부
+  created_at  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,                             -- 생성 일시
+  updated_at  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, -- 수정 일시
+  UNIQUE KEY uq_modules_code (code),
+  UNIQUE KEY uq_modules_slug (slug)
 );
 
 -- Module instances (for multi-instance tb_modules like boards)
 CREATE TABLE tb_module_instances (
-  instance_id     VARCHAR(50)     PRIMARY KEY DEFAULT (UUID()), -- 인스턴스 ID
-  module_code     VARCHAR(50)     NOT NULL,                     -- 모듈 코드
-  instance_name   VARCHAR(100)    NOT NULL,                     -- 인스턴스 이름
-  description     VARCHAR(500)    NULL,                         -- 인스턴스 설명
-  owner_id        VARCHAR(50)     NOT NULL,                     -- 소유자 ID
-  instance_type   VARCHAR(20)     NOT NULL,                     -- 인스턴스 유형
-  enabled         TINYINT(1)      NOT NULL DEFAULT 1,           -- 활성화 여부
-  created_by      VARCHAR(100)    NOT NULL,                     -- 생성자
-  created_at      DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP, -- 생성 일시
-  updated_by      VARCHAR(100)    NULL,                         -- 수정자
+  instance_id     VARCHAR(50)     PRIMARY KEY DEFAULT (UUID()),                                  -- 인스턴스 PK (UUID)
+  module_code     VARCHAR(50)     NOT NULL,                                                      -- 모듈 코드 FK
+  instance_name   VARCHAR(100)    NOT NULL,                                                      -- 인스턴스 표시명
+  slug            VARCHAR(50)     NOT NULL,                                                      -- URL 슬러그 (동일 모듈 내 유니크)
+  description     VARCHAR(500)    NULL,                                                          -- 인스턴스 설명
+  owner_id        VARCHAR(50)     NOT NULL,                                                      -- 소유자 사용자 PK
+  instance_type   VARCHAR(20)     NOT NULL,                                                      -- 인스턴스 유형
+  enabled         TINYINT(1)      NOT NULL DEFAULT 1,                                            -- 활성화 여부
+  created_by      VARCHAR(100)    NOT NULL,                                                      -- 생성자
+  created_at      DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,                             -- 생성 일시
+  updated_by      VARCHAR(100)    NULL,                                                          -- 수정자
   updated_at      DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, -- 수정 일시
   CONSTRAINT fk_module_instances_module
     FOREIGN KEY (module_code) REFERENCES tb_modules(code) ON DELETE RESTRICT,
   UNIQUE KEY uq_module_instances_module_name (module_code, instance_name),
+  UNIQUE KEY uq_module_instances_module_slug (module_code, slug),
   KEY idx_module_instances_owner_id (owner_id),
   KEY idx_module_instances_enabled (enabled)
 );
 
--- Permissions per module (action-level)
+-- Permissions per module (3-level: module → resource → action)
 CREATE TABLE tb_module_permissions (
-  id          CHAR(36)        PRIMARY KEY DEFAULT (UUID()), -- 모듈 권한 PK
-  module_code VARCHAR(50)     NOT NULL,                     -- 모듈 코드
-  action      VARCHAR(30)     NOT NULL,                     -- 권한 액션
-  name        VARCHAR(100)    NOT NULL,                     -- 권한 이름
-  created_at  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP, -- 생성 일시
-  UNIQUE KEY uq_module_permissions_module_action (module_code, action),
+  id          CHAR(36)        PRIMARY KEY DEFAULT (UUID()),                                  -- 모듈 권한 PK
+  module_code VARCHAR(50)     NOT NULL,                                                      -- 모듈 코드 FK
+  resource    VARCHAR(50)     NOT NULL,                                                      -- 모듈 내 리소스 (post, comment 등)
+  action      VARCHAR(30)     NOT NULL,                                                      -- 권한 액션 (read, write, delete 등)
+  name        VARCHAR(100)    NOT NULL,                                                      -- 권한 표시명 (게시글 작성 등)
+  created_at  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,                             -- 생성 일시
+  UNIQUE KEY uq_module_permissions (module_code, resource, action),
   CONSTRAINT fk_module_permissions_module
     FOREIGN KEY (module_code) REFERENCES tb_modules(code) ON DELETE RESTRICT
 );

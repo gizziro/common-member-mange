@@ -6,8 +6,9 @@ import org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoCon
 
 // 사용자 API 애플리케이션 진입점
 // JWT 기반 인증을 사용하므로 Spring Security 기본 UserDetailsService 자동 설정을 제외한다
+// com.gizzi.module: 기능 모듈(module-board 등)의 컴포넌트 스캔
 @SpringBootApplication(
-	scanBasePackages = {"com.gizzi.core", "com.gizzi.user"},
+	scanBasePackages = {"com.gizzi.core", "com.gizzi.user", "com.gizzi.module"},
 	exclude = {UserDetailsServiceAutoConfiguration.class}
 )
 public class UserApiApplication {

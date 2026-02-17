@@ -34,6 +34,8 @@ management:
 # JWT 설정 (환경변수 우선, 기본값 폴백)
 # user-api 전용 secret key — admin-api와 분리하여 토큰 교차 사용 방지
 app:
+  # API 유형 식별자 — 기능 모듈의 @ConditionalOnProperty 분기에 사용
+  api-type: user
   jwt:
     secret-key: ${JWT_SECRET_KEY:user-secret-key-must-be-at-least-32-characters-long!!}
     access-token-expiration: ${JWT_ACCESS_EXPIRATION:1800000}
