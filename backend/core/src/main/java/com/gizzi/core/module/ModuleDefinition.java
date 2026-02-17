@@ -1,6 +1,7 @@
 package com.gizzi.core.module;
 
 import com.gizzi.core.module.dto.ResourcePermissionDefinition;
+import com.gizzi.core.module.dto.SettingDefinition;
 
 import java.util.List;
 
@@ -40,6 +41,14 @@ public interface ModuleDefinition {
 	// ModuleSchemaInitializer가 이 테이블의 존재 여부로 스키마 적용 여부를 판단한다
 	// 예: ["tb_board_posts", "tb_board_comments"]
 	default List<String> getRequiredTables() {
+		return List.of();
+	}
+
+	// 모듈 기본 설정 정의 목록
+	// SettingsRegistry가 앱 시작 시 이 목록을 기반으로 tb_settings에 기본 설정을 등록한다
+	// DB에 이미 존재하면 스킵하여 관리자가 수정한 값을 보존한다
+	// 예: [SettingDefinition("general", "default_content_type", "HTML", STRING, "기본 콘텐츠 타입", "...", 0)]
+	default List<SettingDefinition> getDefaultSettings() {
 		return List.of();
 	}
 }

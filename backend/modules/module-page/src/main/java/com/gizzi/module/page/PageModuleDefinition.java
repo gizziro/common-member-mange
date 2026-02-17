@@ -1,8 +1,10 @@
 package com.gizzi.module.page;
 
+import com.gizzi.core.domain.setting.entity.SettingValueType;
 import com.gizzi.core.module.ModuleDefinition;
 import com.gizzi.core.module.ModuleType;
 import com.gizzi.core.module.dto.ResourcePermissionDefinition;
+import com.gizzi.core.module.dto.SettingDefinition;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -56,5 +58,18 @@ public class PageModuleDefinition implements ModuleDefinition {
 	@Override
 	public List<String> getRequiredTables() {
 		return List.of("tb_page_pages");
+	}
+
+	// 페이지 모듈 기본 설정 정의
+	@Override
+	public List<SettingDefinition> getDefaultSettings() {
+		return List.of(
+				new SettingDefinition("general", "default_content_type", "HTML",
+						SettingValueType.STRING, "기본 콘텐츠 타입",
+						"새 페이지 생성 시 기본 콘텐츠 타입 (HTML/MARKDOWN/TEXT)", 0),
+				new SettingDefinition("general", "auto_publish", "false",
+						SettingValueType.BOOLEAN, "자동 공개",
+						"새 페이지 생성 시 자동으로 공개 상태로 설정", 1)
+		);
 	}
 }

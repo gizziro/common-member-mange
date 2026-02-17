@@ -49,6 +49,13 @@ public class SystemInitService {
 	// 초기화 상태 캐시 (true면 매 요청마다 DB 조회 생략)
 	private final AtomicBoolean initializedCache = new AtomicBoolean(false);
 
+	// 초기화 캐시 무효화 (DB 초기화 후 재확인이 필요할 때 호출)
+	// 캐시를 false로 리셋하여 다음 isInitialized() 호출 시 DB를 다시 확인하게 한다
+	public void invalidateCache() {
+		initializedCache.set(false);
+		log.info("시스템 초기화 캐시 무효화됨 — 다음 조회 시 DB 재확인");
+	}
+
 	// 시스템 초기화 여부 확인
 	// administrator 그룹에 멤버가 1명 이상이면 초기화 완료로 판단
 	public boolean isInitialized() {

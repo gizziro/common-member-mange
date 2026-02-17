@@ -12,7 +12,7 @@ DROP TABLE IF EXISTS tb_user_roles;
 DROP TABLE IF EXISTS tb_role_permissions;
 DROP TABLE IF EXISTS tb_roles;
 DROP TABLE IF EXISTS tb_audit_logs;
-DROP TABLE IF EXISTS tb_system_settings;
+DROP TABLE IF EXISTS tb_settings;
 DROP TABLE IF EXISTS tb_page_pages;
 DROP TABLE IF EXISTS tb_menus;
 DROP TABLE IF EXISTS tb_group_module_permissions;
@@ -188,15 +188,25 @@ CREATE TABLE tb_permissions (
     FOREIGN KEY (resource_id) REFERENCES tb_resources(id) ON DELETE CASCADE
 );
 
--- System settings (feature flags, auth options)
-CREATE TABLE tb_system_settings (
-  id          CHAR(36)        PRIMARY KEY DEFAULT (UUID()), -- 설정 PK
-  setting_key VARCHAR(100)    NOT NULL,                     -- 설정 키
-  setting_val VARCHAR(500)    NOT NULL,                     -- 설정 값
-  description VARCHAR(255)    NULL,                         -- 설명
-  updated_by  VARCHAR(100)    NULL,                         -- 수정자
-  updated_at  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, -- 수정 일시
-  UNIQUE KEY uq_system_settings_key (setting_key)
+-- 통합 설정 (시스템 + 모듈 설정을 하나의 테이블로 관리)
+-- module_code='system'이면 전역 설정, 그 외는 해당 모듈의 설정
+-- setting_group으로 설정을 그룹핑 (general/signup/auth/session 등)
+CREATE TABLE tb_settings (
+  id              CHAR(36)        PRIMARY KEY DEFAULT (UUID()),                                  -- 설정 PK
+  module_code     VARCHAR(50)     NOT NULL DEFAULT 'system',                                     -- 'system' = 전역, 그 외 = 모듈 코드
+  setting_group   VARCHAR(50)     NOT NULL DEFAULT 'general',                                    -- 설정 그룹 ('general' = 기본)
+  setting_key     VARCHAR(100)    NOT NULL,                                                      -- 설정 키
+  setting_value   TEXT            NOT NULL,                                                       -- 설정 값 (문자열 저장)
+  value_type      VARCHAR(20)     NOT NULL DEFAULT 'STRING',                                     -- STRING/NUMBER/BOOLEAN/JSON
+  name            VARCHAR(100)    NOT NULL,                                                      -- 표시명 (관리자 UI)
+  description     VARCHAR(500)    NULL,                                                          -- 설명
+  is_readonly     TINYINT(1)      NOT NULL DEFAULT 0,                                            -- 읽기 전용 (코드에서만 변경)
+  sort_order      INT             NOT NULL DEFAULT 0,                                            -- 그룹 내 정렬
+  updated_by      VARCHAR(100)    NULL,                                                          -- 최종 수정자
+  created_at      DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,                             -- 생성 일시
+  updated_at      DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, -- 수정 일시
+  UNIQUE KEY uq_settings (module_code, setting_group, setting_key),
+  KEY idx_settings_module (module_code)
 );
 
 -- Modules (single or multi-instance)

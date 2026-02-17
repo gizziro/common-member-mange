@@ -1,4 +1,4 @@
-import { House, Users, UsersThree, Gear, Key, List, FileText } from "@phosphor-icons/react";
+import { House, Users, UsersThree, Gear, GearSix, Key, List, FileText } from "@phosphor-icons/react";
 import type { SidebarNavItem } from "@/types/components";
 
 /**
@@ -46,6 +46,12 @@ export const adminNavItems: SidebarNavItem[] = [
   {
     type: "header",
     label: "설정",
+  },
+  {
+    type: "link",
+    label: "시스템 설정",
+    href: "/settings/system",
+    icon: <GearSix size={20} />,
   },
   {
     type: "link",
