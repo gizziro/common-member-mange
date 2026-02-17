@@ -91,9 +91,9 @@
 
 ### 5.1 권한 체크 흐름(권장)
 1. [ ] 전역 역할(`tb_user_roles`) 확인
-2. [ ] 모듈 인스턴스 소유자 여부 확인
-3. [ ] 사용자 직접 권한(`tb_user_module_permissions`) 확인
-4. [ ] 그룹 권한(`tb_group_module_permissions`) 확인
+2. [x] 모듈 인스턴스 소유자 여부 확인 (PermissionChecker.isOwner)
+3. [x] 사용자 직접 권한(`tb_user_module_permissions`) 확인 (PermissionChecker.collectAllPermissionIds)
+4. [x] 그룹 권한(`tb_group_module_permissions`) 확인 (PermissionChecker.collectAllPermissionIds — 합산)
 
 ### 5.2 권한 체크 구현 위치
 - [x] PermissionChecker 유틸리티 (플랫 문자열 기반: BOARD_POST_WRITE, 소유자/직접/그룹 합산)
@@ -216,6 +216,7 @@
 - [x] POST `/auth/refresh` — 관리자 토큰 갱신
 - [x] GET `/auth/me` — 관리자 현재 사용자 정보
 - [x] GET `/auth/providers` — 소셜 Provider 전체 목록
+- [x] GET `/auth/providers/{id}` — Provider 상세 조회
 - [x] PUT `/auth/providers/{id}` — Provider 설정 수정
 
 ### 8.1-2 회원 관리 (admin-api)
@@ -225,6 +226,7 @@
 - [x] PUT `/users/{id}/password` — 회원 비밀번호 변경
 - [x] DELETE `/users/{id}` — 회원 삭제 (자기 자신/관리자 그룹 소속 보호, Redis 토큰 정리)
 - [x] PUT `/users/{id}/unlock` — 회원 잠금 해제
+- [x] GET `/users/{id}/groups` — 회원 소속 그룹 목록
 - [x] GET `/users/{id}/identities` — 회원 소셜 연동 목록
 
 ### 8.1-3 시스템 초기 설정 (admin-api)
