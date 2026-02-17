@@ -33,6 +33,9 @@ public class SecurityConfig {
 	// 시스템 초기 설정 가드 필터 (미초기화 시 비셋업 요청 차단)
 	private final SetupGuardFilter             setupGuardFilter;
 
+	// 관리자 그룹 소속 확인 필터 (인증 후 administrator 그룹 멤버십 검증)
+	private final AdminGroupFilter             adminGroupFilter;
+
 	// Spring Security 필터 체인 설정
 	@Bean
 	public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -63,7 +66,9 @@ public class SecurityConfig {
 			// SetupGuardFilter를 SecurityContextHolderFilter 직후에 추가 (필터 체인 초반에서 미초기화 조기 차단)
 			.addFilterAfter(setupGuardFilter, SecurityContextHolderFilter.class)
 			// JWT 인증 필터를 UsernamePasswordAuthenticationFilter 앞에 추가
-			.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+			.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+			// AdminGroupFilter를 JwtAuthenticationFilter 이후에 추가 (인증 후 관리자 그룹 검증)
+			.addFilterAfter(adminGroupFilter, JwtAuthenticationFilter.class);
 
 		return http.build();
 	}

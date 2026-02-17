@@ -118,9 +118,9 @@
 - [ ] 2차 인증 필수 여부 및 적용 범위 (`tb_system_settings`)
 
 ### 7.2 관리자 페이지 접근 제어
-- [ ] admin-api 접근 시 administrator 그룹 소속 여부 검증 (JWT 필터 또는 SecurityConfig에서 차단)
-- [ ] 관리자 페이지 접근 가능한 사용자/그룹 관리 (시스템 설정 또는 별도 테이블)
-- [ ] 비관리자가 admin-api 로그인 시도 시 적절한 에러 응답 (AUTH_ACCESS_DENIED)
+- [x] admin-api 접근 시 administrator 그룹 소속 여부 검증 (AdminGroupFilter — JwtAuthenticationFilter 이후 실행)
+- [x] 관리자 페이지 접근 가능한 사용자/그룹 관리 (AdminAccessService — administrator 그룹 PK 캐시)
+- [x] 비관리자가 admin-api 로그인 시도 시 적절한 에러 응답 (AUTH_ACCESS_DENIED)
 
 ### 7.3 설정 적용 방식
 - [ ] 애플리케이션 시작 시 캐시 로딩
@@ -216,6 +216,7 @@
 - [x] 소셜 로그인 콜백 처리 페이지
 - [x] 소셜 연동 확인 페이지 (기존 계정 발견 시 로컬 ID/PW 입력)
 - [x] 소셜 연동 성공 콜백 페이지
+- [x] OAuth2 콜백 에러 페이지 (에러 코드별 사용자 친화적 메시지 표시)
 - [x] shadcn/ui 컴포넌트 전환
 - [x] toast 알림 (sonner) 적용
 - [ ] 동적 메뉴 렌더링
@@ -245,7 +246,7 @@
 - [x] application.properties → application.yml 형식 전환
 - [x] 필터 체인 에러 응답 ApiResponseDto 직렬화 통일 (FilterErrorResponseWriter)
 - [x] 페이지네이션 공통 응답 DTO (PageResponseDto)
-- [ ] **admin-api 접근 제어: administrator 그룹 소속자만 허용 (보안 필수)**
+- [x] **admin-api 접근 제어: administrator 그룹 소속자만 허용 (AdminGroupFilter + AuthController 로그인/갱신 차단)**
 - [ ] **OAuth2 콜백 리다이렉트 URL 외부화**: `OAuth2Controller`의 프론트엔드 리다이렉트 URL(`http://localhost:3020/auth/oauth2/...`)이 하드코딩됨. `application.yml`에 `app.frontend-url` 등의 프로퍼티로 추출하여 환경별(로컬/운영) 설정 가능하도록 리팩토링 필요
 - [ ] 트랜잭션 처리 범위 정의
 - [ ] FK 제약 위반 대비 예외 처리

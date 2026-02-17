@@ -1,5 +1,6 @@
 package com.gizzi.core.domain.user.service;
 
+import com.gizzi.core.common.exception.AuthErrorCode;
 import com.gizzi.core.common.exception.BusinessException;
 import com.gizzi.core.common.exception.UserErrorCode;
 import com.gizzi.core.domain.auth.repository.UserIdentityRepository;
@@ -117,6 +118,13 @@ public class UserService {
 		// 이메일 존재 여부를 조회하여 사용 가능 여부 반환
 		boolean exists = userRepository.existsByEmail(email);
 		return exists ? AvailabilityCheckResponseDto.unavailable() : AvailabilityCheckResponseDto.available();
+	}
+
+	// 로그인 ID로 사용자 엔티티 조회 (admin 로그인 전 관리자 그룹 확인용)
+	// 없으면 AUTH_INVALID_CREDENTIALS 예외 발생
+	public UserEntity findByLoginId(String loginId) {
+		return userRepository.findByUserId(loginId)
+			.orElseThrow(() -> new BusinessException(AuthErrorCode.INVALID_CREDENTIALS));
 	}
 
 	// ===========================
