@@ -85,7 +85,17 @@
 - [ ] 인스턴스 생성/삭제 (`tb_module_instances`)
 - [ ] 소유자 관리 (`owner_id`, `instance_type`)
 - [ ] 인스턴스 활성/비활성 처리 (`enabled`)
-- [ ] Slug 기반 동적 라우팅 (GET /resolve/{module-slug}/{instance-slug})
+- [x] Slug 기반 동적 라우팅 (GET /resolve/{module-slug}, GET /resolve/{module-slug}/{instance-slug})
+- [x] 별칭(Alias) fallback 해석 (SlugResolver.resolveByAlias — 모듈 slug 미매칭 시 메뉴 alias_path로 재시도)
+
+### 4.3 페이지 모듈 (module-page)
+- [x] PageModuleDefinition — SINGLE 타입 모듈 (code=page, slug=page)
+- [x] 페이지 CRUD (tb_page_pages: slug, title, content, content_type, is_published)
+- [x] 콘텐츠 유형: HTML / MARKDOWN / TEXT
+- [x] Admin API: POST/GET/GET/{id}/PUT/{id}/DELETE/{id}/PATCH/{id}/publish
+- [x] User API: GET /pages/{slug} (공개 페이지), GET /pages (공개 목록)
+- [x] 모듈 스키마 자동 초기화 (db/page-schema.sql)
+- [x] 권한 API: GET /pages/permissions, GET/PUT /pages/permissions/groups (그룹별 권한 매트릭스)
 
 ## 5. 권한 체크 로직
 
@@ -99,18 +109,28 @@
 - [x] PermissionChecker 유틸리티 (플랫 문자열 기반: BOARD_POST_WRITE, 소유자/직접/그룹 합산)
 - [ ] @RequirePermission 어노테이션
 
-## 6. 메뉴 관리
+## 6. 메뉴 관리 (URL 단축/Alias 시스템)
+
+> **핵심 개념**: 메뉴는 "경로 단축/변환" 용도. 모든 보이는 메뉴는 인증 없이 공개.
+> 권한 관리는 각 기능 모듈 admin 컨트롤러에서 담당.
 
 ### 6.1 메뉴 CRUD (admin-api)
-- [ ] 메뉴 항목 생성/수정/삭제 (POST/PUT/DELETE /menus)
-- [ ] 메뉴 트리 전체 조회 (GET /menus)
-- [ ] 메뉴 정렬 순서 변경 (PATCH /menus/{id}/order)
-- [ ] 메뉴 유형: MODULE / LINK / SEPARATOR
+- [x] 메뉴 항목 생성/수정/삭제 (POST/PUT/DELETE /menus)
+- [x] 메뉴 트리 전체 조회 (GET /menus)
+- [x] 메뉴 정렬 순서 변경 (PATCH /menus/{id}/order)
+- [x] 메뉴 가시성 토글 (PATCH /menus/{id}/toggle)
+- [x] 메뉴 유형: MODULE / LINK / SEPARATOR
+- [x] 모듈/인스턴스 목록 조회 API (GET /menus/modules, GET /menus/modules/{code}/instances)
 
-### 6.2 메뉴 조회 (user-api)
-- [ ] 권한 기반 필터링된 메뉴 트리 반환 (GET /menus/me)
-- [ ] MODULE 타입: 연결된 인스턴스에 *_*_READ 권한 있으면 표시
-- [ ] SEPARATOR 타입: 하위 메뉴 중 하나라도 보이면 표시
+### 6.2 메뉴 Alias 시스템
+- [x] alias_path: 외부 단축 경로 (UNIQUE, slug 형식)
+- [x] content_path: SINGLE 모듈 콘텐츠 경로 (예: page 모듈 → "test" → /page/test)
+- [x] Alias 유효성 검증: 형식/중복/모듈 slug 충돌/예약어(login, sign-up 등) 체크
+- [x] MenuErrorCode 4개 추가 (ALIAS_DUPLICATE, ALIAS_CONFLICTS_MODULE, ALIAS_RESERVED, ALIAS_INVALID_FORMAT)
+
+### 6.3 메뉴 조회 (user-api)
+- [x] 공개 메뉴 트리 반환 (GET /menus/me — 인증 불필요, is_visible=true인 메뉴만)
+- [x] SEPARATOR 타입: 하위 메뉴 중 하나라도 있으면 표시 (자식 없으면 자동 숨김)
 
 ## 7. 시스템 설정
 
@@ -246,24 +266,41 @@
 ### 8.3 그룹 (user-api)
 - [x] GET `/groups/me` — 내 소속 그룹 목록
 
-### 8.4 모듈 (미구현)
-- [ ] POST `/modules`
-- [ ] GET `/modules`
-- [ ] POST `/modules/{code}/instances`
-- [ ] GET `/modules/{code}/instances/{instanceId}`
-- [ ] GET `/resolve/{module-slug}/{instance-slug}`
+### 8.4 모듈 (부분 구현)
+- [ ] POST `/modules` — 모듈 등록 (관리 API, 미구현)
+- [ ] GET `/modules` — 모듈 목록 (관리 API, 미구현)
+- [ ] POST `/modules/{code}/instances` — 인스턴스 생성 (미구현)
+- [ ] GET `/modules/{code}/instances/{instanceId}` — 인스턴스 조회 (미구현)
+- [x] GET `/resolve/{module-slug}` — SINGLE 모듈 해석 + 별칭 fallback (user-api)
+- [x] GET `/resolve/{module-slug}/{instance-slug}` — MULTI 모듈 해석 + 별칭 fallback (user-api)
 
-### 8.5 권한 (미구현)
-- [ ] POST `/permissions/grant`
-- [ ] POST `/permissions/revoke`
-- [ ] GET `/permissions/check`
+### 8.5 권한 (부분 구현)
+- [ ] POST `/permissions/grant` — 범용 권한 부여 (미구현)
+- [ ] POST `/permissions/revoke` — 범용 권한 회수 (미구현)
+- [ ] GET `/permissions/check` — 범용 권한 확인 (미구현)
+- [x] GET `/pages/permissions` — 페이지 모듈 권한 정의 목록 (admin-api)
+- [x] GET `/pages/permissions/groups` — 페이지 모듈 그룹별 권한 현황 (admin-api)
+- [x] PUT `/pages/permissions/groups` — 페이지 모듈 그룹별 권한 설정 (admin-api)
 
-### 8.6 메뉴 (미구현)
-- [ ] POST `/menus` — 메뉴 생성 (admin-api)
-- [ ] GET `/menus` — 메뉴 트리 조회 (admin-api)
-- [ ] PUT `/menus/{id}` — 메뉴 수정 (admin-api)
-- [ ] DELETE `/menus/{id}` — 메뉴 삭제 (admin-api)
-- [ ] GET `/menus/me` — 권한 기반 메뉴 트리 (user-api)
+### 8.6 메뉴 (구현 완료)
+- [x] POST `/menus` — 메뉴 생성 (admin-api)
+- [x] GET `/menus` — 메뉴 트리 조회 (admin-api)
+- [x] PUT `/menus/{id}` — 메뉴 수정 (admin-api)
+- [x] DELETE `/menus/{id}` — 메뉴 삭제 (admin-api)
+- [x] PATCH `/menus/{id}/order` — 메뉴 정렬 순서 변경 (admin-api)
+- [x] PATCH `/menus/{id}/toggle` — 메뉴 가시성 토글 (admin-api)
+- [x] GET `/menus/modules` — 모듈 목록 조회 (admin-api)
+- [x] GET `/menus/modules/{code}/instances` — 모듈별 인스턴스 목록 (admin-api)
+- [x] GET `/menus/me` — 공개 메뉴 트리 (user-api, 인증 불필요)
+
+### 8.7 페이지 모듈 (구현 완료)
+- [x] POST `/pages` — 페이지 생성 (admin-api)
+- [x] GET `/pages` — 페이지 목록 (admin-api / user-api)
+- [x] GET `/pages/{id}` — 페이지 상세 (admin-api)
+- [x] PUT `/pages/{id}` — 페이지 수정 (admin-api)
+- [x] DELETE `/pages/{id}` — 페이지 삭제 (admin-api)
+- [x] PATCH `/pages/{id}/publish` — 공개/비공개 토글 (admin-api)
+- [x] GET `/pages/{slug}` — 공개 페이지 조회 (user-api)
 
 ## 9. 프론트엔드
 
@@ -278,7 +315,9 @@
 - [x] OAuth2 콜백 에러 페이지 (에러 코드별 사용자 친화적 메시지 표시)
 - [x] shadcn/ui 컴포넌트 전환
 - [x] toast 알림 (sonner) 적용
-- [ ] 동적 메뉴 렌더링
+- [x] 동적 메뉴 렌더링 (Header.tsx — 공개 메뉴 API 기반, aliasPath 우선 URL)
+- [x] 동적 라우팅 ([...slug]/page.tsx — resolve API + 별칭 subPath 통합)
+- [x] 페이지 뷰어 (PageViewer.tsx — HTML/Markdown/Text 렌더링)
 
 ### 9.2 관리자 웹 (frontend/admin)
 - [x] 관리자 로그인 페이지
@@ -290,8 +329,10 @@
 - [x] 소셜 Provider 설정 관리 페이지 (settings/auth-providers)
 - [x] shadcn/ui 컴포넌트 전환
 - [x] JWT 인증 컨텍스트 및 API 유틸리티
+- [x] 메뉴 관리 페이지 (메뉴 CRUD + alias/contentPath 입력 + 모듈/인스턴스 선택)
+- [x] 페이지 관리 페이지 (페이지 CRUD + 공개/비공개 토글 + 그룹별 권한 매트릭스)
+- [x] 페이지 편집 페이지 (/pages/[id] — 제목/슬러그/콘텐츠 편집)
 - [ ] 모듈/인스턴스 관리 페이지
-- [ ] 메뉴 관리 페이지
 - [ ] 시스템 설정 페이지
 - [ ] 감사 로그 조회 페이지
 
