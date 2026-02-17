@@ -8,9 +8,6 @@ import com.gizzi.core.domain.menu.dto.UpdateMenuRequestDto;
 import com.gizzi.core.domain.menu.entity.MenuEntity;
 import com.gizzi.core.domain.menu.entity.MenuType;
 import com.gizzi.core.domain.menu.repository.MenuRepository;
-import com.gizzi.core.module.PermissionChecker;
-import com.gizzi.core.module.entity.ModuleEntity;
-import com.gizzi.core.module.entity.ModuleInstanceEntity;
 import com.gizzi.core.module.repository.ModuleInstanceRepository;
 import com.gizzi.core.module.repository.ModuleRepository;
 import lombok.RequiredArgsConstructor;
@@ -19,15 +16,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 // 메뉴 관리 서비스
-// 메뉴 CRUD, 트리 조회, 정렬, 사용자 권한 기반 필터링을 담당한다
+// 메뉴 CRUD, 트리 조회, 정렬을 담당한다
+// 메뉴는 URL 단축(Alias) 시스템으로서 권한 필터링 없이 모든 보이는 메뉴를 노출한다
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -37,17 +34,23 @@ public class MenuService {
 	// 최대 메뉴 깊이 (3단계까지 허용)
 	private static final int MAX_DEPTH = 3;
 
+	// 단축 경로 유효성 검증 정규식 (영소문자+숫자+하이픈, 1자 이상)
+	private static final Pattern ALIAS_PATTERN = Pattern.compile("^[a-z0-9]+(-[a-z0-9]+)*$");
+
+	// Next.js 정적 라우트 예약어 목록 (단축 경로와 충돌 방지)
+	private static final Set<String> RESERVED_PATHS = Set.of(
+			"login", "sign-up", "profile", "api", "auth",
+			"_next", "favicon.ico", "robots.txt", "sitemap.xml"
+	);
+
 	// 메뉴 리포지토리
 	private final MenuRepository           menuRepository;
 
 	// 모듈 인스턴스 리포지토리 (MODULE 타입 URL 생성용)
 	private final ModuleInstanceRepository  instanceRepository;
 
-	// 모듈 리포지토리 (slug 조회용)
+	// 모듈 리포지토리 (slug 조회 + alias 충돌 검사용)
 	private final ModuleRepository          moduleRepository;
-
-	// 권한 체크 유틸리티 (사용자 메뉴 가시성 판단)
-	private final PermissionChecker         permissionChecker;
 
 	// 메뉴 항목 생성
 	@Transactional
@@ -74,6 +77,12 @@ public class MenuService {
 			}
 		}
 
+		// 단축 경로(alias) 유효성 검증
+		String aliasPath = normalizeAlias(request.getAliasPath());
+		if (aliasPath != null) {
+			validateAliasPath(aliasPath, null);
+		}
+
 		// 엔티티 생성 및 저장
 		MenuEntity entity = MenuEntity.create(
 				request.getName(),
@@ -81,7 +90,8 @@ public class MenuService {
 				menuType,
 				menuType == MenuType.MODULE ? request.getModuleInstanceId() : null,
 				menuType == MenuType.LINK ? request.getCustomUrl() : null,
-				menuType == MenuType.LINK ? request.getRequiredRole() : null,
+				menuType == MenuType.MODULE ? aliasPath : null,
+				menuType == MenuType.MODULE ? normalizeContentPath(request.getContentPath()) : null,
 				request.getParentId() != null && !request.getParentId().isBlank()
 						? request.getParentId() : null,
 				request.getSortOrder()
@@ -109,6 +119,12 @@ public class MenuService {
 			throw new BusinessException(MenuErrorCode.MENU_MODULE_INSTANCE_REQUIRED);
 		}
 
+		// 단축 경로(alias) 유효성 검증
+		String aliasPath = normalizeAlias(request.getAliasPath());
+		if (aliasPath != null) {
+			validateAliasPath(aliasPath, id);
+		}
+
 		// 정보 수정
 		entity.updateInfo(
 				request.getName(),
@@ -116,7 +132,8 @@ public class MenuService {
 				menuType,
 				menuType == MenuType.MODULE ? request.getModuleInstanceId() : null,
 				menuType == MenuType.LINK ? request.getCustomUrl() : null,
-				menuType == MenuType.LINK ? request.getRequiredRole() : null
+				menuType == MenuType.MODULE ? aliasPath : null,
+				menuType == MenuType.MODULE ? normalizeContentPath(request.getContentPath()) : null
 		);
 
 		menuRepository.save(entity);
@@ -178,21 +195,19 @@ public class MenuService {
 	public List<MenuResponseDto> getAllMenuTree() {
 		// 전체 메뉴 로드
 		List<MenuEntity> allMenus = menuRepository.findAllByOrderBySortOrderAsc();
-		return buildTree(allMenus, null, false, null);
+		return buildTree(allMenus, null);
 	}
 
-	// 사용자 권한 기반 메뉴 트리 조회
-	// 가시성이 true인 메뉴만 로드하고, 권한에 따라 필터링한다
-	public List<MenuResponseDto> getVisibleMenuTree(String userId) {
+	// 보이는 메뉴 트리 조회 (모든 사용자 공개 — 권한 필터링 없음)
+	// is_visible = true인 메뉴만 반환한다
+	public List<MenuResponseDto> getVisibleMenuTree() {
 		// is_visible = true인 메뉴만 로드
 		List<MenuEntity> visibleMenus = menuRepository.findByIsVisibleTrueOrderBySortOrderAsc();
-		return buildTree(visibleMenus, null, true, userId);
+		return buildTree(visibleMenus, null);
 	}
 
 	// 메뉴 트리를 재귀적으로 구성
-	// filterByPermission=true이면 사용자 권한 기반 필터링 적용
-	private List<MenuResponseDto> buildTree(List<MenuEntity> allMenus, String parentId,
-	                                         boolean filterByPermission, String userId) {
+	private List<MenuResponseDto> buildTree(List<MenuEntity> allMenus, String parentId) {
 		List<MenuResponseDto> result = new ArrayList<>();
 
 		// 현재 부모에 속하는 메뉴 필터링
@@ -204,66 +219,20 @@ public class MenuService {
 
 		for (MenuEntity menu : children) {
 			// 하위 메뉴 재귀 구성
-			List<MenuResponseDto> childDtos = buildTree(allMenus, menu.getId(),
-					filterByPermission, userId);
+			List<MenuResponseDto> childDtos = buildTree(allMenus, menu.getId());
 
-			if (filterByPermission) {
-				// 권한 기반 필터링 적용
-				MenuResponseDto dto = buildFilteredMenuDto(menu, childDtos, userId);
-				if (dto != null) {
-					result.add(dto);
-				}
-			} else {
-				// 관리자용 — 전체 표시
-				result.add(toResponseDto(menu, childDtos));
+			// SEPARATOR는 자식이 없으면 제외 (사용자 트리에서)
+			if (menu.getMenuType() == MenuType.SEPARATOR && childDtos.isEmpty()) {
+				continue;
 			}
+
+			result.add(toResponseDto(menu, childDtos));
 		}
 
 		return result;
 	}
 
-	// 사용자 권한에 따라 메뉴 표시 여부 결정
-	// MODULE: 인스턴스 권한이 하나라도 있으면 표시
-	// LINK: requiredRole이 null이면 전체 공개 (현재는 역할 체크 미구현, 전체 공개)
-	// SEPARATOR: 자식 중 하나라도 보이면 표시
-	private MenuResponseDto buildFilteredMenuDto(MenuEntity menu,
-	                                              List<MenuResponseDto> filteredChildren,
-	                                              String userId) {
-		switch (menu.getMenuType()) {
-			case MODULE:
-				// 모듈 인스턴스 권한 확인
-				if (menu.getModuleInstanceId() == null) {
-					return null;
-				}
-				Map<String, List<String>> permissions =
-						permissionChecker.getPermissionMap(userId, menu.getModuleInstanceId());
-				// 권한이 하나라도 있으면 표시
-				if (permissions.isEmpty()) {
-					return null;
-				}
-				return toResponseDtoWithPermissions(menu, filteredChildren, permissions);
-
-			case LINK:
-				// LINK 타입: requiredRole이 null이면 전체 공개
-				// TODO: 향후 역할 기반 필터링 구현
-				if (menu.getRequiredRole() != null) {
-					return null;
-				}
-				return toResponseDto(menu, filteredChildren);
-
-			case SEPARATOR:
-				// SEPARATOR: 자식이 하나라도 보이면 표시
-				if (filteredChildren.isEmpty()) {
-					return null;
-				}
-				return toResponseDto(menu, filteredChildren);
-
-			default:
-				return null;
-		}
-	}
-
-	// MenuEntity → 기본 응답 DTO 변환
+	// MenuEntity → 응답 DTO 변환
 	private MenuResponseDto toResponseDto(MenuEntity entity, List<MenuResponseDto> children) {
 		return MenuResponseDto.builder()
 				.id(entity.getId())
@@ -273,37 +242,22 @@ public class MenuService {
 				.url(buildUrl(entity))
 				.moduleInstanceId(entity.getModuleInstanceId())
 				.customUrl(entity.getCustomUrl())
-				.requiredRole(entity.getRequiredRole())
+				.aliasPath(entity.getAliasPath())
+				.contentPath(entity.getContentPath())
 				.sortOrder(entity.getSortOrder())
 				.isVisible(entity.getIsVisible())
 				.children(children.isEmpty() ? null : children)
 				.build();
 	}
 
-	// MenuEntity → 권한 포함 응답 DTO 변환 (MODULE 타입 사용자 메뉴용)
-	private MenuResponseDto toResponseDtoWithPermissions(MenuEntity entity,
-	                                                      List<MenuResponseDto> children,
-	                                                      Map<String, List<String>> permissions) {
-		return MenuResponseDto.builder()
-				.id(entity.getId())
-				.name(entity.getName())
-				.icon(entity.getIcon())
-				.menuType(entity.getMenuType().name())
-				.url(buildUrl(entity))
-				.sortOrder(entity.getSortOrder())
-				.permissions(permissions)
-				.children(children.isEmpty() ? null : children)
-				.build();
-	}
-
 	// 메뉴 URL 생성
-	// MODULE: /{module-slug}/{instance-slug} (MULTI) 또는 /{module-slug} (SINGLE)
+	// MODULE: /{module-slug}/{content-path} (SINGLE+contentPath) 또는 기존 동작
 	// LINK: customUrl 반환
 	// SEPARATOR: null
 	private String buildUrl(MenuEntity entity) {
 		switch (entity.getMenuType()) {
 			case MODULE:
-				return buildModuleUrl(entity.getModuleInstanceId());
+				return buildModuleUrl(entity.getModuleInstanceId(), entity.getContentPath());
 			case LINK:
 				return entity.getCustomUrl();
 			default:
@@ -311,8 +265,8 @@ public class MenuService {
 		}
 	}
 
-	// 모듈 인스턴스 ID로 URL 생성
-	private String buildModuleUrl(String instanceId) {
+	// 모듈 인스턴스 ID + contentPath로 URL 생성
+	private String buildModuleUrl(String instanceId, String contentPath) {
 		if (instanceId == null) {
 			return null;
 		}
@@ -322,8 +276,12 @@ public class MenuService {
 					// 모듈 조회하여 slug 확보
 					return moduleRepository.findByCode(instance.getModuleCode())
 							.map(module -> {
-								// SINGLE 모듈: /{module-slug}
+								// SINGLE 모듈
 								if ("SINGLE".equals(module.getType().name())) {
+									// contentPath가 있으면 /{module-slug}/{content-path}
+									if (contentPath != null && !contentPath.isBlank()) {
+										return "/" + module.getSlug() + "/" + contentPath;
+									}
 									return "/" + module.getSlug();
 								}
 								// MULTI 모듈: /{module-slug}/{instance-slug}
@@ -332,6 +290,54 @@ public class MenuService {
 							.orElse(null);
 				})
 				.orElse(null);
+	}
+
+	// 단축 경로(alias) 유효성 검증
+	// alias가 null이면 검증하지 않음, null이 아니면 형식/중복/충돌 체크
+	private void validateAliasPath(String aliasPath, String excludeMenuId) {
+		// 1. 형식 검증 (영소문자+숫자+하이픈)
+		if (!ALIAS_PATTERN.matcher(aliasPath).matches()) {
+			throw new BusinessException(MenuErrorCode.MENU_ALIAS_INVALID_FORMAT);
+		}
+
+		// 2. 중복 체크
+		if (excludeMenuId == null) {
+			// 생성 시
+			if (menuRepository.existsByAliasPath(aliasPath)) {
+				throw new BusinessException(MenuErrorCode.MENU_ALIAS_DUPLICATE);
+			}
+		} else {
+			// 수정 시 (자기 자신 제외)
+			if (menuRepository.existsByAliasPathAndIdNot(aliasPath, excludeMenuId)) {
+				throw new BusinessException(MenuErrorCode.MENU_ALIAS_DUPLICATE);
+			}
+		}
+
+		// 3. 모듈 slug 충돌 체크 (page, board 등)
+		if (moduleRepository.findBySlug(aliasPath).isPresent()) {
+			throw new BusinessException(MenuErrorCode.MENU_ALIAS_CONFLICTS_MODULE);
+		}
+
+		// 4. 예약어 충돌 체크 (login, sign-up, profile 등)
+		if (RESERVED_PATHS.contains(aliasPath)) {
+			throw new BusinessException(MenuErrorCode.MENU_ALIAS_RESERVED);
+		}
+	}
+
+	// 단축 경로 정규화 (빈 문자열 → null)
+	private String normalizeAlias(String alias) {
+		if (alias == null || alias.isBlank()) {
+			return null;
+		}
+		return alias.trim();
+	}
+
+	// 콘텐츠 경로 정규화 (빈 문자열 → null)
+	private String normalizeContentPath(String contentPath) {
+		if (contentPath == null || contentPath.isBlank()) {
+			return null;
+		}
+		return contentPath.trim();
 	}
 
 	// 메뉴 유형 문자열 파싱

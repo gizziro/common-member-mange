@@ -23,6 +23,8 @@ interface MenuItem {
 	menuType: "MODULE" | "LINK" | "SEPARATOR";
 	/** 자동 생성된 URL (MODULE/LINK) */
 	url: string | null;
+	/** 단축 경로 (alias) */
+	aliasPath: string | null;
 	/** 정렬 순서 */
 	sortOrder: number;
 	/** 하위 메뉴 목록 (재귀) */
@@ -46,21 +48,12 @@ export function Header() {
 	const pathname = usePathname();
 	const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
 
-	// 인증 상태 변경 시 메뉴 로드
+	// 메뉴 로드 (인증 불필요 — 모든 보이는 메뉴를 공개)
 	useEffect(() => {
 		const loadMenus = async () => {
-			// 토큰 조회
-			const token = localStorage.getItem("accessToken");
-
-			// 미인증 시 메뉴 비우기
-			if (!token) {
-				setMenuItems([]);
-				return;
-			}
-
 			try {
-				// 권한 필터링된 메뉴 트리 조회
-				const res = await apiGet<MenuItem[]>("/menus/me", token);
+				// 공개 메뉴 트리 조회 (인증 토큰 불필요)
+				const res = await apiGet<MenuItem[]>("/menus/me");
 				if (res.success && res.data) {
 					setMenuItems(res.data);
 				}
@@ -73,9 +66,10 @@ export function Header() {
 		if (!loading) {
 			loadMenus();
 		}
-	}, [user, loading]);
+	}, [loading]);
 
 	// 메뉴 트리에서 네비게이션 링크 추출 (SEPARATOR 하위 + 최상위 링크)
+	// aliasPath가 있으면 단축 URL 사용, 없으면 내부 URL 사용
 	const extractLinks = (items: MenuItem[]): NavLink[] => {
 		const links: NavLink[] = [];
 
@@ -83,13 +77,21 @@ export function Header() {
 			if (item.menuType === "SEPARATOR") {
 				// SEPARATOR 하위의 링크 수집
 				for (const child of item.children) {
-					if (child.url) {
-						links.push({ name: child.name, url: child.url });
+					const linkUrl = child.aliasPath
+						? "/" + child.aliasPath
+						: child.url;
+					if (linkUrl) {
+						links.push({ name: child.name, url: linkUrl });
 					}
 				}
-			} else if (item.url) {
+			} else {
 				// 최상위 MODULE/LINK 항목
-				links.push({ name: item.name, url: item.url });
+				const linkUrl = item.aliasPath
+					? "/" + item.aliasPath
+					: item.url;
+				if (linkUrl) {
+					links.push({ name: item.name, url: linkUrl });
+				}
 			}
 		}
 

@@ -1,6 +1,11 @@
 package com.gizzi.module.page.admin.controller;
 
 import com.gizzi.core.common.dto.ApiResponseDto;
+import com.gizzi.core.module.dto.InstancePermissionDto;
+import com.gizzi.core.module.dto.SetPermissionsRequestDto;
+import com.gizzi.core.module.entity.ModulePermissionEntity;
+import com.gizzi.core.module.repository.ModuleInstanceRepository;
+import com.gizzi.core.module.service.ModulePermissionService;
 import com.gizzi.module.page.dto.CreatePageRequestDto;
 import com.gizzi.module.page.dto.PageListResponseDto;
 import com.gizzi.module.page.dto.PageResponseDto;
@@ -24,9 +29,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
 
 // 페이지 관리 컨트롤러 (admin-api에서만 활성화)
 // app.api-type=admin 일 때만 빈으로 등록된다
+// 페이지 CRUD + 공개/비공개 + 권한 관리 API를 제공한다
 @Slf4j
 @RestController
 @RequestMapping("/pages")
@@ -34,8 +41,17 @@ import java.util.List;
 @ConditionalOnProperty(name = "app.api-type", havingValue = "admin")
 public class PageAdminController {
 
+	// 페이지 모듈 코드 상수
+	private static final String MODULE_CODE = "page";
+
 	// 페이지 서비스
-	private final PageService pageService;
+	private final PageService              pageService;
+
+	// 모듈 인스턴스 권한 서비스
+	private final ModulePermissionService  permissionService;
+
+	// 모듈 인스턴스 리포지토리 (시스템 인스턴스 ID 조회용)
+	private final ModuleInstanceRepository instanceRepository;
 
 	// 페이지 생성
 	@PostMapping
@@ -85,5 +101,51 @@ public class PageAdminController {
 	public ResponseEntity<ApiResponseDto<PageResponseDto>> togglePublish(@PathVariable String id) {
 		PageResponseDto response = pageService.togglePublish(id);
 		return ResponseEntity.ok(ApiResponseDto.ok(response));
+	}
+
+	// ─── 권한 관리 API ───
+
+	// 페이지 모듈의 권한 정의 목록 조회
+	@GetMapping("/permissions")
+	public ResponseEntity<ApiResponseDto<List<Map<String, String>>>> getAvailablePermissions() {
+		List<Map<String, String>> permissions = permissionService.getAvailablePermissions(MODULE_CODE)
+				.stream()
+				.map(perm -> Map.of(
+						"id", perm.getId(),
+						"resource", perm.getResource(),
+						"action", perm.getAction(),
+						"name", perm.getName(),
+						"flatCode", perm.toFlatPermissionString()
+				))
+				.toList();
+		return ResponseEntity.ok(ApiResponseDto.ok(permissions));
+	}
+
+	// 그룹별 권한 현황 조회
+	@GetMapping("/permissions/groups")
+	public ResponseEntity<ApiResponseDto<List<InstancePermissionDto>>> getGroupPermissions() {
+		// page 모듈의 시스템 인스턴스 ID 조회
+		String instanceId = getPageInstanceId();
+		List<InstancePermissionDto> permissions = permissionService.getGroupPermissions(instanceId);
+		return ResponseEntity.ok(ApiResponseDto.ok(permissions));
+	}
+
+	// 그룹별 권한 일괄 설정
+	@PutMapping("/permissions/groups")
+	public ResponseEntity<ApiResponseDto<Void>> setGroupPermissions(
+			@Valid @RequestBody SetPermissionsRequestDto request) {
+		// page 모듈의 시스템 인스턴스 ID 조회
+		String instanceId = getPageInstanceId();
+		permissionService.setGroupPermissions(instanceId, request);
+		return ResponseEntity.ok(ApiResponseDto.ok());
+	}
+
+	// page 모듈의 시스템 인스턴스 ID를 조회하는 헬퍼
+	private String getPageInstanceId() {
+		return instanceRepository.findByModuleCode(MODULE_CODE)
+				.stream()
+				.findFirst()
+				.map(inst -> inst.getInstanceId())
+				.orElseThrow(() -> new RuntimeException("page 모듈 인스턴스를 찾을 수 없습니다"));
 	}
 }

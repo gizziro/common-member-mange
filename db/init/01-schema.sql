@@ -288,7 +288,8 @@ CREATE TABLE tb_menus (
   menu_type             VARCHAR(20)     NOT NULL DEFAULT 'MODULE',      -- 메뉴 유형 (MODULE/LINK/SEPARATOR)
   module_instance_id    VARCHAR(50)     NULL,                           -- 연결된 모듈 인스턴스 FK (MODULE 타입)
   custom_url            VARCHAR(500)    NULL,                           -- 커스텀 링크 URL (LINK 타입)
-  required_role         VARCHAR(50)     NULL,                           -- LINK 타입 가시성 제어용 역할
+  alias_path            VARCHAR(100)    NULL,                           -- 외부 단축 경로 (예: "test", "free")
+  content_path          VARCHAR(200)    NULL,                           -- SINGLE 모듈 콘텐츠 경로 (예: "test" → /page/test)
   sort_order            INT             NOT NULL DEFAULT 0,             -- 정렬 순서
   is_visible            TINYINT(1)      NOT NULL DEFAULT 1,             -- 관리자 수동 노출 제어
   created_at            DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,  -- 생성 일시
@@ -298,7 +299,8 @@ CREATE TABLE tb_menus (
   CONSTRAINT fk_menus_module_instance
     FOREIGN KEY (module_instance_id) REFERENCES tb_module_instances(instance_id) ON DELETE SET NULL,
   KEY idx_menus_parent_id (parent_id),
-  KEY idx_menus_sort_order (sort_order)
+  KEY idx_menus_sort_order (sort_order),
+  UNIQUE KEY uq_menus_alias_path (alias_path)
 );
 
 -- Page module: pages (text/HTML content)

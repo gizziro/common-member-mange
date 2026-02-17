@@ -5,12 +5,8 @@ import com.gizzi.core.domain.menu.dto.CreateMenuRequestDto;
 import com.gizzi.core.domain.menu.dto.MenuResponseDto;
 import com.gizzi.core.domain.menu.dto.UpdateMenuRequestDto;
 import com.gizzi.core.domain.menu.service.MenuService;
-import com.gizzi.core.module.dto.InstancePermissionDto;
-import com.gizzi.core.module.dto.SetPermissionsRequestDto;
-import com.gizzi.core.module.entity.ModulePermissionEntity;
 import com.gizzi.core.module.repository.ModuleInstanceRepository;
 import com.gizzi.core.module.repository.ModuleRepository;
-import com.gizzi.core.module.service.ModulePermissionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,7 +27,8 @@ import java.util.List;
 import java.util.Map;
 
 // 관리자 메뉴 관리 API 컨트롤러
-// 메뉴 CRUD + 정렬 + 가시성 + 인스턴스 권한 관리
+// 메뉴 CRUD + 정렬 + 가시성 관리
+// 권한 관리는 각 모듈 admin 컨트롤러에서 담당한다
 @Slf4j
 @RestController
 @RequestMapping("/menus")
@@ -40,9 +37,6 @@ public class MenuController {
 
 	// 메뉴 서비스
 	private final MenuService              menuService;
-
-	// 모듈 인스턴스 권한 서비스
-	private final ModulePermissionService  permissionService;
 
 	// 모듈 리포지토리
 	private final ModuleRepository         moduleRepository;
@@ -127,42 +121,5 @@ public class MenuController {
 				))
 				.toList();
 		return ResponseEntity.ok(ApiResponseDto.ok(list));
-	}
-
-	// ─── 인스턴스 권한 관리 ───
-
-	// 인스턴스의 그룹별 권한 현황 조회
-	@GetMapping("/instances/{instanceId}/permissions")
-	public ResponseEntity<ApiResponseDto<List<InstancePermissionDto>>> getGroupPermissions(
-			@PathVariable String instanceId) {
-		List<InstancePermissionDto> permissions = permissionService.getGroupPermissions(instanceId);
-		return ResponseEntity.ok(ApiResponseDto.ok(permissions));
-	}
-
-	// 그룹별 권한 일괄 설정
-	@PutMapping("/instances/{instanceId}/permissions")
-	public ResponseEntity<ApiResponseDto<Void>> setGroupPermissions(
-			@PathVariable String instanceId,
-			@Valid @RequestBody SetPermissionsRequestDto request) {
-		permissionService.setGroupPermissions(instanceId, request);
-		return ResponseEntity.ok(ApiResponseDto.ok());
-	}
-
-	// 모듈의 사용 가능한 권한 목록 조회
-	@GetMapping("/modules/{moduleCode}/permissions")
-	public ResponseEntity<ApiResponseDto<List<Map<String, String>>>> getAvailablePermissions(
-			@PathVariable String moduleCode) {
-		// ModulePermissionEntity → 간단한 Map으로 변환
-		List<Map<String, String>> permissions = permissionService.getAvailablePermissions(moduleCode)
-				.stream()
-				.map(perm -> Map.of(
-						"id", perm.getId(),
-						"resource", perm.getResource(),
-						"action", perm.getAction(),
-						"name", perm.getName(),
-						"flatCode", perm.toFlatPermissionString()
-				))
-				.toList();
-		return ResponseEntity.ok(ApiResponseDto.ok(permissions));
 	}
 }

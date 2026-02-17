@@ -37,7 +37,8 @@ interface Menu {
   url: string | null;
   moduleInstanceId: string | null;
   customUrl: string | null;
-  requiredRole: string | null;
+  aliasPath: string | null;
+  contentPath: string | null;
   sortOrder: number;
   isVisible: boolean;
   children: Menu[] | null;
@@ -59,24 +60,7 @@ interface ModuleInstance {
   slug: string;
 }
 
-/** 모듈 권한 정의 */
-interface PermissionDef {
-  id: string;
-  resource: string;
-  action: string;
-  name: string;
-  flatCode: string;
-}
-
-/** 그룹별 권한 현황 */
-interface GroupPermission {
-  groupId: string;
-  groupName: string;
-  groupCode: string;
-  grantedPermissionIds: string[];
-}
-
-/** 페이지 목록 항목 (LINK 페이지 선택 도우미용) */
+/** 페이지 목록 항목 (콘텐츠 경로 선택 도우미용) */
 interface PageItem {
   id: string;
   slug: string;
@@ -98,7 +82,8 @@ export default function MenusPage() {
   const [editType, setEditType] = useState("MODULE");
   const [editInstanceId, setEditInstanceId] = useState("");
   const [editCustomUrl, setEditCustomUrl] = useState("");
-  const [editRequiredRole, setEditRequiredRole] = useState("");
+  const [editAliasPath, setEditAliasPath] = useState("");
+  const [editContentPath, setEditContentPath] = useState("");
   const [editParentId, setEditParentId] = useState("");
   const [editSortOrder, setEditSortOrder] = useState("0");
   const [editError, setEditError] = useState<string | null>(null);
@@ -109,14 +94,9 @@ export default function MenusPage() {
   const [selectedModuleCode, setSelectedModuleCode] = useState("");
   const [moduleInstances, setModuleInstances] = useState<ModuleInstance[]>([]);
 
-  /* 페이지 선택 도우미 (LINK 타입용) */
+  /* 페이지 선택 도우미 (콘텐츠 경로 선택용) */
   const [pages, setPages] = useState<PageItem[]>([]);
   const [pageSelectOpen, setPageSelectOpen] = useState(false);
-
-  /* 권한 매트릭스 상태 */
-  const [availablePerms, setAvailablePerms] = useState<PermissionDef[]>([]);
-  const [groupPerms, setGroupPerms] = useState<GroupPermission[]>([]);
-  const [permSaving, setPermSaving] = useState(false);
 
   /* 삭제 확인 */
   const [deleteTarget, setDeleteTarget] = useState<Menu | null>(null);
@@ -200,43 +180,7 @@ export default function MenusPage() {
     }
   }, [modules]);
 
-  /* 권한 데이터 로드 (moduleCode + instanceId 변경 시) */
-  const loadPermissions = useCallback(async (moduleCode: string, instanceId: string) => {
-    if (!moduleCode || !instanceId) {
-      setAvailablePerms([]);
-      setGroupPerms([]);
-      return;
-    }
-
-    try {
-      // 권한 정의 + 그룹별 현황 병렬 로드
-      const [permsRes, groupRes] = await Promise.all([
-        apiGet<PermissionDef[]>(`/menus/modules/${moduleCode}/permissions`),
-        apiGet<GroupPermission[]>(`/menus/instances/${instanceId}/permissions`),
-      ]);
-
-      if (permsRes.success && permsRes.data) {
-        setAvailablePerms(permsRes.data);
-      }
-      if (groupRes.success && groupRes.data) {
-        setGroupPerms(groupRes.data);
-      }
-    } catch {
-      /* 권한 로드 실패 */
-    }
-  }, []);
-
-  /* 인스턴스 변경 시 권한 데이터 로드 */
-  useEffect(() => {
-    if (editOpen && editType === "MODULE" && selectedModuleCode && editInstanceId) {
-      loadPermissions(selectedModuleCode, editInstanceId);
-    } else {
-      setAvailablePerms([]);
-      setGroupPerms([]);
-    }
-  }, [editOpen, editType, selectedModuleCode, editInstanceId, loadPermissions]);
-
-  /* 페이지 목록 로드 (LINK 타입 페이지 선택 도우미용) */
+  /* 페이지 목록 로드 (콘텐츠 경로 선택 도우미용) */
   const loadPages = useCallback(async () => {
     try {
       const res = await apiGet<PageItem[]>("/pages");
@@ -256,14 +200,13 @@ export default function MenusPage() {
     setEditType("MODULE");
     setEditInstanceId("");
     setEditCustomUrl("");
-    setEditRequiredRole("");
+    setEditAliasPath("");
+    setEditContentPath("");
     setEditParentId(parentId ?? "");
     setEditSortOrder("0");
     setEditError(null);
     setSelectedModuleCode("");
     setModuleInstances([]);
-    setAvailablePerms([]);
-    setGroupPerms([]);
     setEditOpen(true);
   };
 
@@ -275,14 +218,13 @@ export default function MenusPage() {
     setEditType(menu.menuType);
     setEditInstanceId(menu.moduleInstanceId ?? "");
     setEditCustomUrl(menu.customUrl ?? "");
-    setEditRequiredRole(menu.requiredRole ?? "");
+    setEditAliasPath(menu.aliasPath ?? "");
+    setEditContentPath(menu.contentPath ?? "");
     setEditParentId("");
     setEditSortOrder(String(menu.sortOrder));
     setEditError(null);
     setSelectedModuleCode("");
     setModuleInstances([]);
-    setAvailablePerms([]);
-    setGroupPerms([]);
     setEditOpen(true);
 
     // MODULE 타입이면 역방향 조회하여 모듈/인스턴스 셀렉트 초기값 설정
@@ -304,7 +246,8 @@ export default function MenusPage() {
         menuType: editType,
         moduleInstanceId: editType === "MODULE" ? editInstanceId : null,
         customUrl: editType === "LINK" ? editCustomUrl : null,
-        requiredRole: editType === "LINK" ? (editRequiredRole || null) : null,
+        aliasPath: editType === "MODULE" ? (editAliasPath || null) : null,
+        contentPath: editType === "MODULE" ? (editContentPath || null) : null,
         parentId: editParentId || null,
         sortOrder: parseInt(editSortOrder) || 0,
       };
@@ -360,42 +303,6 @@ export default function MenusPage() {
     await loadMenus();
   };
 
-  /* 권한 체크박스 토글 */
-  const togglePermission = (groupId: string, permId: string) => {
-    setGroupPerms((prev) =>
-      prev.map((gp) => {
-        if (gp.groupId !== groupId) return gp;
-        const has = gp.grantedPermissionIds.includes(permId);
-        return {
-          ...gp,
-          grantedPermissionIds: has
-            ? gp.grantedPermissionIds.filter((id) => id !== permId)
-            : [...gp.grantedPermissionIds, permId],
-        };
-      })
-    );
-  };
-
-  /* 권한 저장 (전체 그룹 일괄) */
-  const savePermissions = async () => {
-    if (!editInstanceId) return;
-    setPermSaving(true);
-    try {
-      // 모든 그룹에 대해 순차 저장
-      for (const gp of groupPerms) {
-        await apiPut(`/menus/instances/${editInstanceId}/permissions`, {
-          groupId: gp.groupId,
-          permissionIds: gp.grantedPermissionIds,
-        });
-      }
-      toast.success("권한이 저장되었습니다.");
-    } catch {
-      toast.error("권한 저장에 실패했습니다.");
-    } finally {
-      setPermSaving(false);
-    }
-  };
-
   /* 메뉴 트리를 플랫 행으로 변환 (들여쓰기 표시) */
   const flattenMenus = (items: Menu[], depth = 0): { menu: Menu; depth: number }[] => {
     const result: { menu: Menu; depth: number }[] = [];
@@ -424,6 +331,23 @@ export default function MenusPage() {
   /* 선택된 모듈이 SINGLE인지 확인 */
   const selectedModule = modules.find((m) => m.code === selectedModuleCode);
   const isSingleModule = selectedModule?.type === "SINGLE";
+
+  /* 내부 경로 미리보기 (MODULE 타입) */
+  const internalUrlPreview = (() => {
+    if (editType !== "MODULE" || !selectedModuleCode) return null;
+    const mod = modules.find((m) => m.code === selectedModuleCode);
+    if (!mod) return null;
+    if (isSingleModule) {
+      if (editContentPath) return `/${mod.slug}/${editContentPath}`;
+      return `/${mod.slug}`;
+    }
+    const inst = moduleInstances.find((i) => i.instanceId === editInstanceId);
+    if (inst) return `/${mod.slug}/${inst.slug}`;
+    return null;
+  })();
+
+  /* 단축 경로 미리보기 */
+  const aliasUrlPreview = editAliasPath ? `/${editAliasPath}` : null;
 
   return (
     <>
@@ -460,7 +384,7 @@ export default function MenusPage() {
                     <tr className="border-b border-gray-200 bg-gray-50">
                       <th className="px-5 py-3 text-left font-medium text-gray-600">메뉴명</th>
                       <th className="px-5 py-3 text-left font-medium text-gray-600">유형</th>
-                      <th className="px-5 py-3 text-left font-medium text-gray-600">URL</th>
+                      <th className="px-5 py-3 text-left font-medium text-gray-600">URL / 단축 경로</th>
                       <th className="px-5 py-3 text-center font-medium text-gray-600">순서</th>
                       <th className="px-5 py-3 text-center font-medium text-gray-600">상태</th>
                       <th className="px-5 py-3 text-right font-medium text-gray-600">작업</th>
@@ -477,8 +401,15 @@ export default function MenusPage() {
                           </span>
                         </td>
                         <td className="px-5 py-3">{typeBadge(menu.menuType)}</td>
-                        <td className="px-5 py-3 text-xs font-mono text-gray-500">
-                          {menu.url ?? "-"}
+                        <td className="px-5 py-3">
+                          <div className="text-xs font-mono text-gray-500">
+                            {menu.url ?? "-"}
+                          </div>
+                          {menu.aliasPath && (
+                            <div className="text-xs font-mono text-blue-600">
+                              단축: /{menu.aliasPath}
+                            </div>
+                          )}
                         </td>
                         <td className="px-5 py-3 text-center">
                           <div className="inline-flex items-center gap-1">
@@ -533,7 +464,7 @@ export default function MenusPage() {
         open={editOpen}
         onClose={() => setEditOpen(false)}
         title={editId ? "메뉴 수정" : "메뉴 추가"}
-        size="xl"
+        size="lg"
         footer={
           <>
             <Button variant="light" onClick={() => setEditOpen(false)}>취소</Button>
@@ -581,6 +512,8 @@ export default function MenusPage() {
                 setSelectedModuleCode("");
                 setModuleInstances([]);
                 setEditInstanceId("");
+                setEditAliasPath("");
+                setEditContentPath("");
               }
             }}>
               <SelectTrigger>
@@ -594,7 +527,7 @@ export default function MenusPage() {
             </Select>
           </div>
 
-          {/* MODULE 타입: 모듈 → 인스턴스 캐스케이드 선택 */}
+          {/* MODULE 타입: 모듈 → 인스턴스 캐스케이드 선택 + 단축/콘텐츠 경로 */}
           {editType === "MODULE" && (
             <>
               <div className="space-y-1.5">
@@ -646,49 +579,83 @@ export default function MenusPage() {
                   단일 모듈이므로 시스템 인스턴스가 자동 선택되었습니다.
                 </p>
               )}
+
+              {/* 콘텐츠 경로 (SINGLE 모듈에서만 표시) */}
+              {selectedModuleCode && isSingleModule && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="contentPath">콘텐츠 경로</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="contentPath"
+                      type="text"
+                      placeholder="예: test → /page/test"
+                      value={editContentPath}
+                      onChange={(e) => setEditContentPath(e.target.value)}
+                      className="flex-1"
+                    />
+                    {selectedModuleCode === "page" && (
+                      <Button
+                        type="button"
+                        variant="light"
+                        size="sm"
+                        onClick={() => {
+                          loadPages();
+                          setPageSelectOpen(true);
+                        }}
+                        title="페이지에서 선택"
+                      >
+                        <FileText size={16} className="mr-1" />
+                        페이지 선택
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* 단축 경로 (alias) */}
+              <FormGroup label="단축 경로" htmlFor="aliasPath">
+                <Input
+                  id="aliasPath"
+                  type="text"
+                  placeholder="예: test, free (영소문자+숫자+하이픈)"
+                  value={editAliasPath}
+                  onChange={(e) => setEditAliasPath(e.target.value)}
+                />
+              </FormGroup>
+
+              {/* URL 미리보기 */}
+              {(internalUrlPreview || aliasUrlPreview) && (
+                <div className="rounded bg-gray-50 p-3 text-xs space-y-1">
+                  {internalUrlPreview && (
+                    <p>
+                      <span className="text-gray-500">내부 경로:</span>{" "}
+                      <code className="text-gray-700">{internalUrlPreview}</code>
+                    </p>
+                  )}
+                  {aliasUrlPreview && (
+                    <p>
+                      <span className="text-gray-500">단축 경로:</span>{" "}
+                      <code className="text-blue-600">{aliasUrlPreview}</code>
+                    </p>
+                  )}
+                </div>
+              )}
             </>
           )}
 
-          {/* LINK 타입: URL 입력 + 페이지 선택 도우미 */}
+          {/* LINK 타입: URL 입력 */}
           {editType === "LINK" && (
-            <>
-              <div className="space-y-1.5">
-                <Label htmlFor="customUrl">URL <span className="text-red-500">*</span></Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="customUrl"
-                    type="text"
-                    placeholder="https://example.com 또는 /page/about"
-                    value={editCustomUrl}
-                    onChange={(e) => setEditCustomUrl(e.target.value)}
-                    required
-                    className="flex-1"
-                  />
-                  <Button
-                    type="button"
-                    variant="light"
-                    size="sm"
-                    onClick={() => {
-                      loadPages();
-                      setPageSelectOpen(true);
-                    }}
-                    title="페이지에서 선택"
-                  >
-                    <FileText size={16} className="mr-1" />
-                    페이지 선택
-                  </Button>
-                </div>
-              </div>
-              <FormGroup label="필요 역할" htmlFor="requiredRole">
-                <Input
-                  id="requiredRole"
-                  type="text"
-                  placeholder="비워두면 전체 공개"
-                  value={editRequiredRole}
-                  onChange={(e) => setEditRequiredRole(e.target.value)}
-                />
-              </FormGroup>
-            </>
+            <div className="space-y-1.5">
+              <Label htmlFor="customUrl">URL <span className="text-red-500">*</span></Label>
+              <Input
+                id="customUrl"
+                type="text"
+                placeholder="https://example.com 또는 /page/about"
+                value={editCustomUrl}
+                onChange={(e) => setEditCustomUrl(e.target.value)}
+                required
+              />
+            </div>
           )}
 
           {!editId && (
@@ -719,68 +686,9 @@ export default function MenusPage() {
             />
           </FormGroup>
         </form>
-
-        {/* ─── 권한 설정 패널 (MODULE 타입 + 인스턴스 선택됨) ─── */}
-        {editType === "MODULE" && editInstanceId && availablePerms.length > 0 && (
-          <div className="mt-6 border-t border-gray-200 pt-4">
-            <div className="flex items-center justify-between mb-3">
-              <h4 className="text-sm font-semibold text-gray-900">권한 설정</h4>
-              <Button
-                type="button"
-                variant="primary"
-                size="sm"
-                loading={permSaving}
-                onClick={savePermissions}
-              >
-                권한 저장
-              </Button>
-            </div>
-
-            {groupPerms.length === 0 ? (
-              <p className="text-xs text-gray-500">그룹 데이터를 불러오는 중...</p>
-            ) : (
-              <div className="overflow-x-auto rounded border border-gray-200">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="bg-gray-50">
-                      <th className="px-3 py-2 text-left font-medium text-gray-600 sticky left-0 bg-gray-50 min-w-[120px]">
-                        그룹
-                      </th>
-                      {availablePerms.map((perm) => (
-                        <th key={perm.id} className="px-3 py-2 text-center font-medium text-gray-600 whitespace-nowrap">
-                          {perm.name}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {groupPerms.map((gp) => (
-                      <tr key={gp.groupId} className="border-t border-gray-100 hover:bg-gray-50">
-                        <td className="px-3 py-2 font-medium text-gray-700 sticky left-0 bg-white">
-                          {gp.groupName}
-                          <span className="ml-1 text-gray-400">({gp.groupCode})</span>
-                        </td>
-                        {availablePerms.map((perm) => (
-                          <td key={perm.id} className="px-3 py-2 text-center">
-                            <input
-                              type="checkbox"
-                              className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary/50"
-                              checked={gp.grantedPermissionIds.includes(perm.id)}
-                              onChange={() => togglePermission(gp.groupId, perm.id)}
-                            />
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
       </Modal>
 
-      {/* 페이지 선택 모달 (LINK 타입 도우미) */}
+      {/* 페이지 선택 모달 (콘텐츠 경로 선택 도우미) */}
       <Modal
         open={pageSelectOpen}
         onClose={() => setPageSelectOpen(false)}
@@ -804,7 +712,7 @@ export default function MenusPage() {
                 {pages.map((page) => (
                   <tr key={page.id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="px-3 py-2">{page.title}</td>
-                    <td className="px-3 py-2 text-xs font-mono text-gray-500">/page/{page.slug}</td>
+                    <td className="px-3 py-2 text-xs font-mono text-gray-500">{page.slug}</td>
                     <td className="px-3 py-2 text-center">
                       <Badge variant={page.isPublished ? "success" : "light"} pill>
                         {page.isPublished ? "공개" : "비공개"}
@@ -815,7 +723,7 @@ export default function MenusPage() {
                         variant="flat-primary"
                         size="sm"
                         onClick={() => {
-                          setEditCustomUrl(`/page/${page.slug}`);
+                          setEditContentPath(page.slug);
                           setPageSelectOpen(false);
                         }}
                       >

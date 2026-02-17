@@ -2,6 +2,9 @@ package com.gizzi.core.module;
 
 import com.gizzi.core.common.exception.BusinessException;
 import com.gizzi.core.common.exception.ModuleErrorCode;
+import com.gizzi.core.domain.menu.entity.MenuEntity;
+import com.gizzi.core.domain.menu.entity.MenuType;
+import com.gizzi.core.domain.menu.repository.MenuRepository;
 import com.gizzi.core.module.dto.InstanceInfoDto;
 import com.gizzi.core.module.dto.ModuleInfoDto;
 import com.gizzi.core.module.dto.ResolveResponseDto;
@@ -24,6 +27,8 @@ import java.util.regex.Pattern;
 // URL 패턴:
 //   SINGLE 모듈: /{module-slug}          예: /dashboard
 //   MULTI 모듈:  /{module-slug}/{instance-slug}  예: /board/notice
+//   별칭(alias): /{alias}               예: /test → page 모듈 + contentPath
+//   별칭+하위:   /{alias}/{sub}          예: /free/write → board/freeboard + subPath
 //
 // 사용 흐름:
 //   1. 사용자가 /board/notice 접근
@@ -51,6 +56,9 @@ public class SlugResolver {
 
 	// 권한 체크 유틸리티
 	private final PermissionChecker        permissionChecker;
+
+	// 메뉴 리포지토리 (별칭 해석용)
+	private final MenuRepository           menuRepository;
 
 	// SINGLE 모듈 slug 해석 (인스턴스 없음)
 	// GET /resolve/{moduleSlug}
@@ -112,8 +120,71 @@ public class SlugResolver {
 		return ResolveResponseDto.builder()
 				.module(moduleInfo)
 				.instance(instanceInfo)
-				.permissions(permissions)
+				.permissions(permissions.isEmpty() ? null : permissions)
 				.build();
+	}
+
+	// 별칭(alias) 기반 모듈 해석
+	// 메뉴의 alias_path → 모듈/인스턴스 정보로 변환
+	// additionalSubPath: 별칭 이후의 추가 경로 세그먼트 (예: /free/write → "write")
+	// 해석 실패 시 null 반환 (예외를 던지지 않음)
+	public ResolveResponseDto resolveByAlias(String aliasPath, String additionalSubPath, String userId) {
+		// 1. alias_path로 메뉴 조회
+		MenuEntity menu = menuRepository.findByAliasPath(aliasPath).orElse(null);
+		if (menu == null || menu.getMenuType() != MenuType.MODULE) {
+			return null;
+		}
+
+		// 2. 모듈 인스턴스 조회
+		if (menu.getModuleInstanceId() == null) {
+			return null;
+		}
+		ModuleInstanceEntity instance = instanceRepository.findById(menu.getModuleInstanceId())
+				.orElse(null);
+		if (instance == null) {
+			return null;
+		}
+
+		// 3. 모듈 조회
+		ModuleEntity module = moduleRepository.findByCode(instance.getModuleCode())
+				.orElse(null);
+		if (module == null || !module.getIsEnabled()) {
+			return null;
+		}
+
+		// 4. 사용자 권한 맵 조회
+		Map<String, List<String>> permissions =
+				permissionChecker.getPermissionMap(userId, instance.getInstanceId());
+
+		// 5. subPath 결정: contentPath + additionalSubPath 조합
+		String subPath = combineSubPath(menu.getContentPath(), additionalSubPath);
+
+		// 6. 응답 생성
+		return ResolveResponseDto.builder()
+				.module(toModuleInfo(module))
+				.instance(toInstanceInfo(instance))
+				.permissions(permissions.isEmpty() ? null : permissions)
+				.subPath(subPath)
+				.build();
+	}
+
+	// contentPath와 additionalSubPath를 조합하여 최종 subPath 생성
+	// 예: contentPath="test", additional=null → "test"
+	// 예: contentPath=null, additional="write" → "write"
+	// 예: contentPath="test", additional="edit" → "test/edit"
+	// 예: contentPath=null, additional=null → null
+	private String combineSubPath(String contentPath, String additionalSubPath) {
+		boolean hasContent    = contentPath != null && !contentPath.isBlank();
+		boolean hasAdditional = additionalSubPath != null && !additionalSubPath.isBlank();
+
+		if (hasContent && hasAdditional) {
+			return contentPath + "/" + additionalSubPath;
+		} else if (hasContent) {
+			return contentPath;
+		} else if (hasAdditional) {
+			return additionalSubPath;
+		}
+		return null;
 	}
 
 	// 슬러그 유효성 검증

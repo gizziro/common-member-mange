@@ -53,9 +53,13 @@ public class MenuEntity extends BaseEntity {
 	@Column(name = "custom_url", length = 500)
 	private String customUrl;
 
-	// LINK 타입 가시성 제어용 역할 (NULL이면 전체 공개)
-	@Column(name = "required_role", length = 50)
-	private String requiredRole;
+	// 외부 단축 경로 (예: "test", "free")
+	@Column(name = "alias_path", length = 100)
+	private String aliasPath;
+
+	// SINGLE 모듈 콘텐츠 경로 (예: "test" → /page/test)
+	@Column(name = "content_path", length = 200)
+	private String contentPath;
 
 	// 정렬 순서 (같은 부모 내에서의 순서)
 	@Column(name = "sort_order", nullable = false)
@@ -76,15 +80,16 @@ public class MenuEntity extends BaseEntity {
 	// 메뉴 생성 팩토리 메서드
 	public static MenuEntity create(String name, String icon, MenuType menuType,
 	                                 String moduleInstanceId, String customUrl,
-	                                 String requiredRole, String parentId,
-	                                 Integer sortOrder) {
+	                                 String aliasPath, String contentPath,
+	                                 String parentId, Integer sortOrder) {
 		MenuEntity entity = new MenuEntity();
 		entity.name             = name;
 		entity.icon             = icon;
 		entity.menuType         = menuType;
 		entity.moduleInstanceId = moduleInstanceId;
 		entity.customUrl        = customUrl;
-		entity.requiredRole     = requiredRole;
+		entity.aliasPath        = aliasPath;
+		entity.contentPath      = contentPath;
 		entity.parentId         = parentId;
 		entity.sortOrder        = sortOrder != null ? sortOrder : 0;
 		entity.isVisible        = true;
@@ -94,13 +99,14 @@ public class MenuEntity extends BaseEntity {
 	// 메뉴 정보 수정
 	public void updateInfo(String name, String icon, MenuType menuType,
 	                        String moduleInstanceId, String customUrl,
-	                        String requiredRole) {
+	                        String aliasPath, String contentPath) {
 		this.name             = name;
 		this.icon             = icon;
 		this.menuType         = menuType;
 		this.moduleInstanceId = moduleInstanceId;
 		this.customUrl        = customUrl;
-		this.requiredRole     = requiredRole;
+		this.aliasPath        = aliasPath;
+		this.contentPath      = contentPath;
 	}
 
 	// 정렬 순서 및 부모 변경

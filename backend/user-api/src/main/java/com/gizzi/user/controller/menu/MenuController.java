@@ -6,7 +6,6 @@ import com.gizzi.core.domain.menu.service.MenuService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -14,7 +13,8 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 // 사용자 메뉴 조회 API 컨트롤러
-// 현재 사용자의 권한에 따라 필터링된 메뉴 트리를 반환한다
+// 모든 사용자에게 보이는 메뉴 트리를 반환한다 (인증 불필요)
+// 권한 필터링은 없으며, is_visible 플래그만으로 제어한다
 @Slf4j
 @RestController
 @RequestMapping("/menus")
@@ -24,13 +24,10 @@ public class MenuController {
 	// 메뉴 서비스
 	private final MenuService menuService;
 
-	// 현재 사용자 권한 기반 메뉴 트리 조회
+	// 보이는 메뉴 트리 조회 (인증 불필요, 전체 공개)
 	@GetMapping("/me")
-	public ResponseEntity<ApiResponseDto<List<MenuResponseDto>>> getMyMenu(
-			Authentication authentication) {
-		// 인증된 사용자 ID 추출 (JWT의 sub 클레임 = userPk)
-		String userId = authentication != null ? authentication.getName() : null;
-		List<MenuResponseDto> tree = menuService.getVisibleMenuTree(userId);
+	public ResponseEntity<ApiResponseDto<List<MenuResponseDto>>> getMyMenu() {
+		List<MenuResponseDto> tree = menuService.getVisibleMenuTree();
 		return ResponseEntity.ok(ApiResponseDto.ok(tree));
 	}
 }

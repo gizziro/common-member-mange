@@ -26,7 +26,19 @@ public enum MenuErrorCode implements ErrorCode {
 	MENU_MODULE_INSTANCE_REQUIRED   ("MENU_MODULE_INSTANCE_REQUIRED",   "MODULE 타입은 모듈 인스턴스 연결이 필요합니다", "MODULE 타입 메뉴에 instanceId 미지정",        HttpStatus.BAD_REQUEST),
 
 	// 최대 메뉴 깊이 초과
-	MENU_MAX_DEPTH_EXCEEDED         ("MENU_MAX_DEPTH_EXCEEDED",         "최대 메뉴 깊이를 초과했습니다",              "3단계 이상의 메뉴 중첩 시도",                HttpStatus.BAD_REQUEST);
+	MENU_MAX_DEPTH_EXCEEDED         ("MENU_MAX_DEPTH_EXCEEDED",         "최대 메뉴 깊이를 초과했습니다",              "3단계 이상의 메뉴 중첩 시도",                HttpStatus.BAD_REQUEST),
+
+	// 단축 경로 중복
+	MENU_ALIAS_DUPLICATE            ("MENU_ALIAS_DUPLICATE",            "이미 사용 중인 단축 경로입니다",             "alias_path 중복",                          HttpStatus.CONFLICT),
+
+	// 단축 경로가 모듈 slug와 충돌
+	MENU_ALIAS_CONFLICTS_MODULE     ("MENU_ALIAS_CONFLICTS_MODULE",     "모듈 slug와 충돌하는 단축 경로입니다",        "alias_path가 기존 모듈 slug와 동일",         HttpStatus.BAD_REQUEST),
+
+	// 단축 경로가 예약어와 충돌
+	MENU_ALIAS_RESERVED             ("MENU_ALIAS_RESERVED",             "예약된 경로로는 단축 경로를 설정할 수 없습니다",  "alias_path가 시스템 예약어와 동일",           HttpStatus.BAD_REQUEST),
+
+	// 단축 경로 형식 오류
+	MENU_ALIAS_INVALID_FORMAT       ("MENU_ALIAS_INVALID_FORMAT",       "단축 경로 형식이 올바르지 않습니다",           "소문자+숫자+하이픈만 허용 (1자 이상)",        HttpStatus.BAD_REQUEST);
 
 	// 에러 코드 문자열 (예: "MENU_NOT_FOUND")
 	private final String     code;

@@ -11,6 +11,7 @@ import java.util.Map;
 // GET /resolve/{module-slug}/{instance-slug} 요청 시
 // 모듈 정보 + 인스턴스 정보 + 사용자 권한 맵을 반환한다
 //
+// 별칭(alias) 해석 시 subPath로 콘텐츠 하위 경로도 함께 반환
 // 프론트엔드에서 permissions.post.contains("write") 체크로 UI 동적 제어
 @Getter
 @Builder
@@ -26,4 +27,9 @@ public class ResolveResponseDto {
 	// 리소스별 허용된 액션 목록
 	// 예: {"post": ["read", "write"], "comment": ["read"]}
 	private final Map<String, List<String>> permissions;
+
+	// 별칭 해석 시 콘텐츠 하위 경로
+	// 예: alias "test" → page 모듈, subPath="test"
+	// 예: alias "free" + "/write" → board/freeboard 모듈, subPath="write"
+	private final String subPath;
 }

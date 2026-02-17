@@ -31,9 +31,13 @@ public class CreateMenuRequestDto {
 	@Size(max = 500, message = "URL은 500자 이내여야 합니다")
 	private String customUrl;
 
-	// LINK 타입 가시성 제어용 역할
-	@Size(max = 50, message = "역할 코드는 50자 이내여야 합니다")
-	private String requiredRole;
+	// 외부 단축 경로 (예: "test", "free")
+	@Size(max = 100, message = "단축 경로는 100자 이내여야 합니다")
+	private String aliasPath;
+
+	// SINGLE 모듈 콘텐츠 경로 (예: "test" → /page/test)
+	@Size(max = 200, message = "콘텐츠 경로는 200자 이내여야 합니다")
+	private String contentPath;
 
 	// 정렬 순서
 	private Integer sortOrder;

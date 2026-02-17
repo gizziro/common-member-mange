@@ -60,6 +60,8 @@ public class SecurityConfig {
 				.requestMatchers("/auth/check/**").permitAll()
 				// 공개 페이지 엔드포인트 (인증 선택)
 				.requestMatchers("/pages/**").permitAll()
+				// 메뉴 조회 (인증 불필요, 모든 사용자에게 공개)
+				.requestMatchers("/menus/me").permitAll()
 				// Slug 기반 동적 라우팅 (비인증 사용자는 권한 빈 맵으로 응답)
 				.requestMatchers("/resolve/**").permitAll()
 				// Actuator 헬스체크는 모두 허용

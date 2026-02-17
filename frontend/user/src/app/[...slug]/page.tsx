@@ -41,6 +41,8 @@ interface ResolveResponse {
 	instance: InstanceInfo;
 	/** 리소스별 권한 목록 */
 	permissions: Record<string, string[]>;
+	/** 별칭 해석 시 콘텐츠 하위 경로 */
+	subPath: string | null;
 }
 
 /* ===========================
@@ -56,7 +58,7 @@ export default function DynamicPage() {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [resolved, setResolved] = useState<ResolveResponse | null>(null);
-	// SINGLE 모듈의 하위 경로 (예: "about" in /page/about)
+	// 모듈의 하위 경로 (예: "about" in /page/about, 또는 별칭 해석 결과)
 	const [subPath, setSubPath] = useState<string | null>(null);
 
 	// slug 변경 시 모듈 해석
@@ -72,15 +74,22 @@ export default function DynamicPage() {
 
 			try {
 				if (slugParts.length >= 2) {
-					// 2개 이상 slug: MULTI 모듈 시도 → 실패 시 SINGLE + subPath
+					// 2개 이상 slug: MULTI 모듈 시도 (또는 별칭+하위경로)
 					const multiRes = await apiGet<ResolveResponse>(
 						`/resolve/${slugParts[0]}/${slugParts[1]}`,
 						token
 					);
 
 					if (multiRes.success && multiRes.data) {
-						// MULTI 모듈 해석 성공
+						// 해석 성공 — subPath 통합
 						setResolved(multiRes.data);
+						// 응답의 subPath + 남은 slug 세그먼트(3번째 이후) 조합
+						const responseSub = multiRes.data.subPath;
+						const remainingParts = slugParts.slice(2);
+						const combinedSub = [responseSub, ...remainingParts]
+							.filter(Boolean)
+							.join("/");
+						setSubPath(combinedSub || null);
 					} else {
 						// MULTI 실패 → SINGLE 모듈로 재시도 (나머지는 하위 경로)
 						const singleRes = await apiGet<ResolveResponse>(
@@ -90,14 +99,19 @@ export default function DynamicPage() {
 
 						if (singleRes.success && singleRes.data) {
 							setResolved(singleRes.data);
-							// 두 번째 slug 이후를 하위 경로로 설정
-							setSubPath(slugParts.slice(1).join("/"));
+							// 응답의 subPath + 나머지 slug 세그먼트 조합
+							const responseSub = singleRes.data.subPath;
+							const remainingParts = slugParts.slice(1);
+							const combinedSub = [responseSub, ...remainingParts]
+								.filter(Boolean)
+								.join("/");
+							setSubPath(combinedSub || null);
 						} else {
 							setError(singleRes.error?.message ?? "페이지를 찾을 수 없습니다.");
 						}
 					}
 				} else if (slugParts.length === 1) {
-					// 1개 slug: SINGLE 모듈 해석
+					// 1개 slug: SINGLE 모듈 또는 별칭 해석
 					const res = await apiGet<ResolveResponse>(
 						`/resolve/${slugParts[0]}`,
 						token
@@ -105,6 +119,8 @@ export default function DynamicPage() {
 
 					if (res.success && res.data) {
 						setResolved(res.data);
+						// 별칭 해석 시 subPath가 설정됨
+						setSubPath(res.data.subPath || null);
 					} else {
 						setError(res.error?.message ?? "페이지를 찾을 수 없습니다.");
 					}
@@ -161,7 +177,7 @@ function renderModule(resolved: ResolveResponse, subPath: string | null) {
 	// 페이지 모듈 — subPath를 페이지 slug로 사용
 	if (mod.code === "page") {
 		if (subPath) {
-			// /page/{page-slug} → 개별 페이지 뷰어
+			// /page/{page-slug} 또는 별칭 경로 → 개별 페이지 뷰어
 			return <PageViewer slug={subPath} />;
 		}
 
