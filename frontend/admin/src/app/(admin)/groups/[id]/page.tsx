@@ -31,6 +31,7 @@ interface Group {
 }
 
 interface GroupMember {
+  id: string;
   userId: string;
   username: string;
   email: string;
@@ -296,7 +297,7 @@ export default function GroupDetailPage() {
                   </thead>
                   <tbody>
                     {members.map((member) => (
-                      <tr key={member.userId} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                      <tr key={member.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                         <td className="px-5 py-3 font-mono text-xs text-gray-600">{member.userId}</td>
                         <td className="px-5 py-3">{member.username}</td>
                         <td className="px-5 py-3 text-gray-500">{member.email}</td>
@@ -355,7 +356,7 @@ export default function GroupDetailPage() {
             <Input
               id="memberUserId"
               type="text"
-              placeholder="추가할 사용자의 ID (PK)"
+              placeholder="추가할 사용자의 로그인 ID"
               value={addMemberUserId}
               onChange={(e) => setAddMemberUserId(e.target.value)}
               required

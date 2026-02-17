@@ -11,7 +11,10 @@ import java.time.LocalDateTime;
 @Builder
 public class GroupMemberResponseDto {
 
-	// 사용자 PK
+	// 사용자 PK (UUID)
+	private final String        id;
+
+	// 로그인 ID
 	private final String        userId;
 
 	// 사용자 이름
@@ -26,7 +29,8 @@ public class GroupMemberResponseDto {
 	// 사용자 엔티티 + 가입 일시로 응답 DTO 생성
 	public static GroupMemberResponseDto from(UserEntity user, LocalDateTime joinedAt) {
 		return GroupMemberResponseDto.builder()
-			.userId(user.getId())
+			.id(user.getId())
+			.userId(user.getUserId())
 			.username(user.getUsername())
 			.email(user.getEmail())
 			.joinedAt(joinedAt)

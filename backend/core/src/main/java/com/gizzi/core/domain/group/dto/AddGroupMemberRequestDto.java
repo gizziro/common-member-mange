@@ -7,7 +7,7 @@ import lombok.Getter;
 @Getter
 public class AddGroupMemberRequestDto {
 
-	// 추가할 사용자 PK (UUID)
+	// 추가할 사용자 로그인 ID
 	@NotBlank(message = "사용자 ID는 필수입니다")
 	private String userId;
 }

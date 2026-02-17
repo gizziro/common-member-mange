@@ -78,7 +78,7 @@ export default function GroupsPage() {
     try {
       const res: ApiResponse = await apiPost("/groups", {
         groupCode: createCode,
-        groupName: createName,
+        name: createName,
         description: createDesc || null,
       });
 

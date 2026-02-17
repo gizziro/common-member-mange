@@ -106,12 +106,12 @@ public class GroupController {
 		return ResponseEntity.ok(ApiResponseDto.ok(response));
 	}
 
-	// 그룹 멤버 추가 API
+	// 그룹 멤버 추가 API (로그인 ID 기반)
 	@PostMapping("/{groupId}/members")
 	public ResponseEntity<ApiResponseDto<Void>> addMember(
 			@PathVariable String groupId,
 			@Valid @RequestBody AddGroupMemberRequestDto request) {
-		// 멤버 추가 서비스 호출
+		// 멤버 추가 서비스 호출 (로그인 ID 전달)
 		groupService.addMember(groupId, request.getUserId());
 
 		// 201 Created 응답 반환
@@ -120,13 +120,13 @@ public class GroupController {
 			.body(ApiResponseDto.ok());
 	}
 
-	// 그룹 멤버 제거 API
-	@DeleteMapping("/{groupId}/members/{userId}")
+	// 그룹 멤버 제거 API (로그인 ID 기반)
+	@DeleteMapping("/{groupId}/members/{loginId}")
 	public ResponseEntity<Void> removeMember(
 			@PathVariable String groupId,
-			@PathVariable String userId) {
-		// 멤버 제거 서비스 호출
-		groupService.removeMember(groupId, userId);
+			@PathVariable String loginId) {
+		// 멤버 제거 서비스 호출 (로그인 ID 전달)
+		groupService.removeMember(groupId, loginId);
 
 		// 204 No Content 응답 반환
 		return ResponseEntity.noContent().build();

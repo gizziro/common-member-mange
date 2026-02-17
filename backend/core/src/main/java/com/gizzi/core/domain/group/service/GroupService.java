@@ -147,38 +147,44 @@ public class GroupService {
 			.toList();
 	}
 
-	// 그룹 멤버 추가 (중복 검증)
+	// 그룹 멤버 추가 (로그인 ID 기반, 중복 검증)
 	@Transactional
-	public void addMember(String groupId, String userId) {
+	public void addMember(String groupId, String loginId) {
 		// 그룹 존재 검증
 		groupRepository.findById(groupId)
 			.orElseThrow(() -> new BusinessException(GroupErrorCode.GROUP_NOT_FOUND));
 
-		// 대상 사용자 존재 검증
-		userRepository.findById(userId)
+		// 로그인 ID로 사용자 조회 → PK 획득
+		UserEntity user = userRepository.findByUserId(loginId)
 			.orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
 
-		// 멤버 중복 검증
-		if (groupMemberRepository.existsByGroupIdAndUserId(groupId, userId)) {
+		// 사용자 PK로 멤버 중복 검증
+		String userPk = user.getId();
+		if (groupMemberRepository.existsByGroupIdAndUserId(groupId, userPk)) {
 			throw new BusinessException(GroupErrorCode.MEMBER_ALREADY_EXISTS);
 		}
 
-		// 멤버 추가
-		GroupMemberEntity member = GroupMemberEntity.create(groupId, userId);
+		// 멤버 추가 (PK 기반)
+		GroupMemberEntity member = GroupMemberEntity.create(groupId, userPk);
 		groupMemberRepository.save(member);
 
-		log.info("그룹 멤버 추가: groupId={}, userId={}", groupId, userId);
+		log.info("그룹 멤버 추가: groupId={}, loginId={}, userPk={}", groupId, loginId, userPk);
 	}
 
-	// 그룹 멤버 제거
+	// 그룹 멤버 제거 (로그인 ID 기반)
 	@Transactional
-	public void removeMember(String groupId, String userId) {
+	public void removeMember(String groupId, String loginId) {
 		// 그룹 존재 검증
 		GroupEntity group = groupRepository.findById(groupId)
 			.orElseThrow(() -> new BusinessException(GroupErrorCode.GROUP_NOT_FOUND));
 
-		// 멤버 존재 검증
-		if (!groupMemberRepository.existsByGroupIdAndUserId(groupId, userId)) {
+		// 로그인 ID로 사용자 조회 → PK 획득
+		UserEntity user = userRepository.findByUserId(loginId)
+			.orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
+
+		// 사용자 PK로 멤버 존재 검증
+		String userPk = user.getId();
+		if (!groupMemberRepository.existsByGroupIdAndUserId(groupId, userPk)) {
 			throw new BusinessException(GroupErrorCode.MEMBER_NOT_FOUND);
 		}
 
@@ -187,10 +193,10 @@ public class GroupService {
 			throw new BusinessException(GroupErrorCode.SYSTEM_GROUP_MEMBER_PROTECTED);
 		}
 
-		// 멤버 제거
-		groupMemberRepository.deleteByGroupIdAndUserId(groupId, userId);
+		// 멤버 제거 (PK 기반)
+		groupMemberRepository.deleteByGroupIdAndUserId(groupId, userPk);
 
-		log.info("그룹 멤버 제거: groupId={}, userId={}", groupId, userId);
+		log.info("그룹 멤버 제거: groupId={}, loginId={}, userPk={}", groupId, loginId, userPk);
 	}
 
 	// 그룹 멤버 목록 조회 (사용자 정보 포함)

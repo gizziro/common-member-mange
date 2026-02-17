@@ -104,8 +104,8 @@ public class SystemInitService {
 			.orElseThrow(() -> new BusinessException(SetupErrorCode.ADMIN_GROUP_NOT_FOUND));
 		user.activate();
 
-		// 3. administrator 그룹에 멤버 추가
-		groupService.addMember(adminGroup.getId(), signupResponse.getId());
+		// 3. administrator 그룹에 멤버 추가 (로그인 ID 기반)
+		groupService.addMember(adminGroup.getId(), request.getUserId());
 
 		// 캐시 갱신 (이후 SetupGuardFilter에서 DB 조회 없이 통과)
 		initializedCache.set(true);
