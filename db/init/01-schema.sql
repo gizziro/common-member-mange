@@ -13,6 +13,8 @@ DROP TABLE IF EXISTS tb_role_permissions;
 DROP TABLE IF EXISTS tb_roles;
 DROP TABLE IF EXISTS tb_audit_logs;
 DROP TABLE IF EXISTS tb_system_settings;
+DROP TABLE IF EXISTS tb_page_pages;
+DROP TABLE IF EXISTS tb_menus;
 DROP TABLE IF EXISTS tb_group_module_permissions;
 DROP TABLE IF EXISTS tb_user_module_permissions;
 DROP TABLE IF EXISTS tb_module_permissions;
@@ -275,6 +277,44 @@ CREATE TABLE tb_group_module_permissions (
     FOREIGN KEY (module_instance_id) REFERENCES tb_module_instances(instance_id) ON DELETE CASCADE,
   CONSTRAINT fk_group_module_permissions_permission
     FOREIGN KEY (module_permission_id) REFERENCES tb_module_permissions(id) ON DELETE CASCADE
+);
+
+-- Navigation menus (tree structure)
+CREATE TABLE tb_menus (
+  id                    CHAR(36)        PRIMARY KEY DEFAULT (UUID()),   -- 메뉴 PK
+  parent_id             CHAR(36)        NULL,                           -- 부모 메뉴 FK (NULL이면 최상위)
+  name                  VARCHAR(100)    NOT NULL,                       -- 메뉴 표시명
+  icon                  VARCHAR(50)     NULL,                           -- 아이콘 식별자
+  menu_type             VARCHAR(20)     NOT NULL DEFAULT 'MODULE',      -- 메뉴 유형 (MODULE/LINK/SEPARATOR)
+  module_instance_id    VARCHAR(50)     NULL,                           -- 연결된 모듈 인스턴스 FK (MODULE 타입)
+  custom_url            VARCHAR(500)    NULL,                           -- 커스텀 링크 URL (LINK 타입)
+  required_role         VARCHAR(50)     NULL,                           -- LINK 타입 가시성 제어용 역할
+  sort_order            INT             NOT NULL DEFAULT 0,             -- 정렬 순서
+  is_visible            TINYINT(1)      NOT NULL DEFAULT 1,             -- 관리자 수동 노출 제어
+  created_at            DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,  -- 생성 일시
+  updated_at            DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, -- 수정 일시
+  CONSTRAINT fk_menus_parent
+    FOREIGN KEY (parent_id) REFERENCES tb_menus(id) ON DELETE CASCADE,
+  CONSTRAINT fk_menus_module_instance
+    FOREIGN KEY (module_instance_id) REFERENCES tb_module_instances(instance_id) ON DELETE SET NULL,
+  KEY idx_menus_parent_id (parent_id),
+  KEY idx_menus_sort_order (sort_order)
+);
+
+-- Page module: pages (text/HTML content)
+CREATE TABLE tb_page_pages (
+  id                    CHAR(36)        PRIMARY KEY DEFAULT (UUID()),   -- 페이지 PK
+  slug                  VARCHAR(100)    NOT NULL,                       -- URL slug (유니크)
+  title                 VARCHAR(200)    NOT NULL,                       -- 페이지 제목
+  content               LONGTEXT        NULL,                           -- 페이지 본문
+  content_type          VARCHAR(20)     NOT NULL DEFAULT 'HTML',        -- 콘텐츠 유형 (HTML/MARKDOWN/TEXT)
+  is_published          TINYINT(1)      NOT NULL DEFAULT 0,             -- 공개 여부
+  sort_order            INT             NOT NULL DEFAULT 0,             -- 정렬 순서
+  created_by            VARCHAR(100)    NOT NULL,                       -- 작성자
+  created_at            DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,  -- 생성 일시
+  updated_by            VARCHAR(100)    NULL,                           -- 수정자
+  updated_at            DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, -- 수정 일시
+  UNIQUE KEY uq_page_pages_slug (slug)
 );
 
 CREATE TABLE tb_roles (

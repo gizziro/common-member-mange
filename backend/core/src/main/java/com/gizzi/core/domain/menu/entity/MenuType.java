@@ -1,0 +1,17 @@
+package com.gizzi.core.domain.menu.entity;
+
+// 메뉴 유형 enum
+// MODULE: 모듈 인스턴스 연결 — URL은 slug에서 자동 생성
+// LINK: 커스텀 URL 직접 지정
+// SEPARATOR: 구분선/그룹 헤더 (클릭 불가)
+public enum MenuType {
+
+	// 모듈 인스턴스에 연결 — 가시성은 인스턴스 권한에서 파생
+	MODULE,
+
+	// 커스텀 URL — 가시성은 required_role로 직접 제어
+	LINK,
+
+	// 구분선/그룹 헤더 — 하위 메뉴가 하나라도 보이면 표시
+	SEPARATOR
+}

@@ -5,3 +5,6 @@ rootProject.name = 'member-mange'
 include 'core'
 include 'admin-api'
 include 'user-api'
+
+// 기능 모듈
+include 'modules:module-page'

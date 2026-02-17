@@ -58,9 +58,13 @@ public class SecurityConfig {
 				// anyRequest().authenticated()에 의해 인증 필요
 				// 아이디/이메일 중복 확인 엔드포인트는 모두 허용
 				.requestMatchers("/auth/check/**").permitAll()
+				// 공개 페이지 엔드포인트 (인증 선택)
+				.requestMatchers("/pages/**").permitAll()
+				// Slug 기반 동적 라우팅 (비인증 사용자는 권한 빈 맵으로 응답)
+				.requestMatchers("/resolve/**").permitAll()
 				// Actuator 헬스체크는 모두 허용
 				.requestMatchers("/actuator/health", "/actuator/info").permitAll()
-				// 그 외 모든 요청은 인증 필요
+				// 그 외 모든 요청은 인증 필요 (메뉴, resolve 등)
 				.anyRequest().authenticated()
 			)
 

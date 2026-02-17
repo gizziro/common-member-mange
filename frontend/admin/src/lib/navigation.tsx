@@ -1,4 +1,4 @@
-import { House, Users, UsersThree, Gear, Key } from "@phosphor-icons/react";
+import { House, Users, UsersThree, Gear, Key, List, FileText } from "@phosphor-icons/react";
 import type { SidebarNavItem } from "@/types/components";
 
 /**
@@ -26,6 +26,22 @@ export const adminNavItems: SidebarNavItem[] = [
     label: "그룹 관리",
     href: "/groups",
     icon: <UsersThree size={20} />,
+  },
+  {
+    type: "header",
+    label: "콘텐츠",
+  },
+  {
+    type: "link",
+    label: "메뉴 관리",
+    href: "/menus",
+    icon: <List size={20} />,
+  },
+  {
+    type: "link",
+    label: "페이지 관리",
+    href: "/pages",
+    icon: <FileText size={20} />,
   },
   {
     type: "header",

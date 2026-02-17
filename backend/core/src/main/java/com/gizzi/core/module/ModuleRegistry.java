@@ -2,7 +2,9 @@ package com.gizzi.core.module;
 
 import com.gizzi.core.module.dto.ResourcePermissionDefinition;
 import com.gizzi.core.module.entity.ModuleEntity;
+import com.gizzi.core.module.entity.ModuleInstanceEntity;
 import com.gizzi.core.module.entity.ModulePermissionEntity;
+import com.gizzi.core.module.repository.ModuleInstanceRepository;
 import com.gizzi.core.module.repository.ModulePermissionRepository;
 import com.gizzi.core.module.repository.ModuleRepository;
 import lombok.RequiredArgsConstructor;
@@ -40,6 +42,9 @@ public class ModuleRegistry implements ApplicationRunner {
 	// 모듈 권한 정의 리포지토리
 	private final ModulePermissionRepository  permissionRepository;
 
+	// 모듈 인스턴스 리포지토리 (SINGLE 모듈 시스템 인스턴스 자동 생성용)
+	private final ModuleInstanceRepository    instanceRepository;
+
 	// 등록된 모든 모듈 정의 (Spring이 자동 주입, 없으면 빈 리스트)
 	private final List<ModuleDefinition>      moduleDefinitions;
 
@@ -70,7 +75,10 @@ public class ModuleRegistry implements ApplicationRunner {
 		// 2. tb_module_permissions 동기화 (새 권한 INSERT, 코드에서 제거된 권한 경고)
 		syncModulePermissions(definition);
 
-		// 3. 런타임 캐시에 등록
+		// 3. SINGLE 모듈 시스템 인스턴스 자동 생성
+		ensureSystemInstance(definition);
+
+		// 4. 런타임 캐시에 등록
 		definitionCache.put(moduleCode, definition);
 
 		log.info("모듈 [{}] 동기화 완료 — {} ({})", moduleCode, definition.getName(), definition.getType());
@@ -162,5 +170,37 @@ public class ModuleRegistry implements ApplicationRunner {
 	// 모듈 코드의 등록 여부 확인
 	public boolean isRegistered(String moduleCode) {
 		return definitionCache.containsKey(moduleCode);
+	}
+
+	// SINGLE 모듈의 시스템 인스턴스 자동 생성
+	// PermissionChecker는 instanceId를 필요로 하므로, SINGLE 모듈도 시스템 인스턴스가 필요하다
+	// 이미 존재하면 스킵 (멱등)
+	private void ensureSystemInstance(ModuleDefinition definition) {
+		// SINGLE 모듈이 아니면 스킵
+		if (definition.getType() != ModuleType.SINGLE) {
+			return;
+		}
+
+		String moduleCode = definition.getCode();
+
+		// 이미 시스템 인스턴스가 존재하면 스킵
+		boolean exists = instanceRepository.existsByModuleCodeAndInstanceType(moduleCode, "SYSTEM");
+		if (exists) {
+			log.debug("모듈 [{}]: SINGLE 모듈 시스템 인스턴스 이미 존재", moduleCode);
+			return;
+		}
+
+		// 시스템 인스턴스 생성 (소유자/생성자 = "SYSTEM")
+		ModuleInstanceEntity instance = ModuleInstanceEntity.create(
+				moduleCode,
+				definition.getName(),
+				definition.getSlug(),
+				definition.getDescription(),
+				"SYSTEM",
+				"SYSTEM",
+				"SYSTEM"
+		);
+		instanceRepository.save(instance);
+		log.info("모듈 [{}]: SINGLE 모듈 시스템 인스턴스 자동 생성", moduleCode);
 	}
 }

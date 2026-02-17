@@ -139,3 +139,11 @@ export function apiPut<T>(path: string, body?: unknown): Promise<ApiResponse<T>>
 export function apiDelete<T>(path: string): Promise<ApiResponse<T>> {
   return apiFetch<T>(path, { method: "DELETE" });
 }
+
+/** PATCH 요청 */
+export function apiPatch<T>(path: string, body?: unknown): Promise<ApiResponse<T>> {
+  return apiFetch<T>(path, {
+    method: "PATCH",
+    body: body ? JSON.stringify(body) : undefined,
+  });
+}

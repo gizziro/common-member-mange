@@ -23,4 +23,7 @@ public interface ModuleInstanceRepository extends JpaRepository<ModuleInstanceEn
 
 	// 소유자별 인스턴스 목록 조회
 	List<ModuleInstanceEntity> findByOwnerId(String ownerId);
+
+	// 모듈 코드 + 인스턴스 유형 존재 여부 확인 (SINGLE 모듈 시스템 인스턴스 체크용)
+	boolean existsByModuleCodeAndInstanceType(String moduleCode, String instanceType);
 }
