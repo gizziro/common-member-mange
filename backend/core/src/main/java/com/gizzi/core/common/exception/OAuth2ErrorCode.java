@@ -9,6 +9,9 @@ import org.springframework.http.HttpStatus;
 @AllArgsConstructor
 public enum OAuth2ErrorCode implements ErrorCode {
 
+	// 소셜 로그인 기능 비활성화 (시스템 설정)
+	OAUTH2_DISABLED       ("OAUTH2_DISABLED",               "소셜 로그인이 비활성화되어 있습니다",        "시스템 설정(signup/oauth2_enabled)이 false 상태",               HttpStatus.FORBIDDEN),
+
 	// 지원하지 않는 소셜 제공자
 	PROVIDER_NOT_FOUND    ("OAUTH2_PROVIDER_NOT_FOUND",     "지원하지 않는 소셜 로그인 제공자입니다",     "요청한 provider 코드에 해당하는 제공자가 없음",                  HttpStatus.NOT_FOUND),
 

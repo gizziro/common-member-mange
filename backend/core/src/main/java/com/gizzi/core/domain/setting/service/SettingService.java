@@ -2,6 +2,9 @@ package com.gizzi.core.domain.setting.service;
 
 import com.gizzi.core.common.exception.BusinessException;
 import com.gizzi.core.common.exception.SettingErrorCode;
+import com.gizzi.core.domain.audit.AuditAction;
+import com.gizzi.core.domain.audit.AuditTarget;
+import com.gizzi.core.domain.audit.service.AuditLogService;
 import com.gizzi.core.domain.setting.entity.SettingEntity;
 import com.gizzi.core.domain.setting.entity.SettingValueType;
 import com.gizzi.core.domain.setting.repository.SettingRepository;
@@ -26,6 +29,9 @@ public class SettingService {
 
 	// 인메모리 설정 캐시
 	private final SettingCache settingCache;
+
+	// 감사 로그 서비스
+	private final AuditLogService auditLogService;
 
 	// ─── 타입별 접근자 (캐시 우선 → DB 폴백) ───
 
@@ -149,6 +155,11 @@ public class SettingService {
 
 		log.info("설정 그룹 수정 완료: {}/{} — {}개 항목 (수정자: {})",
 				moduleCode, settingGroup, keyValueMap.size(), updatedBy);
+
+		// 설정 변경 감사 로그
+		auditLogService.logSuccess(null, AuditAction.SETTING_CHANGE, AuditTarget.SETTING, null,
+			"설정 변경: " + moduleCode + "/" + settingGroup,
+			Map.of("moduleCode", moduleCode, "settingGroup", settingGroup, "changedKeys", String.join(",", keyValueMap.keySet())));
 	}
 
 	// 값 타입 검증

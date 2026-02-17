@@ -3,6 +3,9 @@ package com.gizzi.core.domain.user.service;
 import com.gizzi.core.common.exception.AuthErrorCode;
 import com.gizzi.core.common.exception.BusinessException;
 import com.gizzi.core.common.exception.UserErrorCode;
+import com.gizzi.core.domain.audit.AuditAction;
+import com.gizzi.core.domain.audit.AuditTarget;
+import com.gizzi.core.domain.audit.service.AuditLogService;
 import com.gizzi.core.domain.auth.repository.UserIdentityRepository;
 import com.gizzi.core.domain.auth.service.RedisTokenService;
 import com.gizzi.core.domain.group.entity.GroupEntity;
@@ -18,6 +21,7 @@ import com.gizzi.core.domain.user.dto.UserListResponseDto;
 import com.gizzi.core.domain.user.dto.UserResponseDto;
 import com.gizzi.core.domain.user.entity.UserEntity;
 import com.gizzi.core.domain.user.repository.UserRepository;
+import com.gizzi.core.domain.setting.service.SettingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -28,6 +32,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 
 // 사용자 관련 비즈니스 로직을 처리하는 서비스
 @Slf4j
@@ -57,9 +62,21 @@ public class UserService {
 	// 소셜 연동 리포지토리 (사용자 삭제 시 연동 정보 정리용)
 	private final UserIdentityRepository  userIdentityRepository;
 
+	// 시스템 설정 서비스 (회원가입 활성화, 기본 상태, 로그인 실패 제한 등)
+	private final SettingService          settingService;
+
+	// 감사 로그 서비스
+	private final AuditLogService         auditLogService;
+
 	// 로컬 회원가입 처리
 	@Transactional
 	public SignupResponseDto signup(SignupRequestDto request) {
+		// 시스템 설정: 회원가입 활성화 여부 확인
+		boolean signupEnabled = settingService.getSystemBoolean("signup", "enabled");
+		if (!signupEnabled) {
+			throw new BusinessException(UserErrorCode.SIGNUP_DISABLED);
+		}
+
 		// 아이디 중복 검증
 		if (userRepository.existsByUserId(request.getUserId())) {
 			throw new BusinessException(UserErrorCode.DUPLICATE_USER_ID);
@@ -73,12 +90,16 @@ public class UserService {
 		// 비밀번호 BCrypt 해싱
 		String encodedPassword = passwordEncoder.encode(request.getPassword());
 
-		// 사용자 엔티티 생성
+		// 시스템 설정: 신규 사용자 초기 상태 (ACTIVE, PENDING 등)
+		String defaultStatus = settingService.getSystemSetting("signup", "default_status");
+
+		// 사용자 엔티티 생성 (초기 상태는 시스템 설정에서 결정)
 		UserEntity user = UserEntity.createLocalUser(
 			request.getUserId(),
 			request.getUsername(),
 			request.getEmail(),
-			encodedPassword
+			encodedPassword,
+			defaultStatus
 		);
 
 		// DB 저장
@@ -88,6 +109,10 @@ public class UserService {
 		groupService.assignToDefaultGroup(savedUser.getId());
 
 		log.info("회원가입 완료: userId={}, email={}", savedUser.getUserId(), savedUser.getEmail());
+
+		// 회원가입 감사 로그
+		auditLogService.logSuccess(savedUser.getId(), AuditAction.USER_SIGNUP, AuditTarget.USER, savedUser.getId(),
+			"회원가입: " + savedUser.getUserId(), Map.of("email", savedUser.getEmail()));
 
 		// 응답 DTO 변환 후 반환
 		return SignupResponseDto.from(savedUser);
@@ -99,10 +124,12 @@ public class UserService {
 	@Transactional(propagation = Propagation.REQUIRES_NEW)
 	public void incrementLoginFailCount(String userPk) {
 		userRepository.findById(userPk).ifPresent(user -> {
-			// 실패 횟수 증가 (MAX 초과 시 자동 잠금)
-			user.incrementLoginFailCount();
-			log.warn("로그인 실패 카운트 증가: userId={}, failCount={}, locked={}",
-				user.getUserId(), user.getLoginFailCount(), user.getIsLocked());
+			// 시스템 설정: 최대 로그인 실패 허용 횟수
+			int maxFailCount = (int) settingService.getSystemNumber("auth", "max_login_fail");
+			// 실패 횟수 증가 (설정된 최대 횟수 초과 시 자동 잠금)
+			user.incrementLoginFailCount(maxFailCount);
+			log.warn("로그인 실패 카운트 증가: userId={}, failCount={}, maxFail={}, locked={}",
+				user.getUserId(), user.getLoginFailCount(), maxFailCount, user.getIsLocked());
 		});
 	}
 
@@ -167,6 +194,10 @@ public class UserService {
 		log.info("사용자 정보 수정: id={}, username={}, email={}, status={}",
 			id, request.getUsername(), request.getEmail(), request.getUserStatus());
 
+		// 사용자 수정 감사 로그
+		auditLogService.logSuccess(null, AuditAction.USER_UPDATE, AuditTarget.USER, id,
+			"사용자 정보 수정: " + user.getUserId(), Map.of("username", request.getUsername(), "status", request.getUserStatus()));
+
 		// 수정된 정보 응답
 		return UserResponseDto.from(user);
 	}
@@ -187,6 +218,10 @@ public class UserService {
 		user.unlock();
 
 		log.info("사용자 잠금 해제: id={}, userId={}", id, user.getUserId());
+
+		// 잠금 해제 감사 로그
+		auditLogService.logSuccess(null, AuditAction.USER_UNLOCK, AuditTarget.USER, id,
+			"계정 잠금 해제: " + user.getUserId(), null);
 
 		// 해제 후 정보 응답
 		return UserResponseDto.from(user);
@@ -230,6 +265,10 @@ public class UserService {
 		userRepository.delete(user);
 
 		log.info("사용자 삭제: id={}, userId={}", id, user.getUserId());
+
+		// 사용자 삭제 감사 로그 (관리자에 의한 삭제)
+		auditLogService.logSuccess(currentUserPk, AuditAction.USER_DELETE, AuditTarget.USER, id,
+			"사용자 삭제: " + user.getUserId(), null);
 	}
 
 	// 사용자 본인 탈퇴 (마이페이지에서 호출)
@@ -263,6 +302,10 @@ public class UserService {
 		userRepository.delete(user);
 
 		log.info("사용자 본인 탈퇴: id={}, userId={}", userPk, user.getUserId());
+
+		// 본인 탈퇴 감사 로그
+		auditLogService.logSuccess(userPk, AuditAction.USER_DELETE, AuditTarget.USER, userPk,
+			"본인 탈퇴: " + user.getUserId(), null);
 	}
 
 	// 관리자에 의한 비밀번호 변경
@@ -277,5 +320,9 @@ public class UserService {
 		user.changePassword(encodedPassword);
 
 		log.info("비밀번호 변경: id={}, userId={}", id, user.getUserId());
+
+		// 비밀번호 변경 감사 로그
+		auditLogService.logSuccess(null, AuditAction.PASSWORD_CHANGE, AuditTarget.USER, id,
+			"비밀번호 변경: " + user.getUserId(), null);
 	}
 }

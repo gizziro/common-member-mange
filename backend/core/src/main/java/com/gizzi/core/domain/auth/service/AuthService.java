@@ -4,6 +4,9 @@ import com.gizzi.core.common.exception.AuthErrorCode;
 import com.gizzi.core.common.exception.BusinessException;
 import com.gizzi.core.common.exception.UserErrorCode;
 import com.gizzi.core.common.security.JwtTokenProvider;
+import com.gizzi.core.domain.audit.AuditAction;
+import com.gizzi.core.domain.audit.AuditTarget;
+import com.gizzi.core.domain.audit.service.AuditLogService;
 import com.gizzi.core.domain.auth.dto.LoginRequestDto;
 import com.gizzi.core.domain.auth.dto.LoginResponseDto;
 import com.gizzi.core.domain.auth.dto.TokenRefreshRequestDto;
@@ -14,6 +17,7 @@ import com.gizzi.core.domain.session.repository.SessionRepository;
 import com.gizzi.core.domain.user.entity.UserEntity;
 import com.gizzi.core.domain.user.repository.UserRepository;
 import com.gizzi.core.domain.user.service.UserService;
+import com.gizzi.core.domain.setting.service.SettingService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
@@ -28,6 +32,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.util.HexFormat;
+import java.util.Map;
 
 // 인증 관련 비즈니스 로직을 처리하는 서비스
 // 로그인, 로그아웃, 토큰 갱신, 사용자 정보 조회를 담당한다
@@ -55,20 +60,45 @@ public class AuthService {
 	// 비밀번호 인코더
 	private final PasswordEncoder   passwordEncoder;
 
+	// 시스템 설정 서비스 (잠금 자동 해제 시간 등)
+	private final SettingService    settingService;
+
+	// 감사 로그 서비스
+	private final AuditLogService   auditLogService;
+
 	// 로그인 처리: 자격증명 검증 → JWT 발급 → Redis 저장 → DB 세션 기록
 	@Transactional
 	public LoginResponseDto login(LoginRequestDto request, String ipAddress, String userAgent) {
 		// 1. userId로 사용자 조회 (없으면 INVALID_CREDENTIALS)
 		UserEntity user = userRepository.findByUserId(request.getUserId())
-			.orElseThrow(() -> new BusinessException(AuthErrorCode.INVALID_CREDENTIALS));
+			.orElseGet(() -> {
+				// 로그인 실패 감사 로그 — 사용자 없음 (독립 트랜잭션)
+				auditLogService.logFailure(null, AuditAction.LOGIN, AuditTarget.USER, null,
+					"존재하지 않는 사용자 ID: " + request.getUserId(), null);
+				throw new BusinessException(AuthErrorCode.INVALID_CREDENTIALS);
+			});
 
-		// 2. 계정 잠금 상태 확인
+		// 2. 계정 잠금 상태 확인 (자동 해제 시도 포함)
 		if (Boolean.TRUE.equals(user.getIsLocked())) {
-			throw new BusinessException(AuthErrorCode.ACCOUNT_LOCKED);
+			// 시스템 설정: 잠금 유지 시간(분) 조회
+			int lockDuration = (int) settingService.getSystemNumber("auth", "lock_duration_min");
+			// 잠금 시간 경과 시 자동 해제 시도
+			if (!user.tryAutoUnlock(lockDuration)) {
+				// 로그인 실패 감사 로그 — 계정 잠금 상태 (독립 트랜잭션)
+				auditLogService.logFailure(user.getId(), AuditAction.LOGIN, AuditTarget.USER, user.getId(),
+					"계정 잠금 상태로 로그인 차단", null);
+				// 아직 잠금 유지 중 → 로그인 차단
+				throw new BusinessException(AuthErrorCode.ACCOUNT_LOCKED);
+			}
+			// 자동 해제 성공 → 로그인 계속 진행
+			log.info("계정 자동 잠금 해제: userId={}, lockDuration={}분", user.getUserId(), lockDuration);
 		}
 
 		// 3. 비밀번호 검증 (틀리면 실패 횟수 증가 + 잠금 체크)
 		if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
+			// 로그인 실패 감사 로그 — 비밀번호 불일치 (독립 트랜잭션)
+			auditLogService.logFailure(user.getId(), AuditAction.LOGIN, AuditTarget.USER, user.getId(),
+				"비밀번호 불일치", null);
 			// 독립 트랜잭션으로 실패 횟수 증가 (외부 트랜잭션 롤백과 무관하게 커밋)
 			userService.incrementLoginFailCount(user.getId());
 			throw new BusinessException(AuthErrorCode.INVALID_CREDENTIALS);
@@ -76,6 +106,9 @@ public class AuthService {
 
 		// 4. 계정 상태 확인 (PENDING 상태이면 접근 차단)
 		if ("PENDING".equals(user.getUserStatus())) {
+			// 로그인 실패 감사 로그 — PENDING 상태 (독립 트랜잭션)
+			auditLogService.logFailure(user.getId(), AuditAction.LOGIN, AuditTarget.USER, user.getId(),
+				"PENDING 상태 계정으로 로그인 시도", null);
 			throw new BusinessException(AuthErrorCode.ACCOUNT_PENDING);
 		}
 
@@ -114,7 +147,11 @@ public class AuthService {
 
 		log.info("로그인 성공: userId={}, sessionId={}", user.getUserId(), session.getId());
 
-		// 10. 로그인 응답 반환
+		// 10. 로그인 성공 감사 로그
+		auditLogService.logSuccess(user.getId(), AuditAction.LOGIN, AuditTarget.USER, user.getId(),
+			"로그인 성공: " + user.getUserId(), Map.of("sessionId", session.getId()));
+
+		// 11. 로그인 응답 반환
 		return LoginResponseDto.of(user, accessToken, refreshToken);
 	}
 
@@ -134,6 +171,10 @@ public class AuthService {
 			.ifPresent(session -> session.revoke("LOGOUT"));
 
 		log.info("로그아웃 완료: userPk={}, sessionId={}", userPk, sessionId);
+
+		// 로그아웃 감사 로그
+		auditLogService.logSuccess(userPk, AuditAction.LOGOUT, AuditTarget.USER, userPk,
+			"로그아웃", Map.of("sessionId", sessionId));
 	}
 
 	// 토큰 갱신: Refresh Token 검증 → 새 토큰 쌍 발급 (Rotation)
@@ -189,7 +230,11 @@ public class AuthService {
 
 		log.info("토큰 갱신 완료: userPk={}, sessionId={}", userPk, sessionId);
 
-		// 10. 새 토큰 쌍 반환
+		// 10. 토큰 갱신 감사 로그
+		auditLogService.logSuccess(userPk, AuditAction.TOKEN_REFRESH, AuditTarget.USER, userPk,
+			"토큰 갱신", Map.of("sessionId", sessionId));
+
+		// 11. 새 토큰 쌍 반환
 		return TokenRefreshResponseDto.builder()
 			.accessToken(newAccessToken)
 			.refreshToken(newRefreshToken)

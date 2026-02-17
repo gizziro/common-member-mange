@@ -4,6 +4,9 @@ import com.gizzi.core.common.exception.BusinessException;
 import com.gizzi.core.common.exception.OAuth2ErrorCode;
 import com.gizzi.core.common.exception.UserErrorCode;
 import com.gizzi.core.common.security.JwtTokenProvider;
+import com.gizzi.core.domain.audit.AuditAction;
+import com.gizzi.core.domain.audit.AuditTarget;
+import com.gizzi.core.domain.audit.service.AuditLogService;
 import com.gizzi.core.domain.auth.dto.LoginResponseDto;
 import com.gizzi.core.domain.auth.dto.OAuth2LoginResultDto;
 import com.gizzi.core.domain.auth.dto.OAuth2ProviderDto;
@@ -18,6 +21,7 @@ import com.gizzi.core.domain.auth.service.oauth2.OAuth2UserInfoExtractor;
 import com.gizzi.core.domain.group.service.GroupService;
 import com.gizzi.core.domain.session.entity.SessionEntity;
 import com.gizzi.core.domain.session.repository.SessionRepository;
+import com.gizzi.core.domain.setting.service.SettingService;
 import com.gizzi.core.domain.user.entity.UserEntity;
 import com.gizzi.core.domain.user.repository.UserRepository;
 import lombok.extern.slf4j.Slf4j;
@@ -68,6 +72,9 @@ public class OAuth2Service {
 	// 그룹 서비스 (기본 그룹 배정용)
 	private final GroupService             groupService;
 
+	// 시스템 설정 서비스 (소셜 로그인 전역 on/off)
+	private final SettingService           settingService;
+
 	// JWT 토큰 생성 컴포넌트
 	private final JwtTokenProvider         jwtTokenProvider;
 
@@ -85,6 +92,9 @@ public class OAuth2Service {
 
 	// Provider별 사용자 정보 파서 Map (providerCode → extractor)
 	private final Map<String, OAuth2UserInfoExtractor> extractorMap;
+
+	// 감사 로그 서비스
+	private final AuditLogService auditLogService;
 
 	// OAuth2 state Redis 키 접두사
 	private static final String STATE_PREFIX        = "oauth2:state:";
@@ -104,16 +114,19 @@ public class OAuth2Service {
 	                     UserRepository userRepository,
 	                     SessionRepository sessionRepository,
 	                     GroupService groupService,
+	                     SettingService settingService,
 	                     JwtTokenProvider jwtTokenProvider,
 	                     RedisTokenService redisTokenService,
 	                     StringRedisTemplate redisTemplate,
 	                     PasswordEncoder passwordEncoder,
-	                     List<OAuth2UserInfoExtractor> extractors) {
+	                     List<OAuth2UserInfoExtractor> extractors,
+	                     AuditLogService auditLogService) {
 		this.authProviderRepository = authProviderRepository;
 		this.userIdentityRepository = userIdentityRepository;
 		this.userRepository         = userRepository;
 		this.sessionRepository      = sessionRepository;
 		this.groupService           = groupService;
+		this.settingService         = settingService;
 		this.jwtTokenProvider       = jwtTokenProvider;
 		this.redisTokenService      = redisTokenService;
 		this.redisTemplate          = redisTemplate;
@@ -123,10 +136,17 @@ public class OAuth2Service {
 		// Extractor 리스트 → Map(providerCode → extractor) 변환
 		this.extractorMap = extractors.stream()
 			.collect(Collectors.toMap(OAuth2UserInfoExtractor::getProviderCode, e -> e));
+		this.auditLogService = auditLogService;
 	}
 
 	// 활성 소셜 Provider 목록 조회 (로그인 페이지 표시용)
+	// 소셜 로그인 전역 비활성화 시 빈 리스트 반환 (UI에서 소셜 버튼이 안 보임)
 	public List<OAuth2ProviderDto> getEnabledProviders() {
+		// 시스템 설정: 소셜 로그인 전역 활성화 여부 확인
+		if (!settingService.getSystemBoolean("signup", "oauth2_enabled")) {
+			return List.of();
+		}
+
 		// 활성화된 Provider 중 local 제외 (소셜만 반환)
 		return authProviderRepository.findByIsEnabledTrueOrderByDisplayOrder().stream()
 			.filter(p -> !"local".equals(p.getCode()))
@@ -136,6 +156,9 @@ public class OAuth2Service {
 
 	// Authorization URL 생성 (state를 Redis에 5분 저장)
 	public String getAuthorizationUrl(String providerCode) {
+		// 0. 소셜 로그인 전역 활성화 여부 확인
+		checkOAuth2Enabled();
+
 		// 1. Provider 조회 및 검증
 		AuthProviderEntity provider = getValidProvider(providerCode);
 
@@ -168,6 +191,9 @@ public class OAuth2Service {
 	@Transactional
 	public OAuth2LoginResultDto processCallback(String providerCode, String code, String state,
 	                                            String ipAddress, String userAgent) {
+		// 0. 소셜 로그인 전역 활성화 여부 확인
+		checkOAuth2Enabled();
+
 		// 1. state 검증 (Redis에서 확인 후 삭제)
 		validateState(state, providerCode);
 
@@ -317,6 +343,9 @@ public class OAuth2Service {
 			UserEntity user = existingIdentity.get().getUser();
 			log.info("기존 소셜 연동 사용자: provider={}, userId={}", userInfo.getProviderCode(), user.getUserId());
 			LoginResponseDto loginResponse = createLoginSession(user, userInfo.getProviderCode(), ipAddress, userAgent);
+			// 소셜 로그인 감사 로그
+			auditLogService.logSuccess(user.getId(), AuditAction.OAUTH2_LOGIN, AuditTarget.USER, user.getId(),
+				"소셜 로그인: " + userInfo.getProviderCode(), Map.of("provider", userInfo.getProviderCode()));
 			return OAuth2LoginResultDto.success(loginResponse);
 		}
 
@@ -368,6 +397,9 @@ public class OAuth2Service {
 		log.info("소셜 신규 사용자 생성: userId={}, provider={}", newUser.getUserId(), userInfo.getProviderCode());
 
 		LoginResponseDto loginResponse = createLoginSession(newUser, userInfo.getProviderCode(), ipAddress, userAgent);
+		// 소셜 로그인(신규 사용자) 감사 로그
+		auditLogService.logSuccess(newUser.getId(), AuditAction.OAUTH2_LOGIN, AuditTarget.USER, newUser.getId(),
+			"소셜 신규 사용자 로그인: " + userInfo.getProviderCode(), Map.of("provider", userInfo.getProviderCode(), "newUser", true));
 		return OAuth2LoginResultDto.success(loginResponse);
 	}
 
@@ -410,6 +442,10 @@ public class OAuth2Service {
 		redisTemplate.delete(redisKey);
 
 		log.info("소셜 연동 확인 완료: userId={}, provider={}", user.getUserId(), providerCode);
+
+		// 소셜 연동 확인 감사 로그
+		auditLogService.logSuccess(user.getId(), AuditAction.OAUTH2_LINK, AuditTarget.IDENTITY, user.getId(),
+			"소셜 연동 확인: " + providerCode, Map.of("provider", providerCode));
 
 		// 7. JWT 발급 + 세션 생성
 		return createLoginSession(user, providerCode, ipAddress, userAgent);
@@ -466,6 +502,9 @@ public class OAuth2Service {
 	// state에 mode=link + userPk를 포함하여 콜백에서 기존 사용자에 연동 추가
 	// 정책: 소셜 전용 사용자(provider != LOCAL)는 비밀번호 설정 전까지 연동 추가 불가
 	public String getLinkAuthorizationUrl(String providerCode, String userPk) {
+		// 소셜 로그인 전역 활성화 여부 확인
+		checkOAuth2Enabled();
+
 		// 0. 사용자 조회 + 비밀번호 설정 여부 체크
 		UserEntity user = userRepository.findById(userPk)
 			.orElseThrow(() -> new BusinessException(OAuth2ErrorCode.LINK_CONFIRM_FAILED));
@@ -548,6 +587,10 @@ public class OAuth2Service {
 		userIdentityRepository.save(identity);
 
 		log.info("마이페이지 소셜 연동 추가: userId={}, provider={}", user.getUserId(), providerCode);
+
+		// 마이페이지 소셜 연동 감사 로그
+		auditLogService.logSuccess(userPk, AuditAction.OAUTH2_LINK, AuditTarget.IDENTITY, userPk,
+			"마이페이지 소셜 연동: " + providerCode, Map.of("provider", providerCode));
 	}
 
 	// 소셜 연동 해제
@@ -573,6 +616,10 @@ public class OAuth2Service {
 		userIdentityRepository.delete(identity);
 
 		log.info("소셜 연동 해제: userId={}, provider={}", user.getUserId(), identity.getProvider().getCode());
+
+		// 소셜 연동 해제 감사 로그
+		auditLogService.logSuccess(userPk, AuditAction.OAUTH2_UNLINK, AuditTarget.IDENTITY, userPk,
+			"소셜 연동 해제: " + identity.getProvider().getCode(), Map.of("provider", identity.getProvider().getCode()));
 	}
 
 	// OAuth2 state의 모드 확인 (Redis 값을 소비하지 않고 모드만 판별)
@@ -614,6 +661,13 @@ public class OAuth2Service {
 		user.setLocalCredentials(request.getUserId(), encodedPassword);
 
 		log.info("소셜 사용자 로컬 자격증명 설정: userPk={}, newUserId={}", userPk, request.getUserId());
+	}
+
+	// 소셜 로그인 전역 활성화 여부 확인 (비활성화 시 OAUTH2_DISABLED 예외)
+	private void checkOAuth2Enabled() {
+		if (!settingService.getSystemBoolean("signup", "oauth2_enabled")) {
+			throw new BusinessException(OAuth2ErrorCode.OAUTH2_DISABLED);
+		}
 	}
 
 	// 문자열의 SHA-256 해시 생성 (토큰 DB 저장용)

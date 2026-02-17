@@ -149,10 +149,18 @@
 ## 7. 시스템 설정
 
 ### 7.1 기능 플래그
-- [ ] 회원가입 활성화 여부 (`tb_system_settings`, 비활성 시 가입 API 차단)
-- [ ] 회원가입 시 자동 인증 On/Off (`tb_system_settings`, On이면 가입 즉시 ACTIVE, Off면 PENDING)
-- [ ] 소셜 로그인 사용 여부 (`tb_system_settings`)
-- [ ] 2차 인증 필수 여부 및 적용 범위 (`tb_system_settings`)
+- [x] 통합 설정 테이블 (`tb_settings` — 시스템+모듈 설정 통합, module_code/setting_group/setting_key 3단 계층)
+- [x] 시스템 기본 설정 자동 등록 (SettingsRegistry @Order(3), 10개 기본 설정)
+  - general: site_name, site_description
+  - signup: enabled, email_verification, default_status
+  - auth: max_login_fail, lock_duration_min, otp_required
+  - session: access_token_exp, refresh_token_exp
+- [x] 모듈 기본 설정 자동 등록 (ModuleDefinition.getDefaultSettings() → SettingsRegistry)
+  - page 모듈: default_content_type, auto_publish
+- [ ] 회원가입 활성화 여부 (설정 연동하여 가입 API 차단)
+- [ ] 회원가입 시 자동 인증 On/Off (설정 연동)
+- [ ] 소셜 로그인 사용 여부 (설정 연동)
+- [ ] 2차 인증 필수 여부 및 적용 범위 (설정 연동)
 
 ### 7.2 관리자 페이지 접근 제어
 - [x] admin-api 접근 시 administrator 그룹 소속 여부 검증 (AdminGroupFilter — JwtAuthenticationFilter 이후 실행)
@@ -214,9 +222,12 @@
 - 상세 설계는 메뉴 관리 구현 시점에 확정
 
 ### 7.3 설정 적용 방식
-- [ ] 애플리케이션 시작 시 캐시 로딩
-- [ ] 관리 API를 통한 실시간 수정
-- [ ] 설정 CRUD API (admin-api: GET/PUT /settings)
+- [x] 애플리케이션 시작 시 캐시 로딩 (SettingCache — ConcurrentHashMap, SettingsRegistry에서 loadAll 호출)
+- [x] 관리 API를 통한 실시간 수정 (write-through: DB 저장 → 캐시 즉시 갱신)
+- [x] 설정 CRUD API (admin-api: GET/PUT /settings/system, GET/PUT /settings/modules/{code})
+- [x] 타입별 접근자: getString(), getBoolean(), getNumber() + 시스템 편의 메서드
+- [x] SettingErrorCode: SETTING_NOT_FOUND, SETTING_READONLY, SETTING_INVALID_VALUE
+- [x] SystemInitService.invalidateCache() — DB 초기화 후 캐시 불일치 방지
 
 ### 7.3 시스템 초기 설정 (Setup Wizard)
 - [x] 초기화 상태 확인 (administrator 그룹 멤버 유무로 판단)
@@ -311,7 +322,15 @@
 - [x] GET `/menus/modules/{code}/instances` — 모듈별 인스턴스 목록 (admin-api)
 - [x] GET `/menus/me` — 공개 메뉴 트리 (user-api, 인증 불필요)
 
-### 8.7 페이지 모듈 (구현 완료)
+### 8.7 설정 (구현 완료)
+- [x] GET `/settings/system` — 시스템 설정 전체 조회 (그룹별 묶음, admin-api)
+- [x] GET `/settings/system/{group}` — 시스템 특정 그룹 설정 조회 (admin-api)
+- [x] PUT `/settings/system/{group}` — 시스템 특정 그룹 설정 일괄 수정 (admin-api)
+- [x] GET `/settings/modules` — 설정이 있는 모듈 코드 목록 (admin-api)
+- [x] GET `/settings/modules/{code}` — 모듈 설정 전체 조회 (그룹별 묶음, admin-api)
+- [x] PUT `/settings/modules/{code}/{group}` — 모듈 특정 그룹 설정 일괄 수정 (admin-api)
+
+### 8.8 페이지 모듈 (구현 완료)
 - [x] POST `/pages` — 페이지 생성 + 모듈 인스턴스 동시 생성 (admin-api)
 - [x] GET `/pages` — 페이지 목록 (admin-api: 전체 / user-api: 공개+권한 필터링)
 - [x] GET `/pages/{id}` — 페이지 상세 (admin-api)
@@ -356,7 +375,7 @@
 - [x] 회원 상세 — 권한 요약 카드 (읽기 전용, 직접/그룹 출처 표시)
 - [x] 그룹 상세 — 권한 요약 카드 (읽기 전용)
 - [ ] 모듈/인스턴스 관리 페이지
-- [ ] 시스템 설정 페이지
+- [x] 시스템 설정 페이지 (/settings/system — 그룹별 Card UI, 타입별 입력, 그룹별 저장)
 - [ ] 감사 로그 조회 페이지
 
 ## 10. 기타 고려사항
@@ -371,6 +390,7 @@
 - [x] 페이지네이션 공통 응답 DTO (PageResponseDto)
 - [x] **admin-api 접근 제어: administrator 그룹 소속자만 허용 (AdminGroupFilter + AuthController 로그인/갱신 차단)**
 - [ ] **OAuth2 콜백 리다이렉트 URL 외부화**: `OAuth2Controller`의 프론트엔드 리다이렉트 URL(`http://localhost:3020/auth/oauth2/...`)이 하드코딩됨. `application.yml`에 `app.frontend-url` 등의 프로퍼티로 추출하여 환경별(로컬/운영) 설정 가능하도록 리팩토링 필요
+- [x] 서비스 관리 스크립트 (run.sh / run.bat — 빌드/실행/종료/DB초기화 텍스트 UI)
 - [ ] 트랜잭션 처리 범위 정의
 - [ ] FK 제약 위반 대비 예외 처리
 - [ ] DB 마이그레이션 도입(Flyway 권장)

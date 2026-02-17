@@ -1,6 +1,7 @@
 package com.gizzi.core.common.security;
 
 import com.gizzi.core.common.config.JwtProperties;
+import com.gizzi.core.domain.setting.service.SettingService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
@@ -21,14 +22,18 @@ import java.util.Date;
 public class JwtTokenProvider {
 
 	// JWT 서명에 사용할 비밀키
-	private final SecretKey    secretKey;
+	private final SecretKey     secretKey;
 
-	// JWT 설정 프로퍼티
+	// JWT 설정 프로퍼티 (기본값 역할)
 	private final JwtProperties jwtProperties;
 
+	// 시스템 설정 서비스 (DB 설정 우선, 실패 시 yml 폴백)
+	private final SettingService settingService;
+
 	// 생성자: 프로퍼티에서 비밀키 문자열을 SecretKey 객체로 변환
-	public JwtTokenProvider(JwtProperties jwtProperties) {
+	public JwtTokenProvider(JwtProperties jwtProperties, SettingService settingService) {
 		this.jwtProperties = jwtProperties;
+		this.settingService = settingService;
 		// 비밀키 문자열을 HMAC-SHA 키로 변환 (최소 256bit 필요)
 		this.secretKey = Keys.hmacShaKeyFor(
 			jwtProperties.getSecretKey().getBytes(StandardCharsets.UTF_8)
@@ -137,12 +142,26 @@ public class JwtTokenProvider {
 	}
 
 	// Access Token 만료 시간 (ms) 조회
+	// DB 설정(session.access_token_exp) 우선, 실패 시 yml 설정 폴백
 	public long getAccessTokenExpiration() {
-		return jwtProperties.getAccessTokenExpiration();
+		try {
+			return settingService.getSystemNumber("session", "access_token_exp");
+		} catch (Exception e) {
+			// DB 설정 조회 실패 시 yml 기본값 사용
+			log.debug("Access Token 만료 시간 DB 설정 조회 실패, yml 폴백: {}", e.getMessage());
+			return jwtProperties.getAccessTokenExpiration();
+		}
 	}
 
 	// Refresh Token 만료 시간 (ms) 조회
+	// DB 설정(session.refresh_token_exp) 우선, 실패 시 yml 설정 폴백
 	public long getRefreshTokenExpiration() {
-		return jwtProperties.getRefreshTokenExpiration();
+		try {
+			return settingService.getSystemNumber("session", "refresh_token_exp");
+		} catch (Exception e) {
+			// DB 설정 조회 실패 시 yml 기본값 사용
+			log.debug("Refresh Token 만료 시간 DB 설정 조회 실패, yml 폴백: {}", e.getMessage());
+			return jwtProperties.getRefreshTokenExpiration();
+		}
 	}
 }

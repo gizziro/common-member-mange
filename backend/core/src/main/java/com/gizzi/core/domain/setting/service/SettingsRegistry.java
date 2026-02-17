@@ -80,6 +80,9 @@ public class SettingsRegistry implements ApplicationRunner {
 		count += registerIfAbsent("system", "signup", "default_status",
 				"ACTIVE", SettingValueType.STRING,
 				"기본 회원 상태", "가입 시 기본 사용자 상태 (ACTIVE/PENDING)", false, 2);
+		count += registerIfAbsent("system", "signup", "oauth2_enabled",
+				"true", SettingValueType.BOOLEAN,
+				"소셜 로그인 허용", "비활성화 시 모든 소셜 로그인(OAuth2)이 차단됩니다", false, 3);
 
 		// ─── auth 그룹: 인증 보안 설정 ───
 		count += registerIfAbsent("system", "auth", "max_login_fail",

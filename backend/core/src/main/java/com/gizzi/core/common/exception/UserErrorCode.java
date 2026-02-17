@@ -26,7 +26,10 @@ public enum UserErrorCode implements ErrorCode {
 	SELF_DELETE      ("USER_SELF_DELETE",     "자기 자신은 삭제할 수 없습니다",          "로그인한 사용자 본인 삭제 시도",          HttpStatus.BAD_REQUEST),
 
 	// 관리자 그룹 소속 사용자 삭제 시도 방지
-	ADMIN_USER_UNDELETABLE("USER_ADMIN_UNDELETABLE", "관리자 그룹 소속 사용자는 삭제할 수 없습니다", "administrator 그룹 소속 사용자 삭제 시도", HttpStatus.BAD_REQUEST);
+	ADMIN_USER_UNDELETABLE("USER_ADMIN_UNDELETABLE", "관리자 그룹 소속 사용자는 삭제할 수 없습니다", "administrator 그룹 소속 사용자 삭제 시도", HttpStatus.BAD_REQUEST),
+
+	// 회원가입 비활성화 (시스템 설정 signup.enabled=false)
+	SIGNUP_DISABLED       ("USER_SIGNUP_DISABLED",    "회원가입이 비활성화되어 있습니다",             "시스템 설정에 의한 회원가입 차단",          HttpStatus.FORBIDDEN);
 
 	// 에러 코드 문자열 (예: "USER_DUPLICATE_ID")
 	private final String     code;

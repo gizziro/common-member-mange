@@ -119,12 +119,11 @@ public class UserEntity extends BaseEntity {
 		}
 	}
 
-	// 최대 로그인 실패 허용 횟수 (초과 시 계정 잠금)
-	private static final int MAX_LOGIN_FAIL_COUNT = 5;
-
 	// 로컬 회원가입용 정적 팩토리 메서드
+	// initialStatus: 시스템 설정에서 결정된 초기 상태 (ACTIVE, PENDING 등)
 	public static UserEntity createLocalUser(String userId, String username,
-	                                         String email, String encodedPassword) {
+	                                         String email, String encodedPassword,
+	                                         String initialStatus) {
 		// 새 사용자 엔티티 생성
 		UserEntity user          = new UserEntity();
 		user.userId              = userId;
@@ -140,7 +139,8 @@ public class UserEntity extends BaseEntity {
 		user.isOtpUse            = false;
 		user.loginFailCount      = 0;
 		user.isLocked            = false;
-		user.userStatus          = "PENDING";
+		// 시스템 설정(signup.default_status)에서 전달받은 초기 상태 적용
+		user.userStatus          = initialStatus;
 		user.createdBy           = userId;
 		return user;
 	}
@@ -175,14 +175,43 @@ public class UserEntity extends BaseEntity {
 	}
 
 	// 로그인 실패 횟수 증가 + 최대 횟수 초과 시 자동 잠금
-	public void incrementLoginFailCount() {
+	// maxFailCount: 시스템 설정(auth.max_login_fail)에서 전달받은 최대 실패 허용 횟수
+	public void incrementLoginFailCount(int maxFailCount) {
 		// 실패 횟수 1 증가
 		this.loginFailCount++;
 		// 최대 실패 횟수 이상이면 계정 잠금
-		if (this.loginFailCount >= MAX_LOGIN_FAIL_COUNT) {
+		if (this.loginFailCount >= maxFailCount) {
 			this.isLocked = true;
 			this.lockedAt = LocalDateTime.now();
 		}
+	}
+
+	// 잠금 시간 경과 시 자동 해제 시도
+	// lockDurationMinutes: 시스템 설정(auth.lock_duration_min)에서 전달받은 잠금 유지 시간(분)
+	// 0 이하이면 자동 해제 비활성화 (관리자 수동 해제만 가능)
+	// 반환: true이면 잠금 해제됨, false이면 아직 잠금 유지 중
+	public boolean tryAutoUnlock(int lockDurationMinutes) {
+		// 잠금 상태가 아니면 해제 불필요
+		if (!Boolean.TRUE.equals(this.isLocked)) {
+			return true;
+		}
+		// 자동 해제 비활성화 (0 이하면 수동 해제만 가능)
+		if (lockDurationMinutes <= 0) {
+			return false;
+		}
+		// 잠금 시각이 없으면 해제 불가 (비정상 상태)
+		if (this.lockedAt == null) {
+			return false;
+		}
+		// 잠금 후 경과 시간이 설정된 잠금 유지 시간을 초과했는지 확인
+		LocalDateTime unlockTime = this.lockedAt.plusMinutes(lockDurationMinutes);
+		if (LocalDateTime.now().isAfter(unlockTime)) {
+			// 잠금 시간 경과 → 자동 해제 (실패 횟수 초기화 포함)
+			unlock();
+			return true;
+		}
+		// 아직 잠금 유지 시간 이내
+		return false;
 	}
 
 	// 로그인 성공 시 실패 횟수 초기화
