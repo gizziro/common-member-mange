@@ -29,27 +29,42 @@
 
 ### 1.4 사용자 상태 관리
 - [ ] 이메일/휴대폰 인증 처리 (`email_verified`, `phone_verified`)
-- [x] 잠금 정책 (`login_fail_count` 5회 초과 시 `is_locked` = true)
+- [x] 잠금 정책 (auth.max_login_fail 설정 기반 동적 임계값, 자동 잠금)
+- [x] 잠금 자동 해제 (auth.lock_duration_min 설정 기반, 시간 경과 시 로그인 시 자동 해제)
 - [x] 계정 상태 관리 (`user_status`: PENDING → ACTIVE → SUSPENDED)
-- [ ] 회원가입 시 자동 인증(ACTIVE) On/Off 설정 (시스템 설정 연동)
+- [x] 회원가입 시 초기 상태 설정 연동 (signup.default_status → ACTIVE/PENDING)
+- [x] 토큰 만료 시간 설정 연동 (session.access_token_exp, refresh_token_exp — DB 설정 우선, yml 폴백)
 
 ### 1.5 페이지/리소스별 2FA 정책
 - [ ] 특정 페이지/기능 접근 시 2FA 요구 정책 정의
 - [ ] 2FA 필요 여부 판단 로직(권한 체크 이전/이후) 결정
 - [ ] 2FA 성공 시 일정 기간 재요구 여부(세션 단위/시간 단위) 결정
 
-## 2. 감사 로깅 (필수)
+## 2. 감사 로깅 (구현 완료)
 
 ### 2.1 감사 로그 기록
-- [ ] 로그인/로그아웃/토큰 발급/폐기 기록 (`tb_audit_logs`)
-- [ ] 권한 변경/모듈 생성/그룹 가입 등 주요 행위 기록
-- [ ] 실패 이벤트도 기록 (예: 로그인 실패)
+- [x] 로그인/로그아웃/토큰 갱신 기록 (AuthService — 성공+실패 4경로)
+- [x] 회원 관리 행위 기록 (UserService — 가입/수정/삭제/탈퇴/잠금해제/비밀번호변경)
+- [x] 그룹 관리 행위 기록 (GroupService — 생성/수정/삭제/멤버추가/제거)
+- [x] 설정 변경 기록 (SettingService — 설정 그룹별 변경)
+- [x] 소셜 로그인/연동/해제 기록 (OAuth2Service — 로그인/연동확인/마이페이지연동/해제)
+- [x] 실패 이벤트 독립 트랜잭션 기록 (logIndependent — REQUIRES_NEW, 롤백과 무관)
 
 ### 2.2 감사 로그 필드 기준
-- [ ] 행위자 (actor_user_id, actor_type)
-- [ ] 대상 정보 (target_type, target_id)
-- [ ] 결과 (result_status)
-- [ ] IP / User-Agent / 메타데이터
+- [x] 행위자 (actor_user_id, actor_type — ActorType enum: USER/SYSTEM)
+- [x] 대상 정보 (target_type, target_id — AuditTarget 상수: USER/GROUP/MEMBER/SETTING/IDENTITY)
+- [x] 결과 (result_status — ResultStatus enum: SUCCESS/FAILURE)
+- [x] IP / User-Agent (RequestContextHolder 자동 추출)
+- [x] 메타데이터 (metadata_json — 수동 JSON 빌더, ObjectMapper 미사용)
+
+### 2.3 감사 로그 인프라
+- [x] AuditLogEntity (tb_audit_logs 매핑, BaseEntity 미상속, @PrePersist UUID+createdAt)
+- [x] AuditLogRepository (복합 필터 JPQL — actorUserId, actionType, startTime, endTime)
+- [x] AuditLogService (log/logIndependent/logSuccess/logFailure + extractRequestInfo + mapToJson)
+- [x] AuditAction 상수 클래스 (17개 액션: LOGIN, LOGOUT, TOKEN_REFRESH, USER_SIGNUP 등)
+- [x] AuditTarget 상수 클래스 (5개 대상: USER, GROUP, MEMBER, SETTING, IDENTITY)
+- [x] AuditLogResponseDto (from(entity) 정적 팩토리)
+- [x] AuditLogController (admin-api: GET /audit-logs — 페이지네이션+필터)
 
 ## 3. 그룹/조직 관리
 
@@ -157,9 +172,9 @@
   - session: access_token_exp, refresh_token_exp
 - [x] 모듈 기본 설정 자동 등록 (ModuleDefinition.getDefaultSettings() → SettingsRegistry)
   - page 모듈: default_content_type, auto_publish
-- [ ] 회원가입 활성화 여부 (설정 연동하여 가입 API 차단)
-- [ ] 회원가입 시 자동 인증 On/Off (설정 연동)
-- [ ] 소셜 로그인 사용 여부 (설정 연동)
+- [x] 회원가입 활성화 여부 (UserService — signup.enabled 체크, SIGNUP_DISABLED 에러)
+- [x] 회원가입 시 기본 상태 (UserService — signup.default_status 적용, ACTIVE/PENDING 등)
+- [x] 소셜 로그인 사용 여부 (OAuth2Service — signup.oauth2_enabled 체크, OAUTH2_DISABLED 에러)
 - [ ] 2차 인증 필수 여부 및 적용 범위 (설정 연동)
 
 ### 7.2 관리자 페이지 접근 제어
@@ -228,6 +243,7 @@
 - [x] 타입별 접근자: getString(), getBoolean(), getNumber() + 시스템 편의 메서드
 - [x] SettingErrorCode: SETTING_NOT_FOUND, SETTING_READONLY, SETTING_INVALID_VALUE
 - [x] SystemInitService.invalidateCache() — DB 초기화 후 캐시 불일치 방지
+- [x] SettingCache TTL (30초) — 별도 JVM(admin/user) 간 설정 동기화 보장
 
 ### 7.3 시스템 초기 설정 (Setup Wizard)
 - [x] 초기화 상태 확인 (administrator 그룹 멤버 유무로 판단)
@@ -330,7 +346,10 @@
 - [x] GET `/settings/modules/{code}` — 모듈 설정 전체 조회 (그룹별 묶음, admin-api)
 - [x] PUT `/settings/modules/{code}/{group}` — 모듈 특정 그룹 설정 일괄 수정 (admin-api)
 
-### 8.8 페이지 모듈 (구현 완료)
+### 8.8 감사 로그 (구현 완료)
+- [x] GET `/audit-logs` — 감사 로그 목록 조회 (admin-api, 페이지네이션+필터: actorUserId, actionType, startTime, endTime)
+
+### 8.9 페이지 모듈 (구현 완료)
 - [x] POST `/pages` — 페이지 생성 + 모듈 인스턴스 동시 생성 (admin-api)
 - [x] GET `/pages` — 페이지 목록 (admin-api: 전체 / user-api: 공개+권한 필터링)
 - [x] GET `/pages/{id}` — 페이지 상세 (admin-api)
