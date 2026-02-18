@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import DOMPurify from "dompurify";
 import { apiGet } from "@/lib/api";
 
 /* ===========================
@@ -117,7 +118,7 @@ export function PageViewer({ slug }: PageViewerProps) {
 
 /**
  * 콘텐츠 유형에 따라 적절한 렌더링 방식 선택
- * - HTML: dangerouslySetInnerHTML (향후 DOMPurify 적용 필요)
+ * - HTML: DOMPurify로 XSS 위험 태그/속성 제거 후 렌더링
  * - MARKDOWN: 현재는 텍스트로 렌더링 (향후 markdown 렌더러 적용)
  * - TEXT: <pre> 태그로 렌더링
  */
@@ -131,10 +132,9 @@ function renderContent(content: string | null, contentType: string) {
 
 	switch (contentType) {
 		case "HTML":
-			// HTML 콘텐츠 직접 렌더링
-			// TODO: DOMPurify로 XSS 방지 처리 필요
+			// DOMPurify로 XSS 위험 요소 제거 후 안전한 HTML만 렌더링
 			return (
-				<div dangerouslySetInnerHTML={{ __html: content }} />
+				<div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(content) }} />
 			);
 
 		case "MARKDOWN":

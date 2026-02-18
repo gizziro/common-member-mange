@@ -373,7 +373,7 @@
 - [x] toast 알림 (sonner) 적용
 - [x] 동적 메뉴 렌더링 (Header.tsx — 공개 메뉴 API 기반, aliasPath 우선 URL)
 - [x] 동적 라우팅 ([...slug]/page.tsx — resolve API + 별칭 subPath 통합 + MULTI 인스턴스 slug 지원)
-- [x] 페이지 뷰어 (PageViewer.tsx — HTML/Markdown/Text 렌더링, 미인가 시 404 표시)
+- [x] 페이지 뷰어 (PageViewer.tsx — HTML/Markdown/Text 렌더링, 미인가 시 404 표시, DOMPurify XSS 방지)
 - [x] 페이지 목록 뷰 (PageListView — /page 접근 시 공개 페이지 목록 표시)
 
 ### 9.2 관리자 웹 (frontend/admin)
@@ -395,7 +395,7 @@
 - [x] 그룹 상세 — 권한 요약 카드 (읽기 전용)
 - [ ] 모듈/인스턴스 관리 페이지
 - [x] 시스템 설정 페이지 (/settings/system — 그룹별 Card UI, 타입별 입력, 그룹별 저장)
-- [ ] 감사 로그 조회 페이지
+- [x] 감사 로그 조회 페이지 (필터링+상세 Dialog+페이지네이션)
 
 ## 10. 기타 고려사항
 
