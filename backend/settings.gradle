@@ -8,3 +8,4 @@ include 'user-api'
 
 // 기능 모듈
 include 'modules:module-page'
+include 'modules:module-board'

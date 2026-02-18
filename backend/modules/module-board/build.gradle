@@ -1,0 +1,21 @@
+// module-board: 게시판 기능 모듈 (MULTI 타입)
+// 게시글, 댓글, 카테고리, 태그, 파일 첨부, 추천/비추천을 관리한다
+plugins {
+	id 'com.gizzi.java-conventions'        // 공통 Java 빌드 설정
+	id 'java-library'                           // 라이브러리 모듈 (실행 불가)
+	id 'io.spring.dependency-management'        // Spring BOM 의존성 관리
+}
+
+// Spring Boot BOM 임포트 (부트 플러그인 없이 의존성 버전만 관리)
+dependencyManagement {
+	imports {
+		mavenBom 'org.springframework.boot:spring-boot-dependencies:4.0.2'
+	}
+}
+
+description = 'Board Module - 게시판 기능 모듈'
+
+dependencies {
+	// core 모듈 의존 (모듈 프레임워크, 공통 예외, JPA 등)
+	api project(':core')
+}

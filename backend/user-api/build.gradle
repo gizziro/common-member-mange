@@ -14,6 +14,9 @@ dependencies {
 	// 기능 모듈 — 페이지 관리
 	implementation project(':modules:module-page')
 
+	// 기능 모듈 — 게시판
+	implementation project(':modules:module-board')
+
 	// Actuator (헬스체크/모니터링)
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 

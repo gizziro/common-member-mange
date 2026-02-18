@@ -46,9 +46,37 @@
 - [x] SmsProviderSender 인터페이스 + SolapiSender 구현체 (HMAC-SHA256, RestClient)
 - [x] SmsService 오케스트레이션 (활성 프로바이더 자동 선택, 감사 로그 연동)
 - [x] OtpService (Redis 기반 OTP 생성/검증/레이트리밋/검증 토큰 발급)
-- [x] SmsErrorCode 10개 (발송 실패, OTP 만료/불일치, 레이트리밋, 일일 한도 등)
+- [x] SmsErrorCode 12개 (발송 실패, OTP 만료/불일치, 레이트리밋, 일일 한도, 수신자 없음, 수신 유형 오류 등)
 - [x] SOLAPI 에러 메시지 상세 전달 (extractSolapiErrorMessage — 관리자가 원인 즉시 파악)
+- [x] SolapiSender: JSON 특수문자 이스케이프 (escapeJson — 개행/탭/따옴표 처리)
 - [x] UserEntity: isSmsAgree 필드, updateSmsConsent/updatePhone 메서드
+
+### 1.7 SMS 발송 및 이력 관리 (구현 완료)
+- [x] tb_sms_logs 테이블 (발송 이력 — send_type/trigger_type/수신자/메시지/프로바이더/상태/batch_id)
+- [x] SmsLogEntity + SmsLogRepository (복합 필터 JPQL: sendType, startTime, endTime)
+- [x] ManualSmsService: 수동 SMS 대량 발송 (ALL/GROUP/GROUP_MEMBERS/INDIVIDUAL)
+  - 수신 대상 기준: phone IS NOT NULL + is_sms_agree=true + user_status='ACTIVE'
+  - 중복 제거 (여러 그룹 소속 동일 사용자), batchId 묶음, 개별 try-catch
+  - INDIVIDUAL: 로그인 ID 기반 검색 (UUID 아닌 사용자 아이디로)
+- [x] SmsNotificationService: 자동 SMS 허브 (REQUIRES_NEW 트랜잭션 — SMS 실패가 부모 트랜잭션에 영향 없음)
+  - sendPasswordResetSms(): 임시 비밀번호 SMS 발송 + SmsLogEntity 저장
+- [x] SmsLogService: 발송 이력 페이지네이션 조회 + sendType/날짜 필터
+- [x] UserRepository: SMS 수신 가능 사용자 쿼리 3개 (전체/그룹ID목록/로그인ID목록)
+- [x] GroupMemberRepository: 그룹별 사용자 ID 조회 (findDistinctUserIdsByGroupIds)
+- [x] AuditAction: PASSWORD_RESET, SMS_BULK_SEND 상수 추가
+
+### 1.8 비밀번호 초기화 (구현 완료)
+- [x] UserService.resetPassword(): SecureRandom 임시 비밀번호 생성 (10자: 영대소문자+숫자+특수문자)
+- [x] BCrypt 해싱 → user.changePassword(), 전화번호 있으면 SMS 자동 발송
+- [x] SMS 실패해도 비밀번호는 변경됨 (smsSent=false 반환)
+- [x] ResetPasswordResponseDto: temporaryPassword + smsSent
+
+### 1.9 SMS 수신 동의 관리 (구현 완료)
+- [x] 사용자 본인 변경: PUT /auth/me/sms-consent (user-api, 토큰 인증)
+- [x] 관리자 변경: PUT /users/{id} 요청에 isSmsAgree 포함 (admin-api)
+- [x] UserMeResponseDto: phone, isSmsAgree 필드 추가
+- [x] UserResponseDto: isSmsAgree 필드 추가
+- [x] UpdateUserRequestDto: isSmsAgree 필드 추가 (nullable, 있을 때만 적용)
 
 ### 1.6 페이지/리소스별 2FA 정책
 - [ ] 특정 페이지/기능 접근 시 2FA 요구 정책 정의
@@ -285,6 +313,7 @@
 - [x] GET `/auth/oauth2/link/{provider}` — 마이페이지 연동용 Authorization URL
 - [x] DELETE `/auth/oauth2/identities/{id}` — 소셜 연동 해제
 - [x] POST `/auth/oauth2/set-password` — 소셜 전용 사용자 로컬 자격증명(ID+PW) 설정
+- [x] PUT `/auth/me/sms-consent` — 사용자 본인 SMS 수신 동의 변경
 - [x] DELETE `/auth/withdraw` — 사용자 본인 탈퇴
 - [x] POST `/auth/sms/send-otp` — SMS OTP 발송 (회원가입 전화번호 인증)
 - [x] POST `/auth/sms/verify-otp` — SMS OTP 검증 (검증 토큰 반환)
@@ -308,6 +337,7 @@
 - [x] PUT `/users/{id}/password` — 회원 비밀번호 변경
 - [x] DELETE `/users/{id}` — 회원 삭제 (자기 자신/관리자 그룹 소속 보호, Redis 토큰 정리)
 - [x] PUT `/users/{id}/unlock` — 회원 잠금 해제
+- [x] POST `/users/{id}/reset-password` — 임시 비밀번호 생성 + SMS 자동 발송
 - [x] GET `/users/{id}/groups` — 회원 소속 그룹 목록
 - [x] GET `/users/{id}/identities` — 회원 소셜 연동 목록
 - [x] GET `/users/{id}/permissions` — 회원 모듈 권한 요약 (직접+그룹, 읽기 전용)
