@@ -180,7 +180,7 @@ function renderModule(resolved: ResolveResponse, subPath: string | null) {
 	// 페이지 모듈
 	if (mod.code === "page") {
 		// MULTI 모듈: 인스턴스가 해석된 경우 → 인스턴스 slug = 페이지 slug
-		if (mod.type === "MULTI" && instance.slug) {
+		if (mod.type === "MULTI" && instance?.slug) {
 			return <PageViewer slug={instance.slug} />;
 		}
 
@@ -195,7 +195,7 @@ function renderModule(resolved: ResolveResponse, subPath: string | null) {
 
 	// 게시판 모듈
 	if (mod.code === "board") {
-		if (mod.type === "MULTI" && instance.instanceId) {
+		if (mod.type === "MULTI" && instance?.instanceId) {
 			return (
 				<BoardViewer
 					boardId={instance.instanceId}
@@ -212,8 +212,8 @@ function renderModule(resolved: ResolveResponse, subPath: string | null) {
 	// 미구현 모듈 — 기본 정보 표시
 	return (
 		<div className="mx-auto max-w-3xl px-6 py-12">
-			<h1 className="text-2xl font-bold">{instance.name}</h1>
-			<p className="mt-2 text-muted-foreground">{instance.description}</p>
+			<h1 className="text-2xl font-bold">{instance?.name ?? mod.name}</h1>
+			<p className="mt-2 text-muted-foreground">{instance?.description ?? ""}</p>
 			<p className="mt-4 text-sm text-muted-foreground">
 				모듈: {mod.name} ({mod.code}) · 타입: {mod.type}
 			</p>

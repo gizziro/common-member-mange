@@ -40,6 +40,26 @@ interface VoteResponse {
   userVoteType: string | null;
 }
 
+/** 게시판 설정 */
+interface BoardSettings {
+  editorType: string;
+  postsPerPage: number;
+  displayFormat: string;
+  paginationType: string;
+  allowAnonymousAccess: boolean;
+  allowFileUpload: boolean;
+  allowedFileTypes: string;
+  maxFileSize: number;
+  maxFilesPerPost: number;
+  maxReplyDepth: number;
+  maxCommentDepth: number;
+  allowSecretPosts: boolean;
+  allowDraft: boolean;
+  allowTags: boolean;
+  allowVote: boolean;
+  useCategory: boolean;
+}
+
 /** 컴포넌트 Props */
 interface CommentSectionProps {
   /** 게시판 인스턴스 ID */
@@ -48,6 +68,8 @@ interface CommentSectionProps {
   postId: string;
   /** 댓글 권한 */
   permissions: Record<string, string[]>;
+  /** 게시판 설정 (null이면 모든 기능 표시) */
+  settings: BoardSettings | null;
   /** 현재 로그인 사용자 ID (null이면 비로그인) */
   currentUserId: string | null;
 }
@@ -57,7 +79,7 @@ interface CommentSectionProps {
  * 트리 구조 댓글 목록 + 작성/수정/삭제/투표
  * =========================== */
 
-export function CommentSection({ boardId, postId, permissions, currentUserId }: CommentSectionProps) {
+export function CommentSection({ boardId, postId, permissions, settings, currentUserId }: CommentSectionProps) {
   const [comments, setComments] = useState<CommentDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [newComment, setNewComment] = useState("");
@@ -156,6 +178,7 @@ export function CommentSection({ boardId, postId, permissions, currentUserId }: 
               boardId={boardId}
               postId={postId}
               permissions={permissions}
+              settings={settings}
               currentUserId={currentUserId}
               token={token}
               onRefresh={loadComments}
@@ -177,13 +200,14 @@ interface CommentNodeProps {
   boardId: string;
   postId: string;
   permissions: Record<string, string[]>;
+  settings: BoardSettings | null;
   currentUserId: string | null;
   token: string | undefined;
   onRefresh: () => Promise<void>;
   depth: number;
 }
 
-function CommentNode({ comment, boardId, postId, permissions, currentUserId, token, onRefresh, depth }: CommentNodeProps) {
+function CommentNode({ comment, boardId, postId, permissions, settings, currentUserId, token, onRefresh, depth }: CommentNodeProps) {
   const [replyOpen, setReplyOpen] = useState(false);
   const [replyContent, setReplyContent] = useState("");
   const [replying, setReplying] = useState(false);
@@ -195,6 +219,12 @@ function CommentNode({ comment, boardId, postId, permissions, currentUserId, tok
   const canModify = permissions?.comment?.includes("modify") ?? false;
   const canDelete = permissions?.comment?.includes("delete") ?? false;
   const isOwner = currentUserId === comment.authorId;
+
+  // 설정 기반 기능 토글
+  const showVote = settings?.allowVote ?? true;
+  const maxCommentDepth = settings?.maxCommentDepth ?? 3;
+  // 현재 depth가 최대 댓글 깊이 미만일 때만 답글 버튼 표시
+  const canReply = canWrite && currentUserId && depth < maxCommentDepth;
 
   // 답글 작성
   const handleReply = async () => {
@@ -315,8 +345,8 @@ function CommentNode({ comment, boardId, postId, permissions, currentUserId, tok
         {/* 액션 버튼 */}
         {!comment.isDeleted && !editing && (
           <div className="mt-2 flex items-center gap-2">
-            {/* 투표 */}
-            {currentUserId && (
+            {/* 투표 (allowVote 설정 시에만) */}
+            {showVote && currentUserId && (
               <>
                 <button
                   onClick={() => handleVote("UP")}
@@ -335,8 +365,8 @@ function CommentNode({ comment, boardId, postId, permissions, currentUserId, tok
               </>
             )}
 
-            {/* 답글 */}
-            {canWrite && currentUserId && (
+            {/* 답글 (깊이 제한 적용) */}
+            {canReply && (
               <button
                 onClick={() => setReplyOpen(!replyOpen)}
                 className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
@@ -399,6 +429,7 @@ function CommentNode({ comment, boardId, postId, permissions, currentUserId, tok
               boardId={boardId}
               postId={postId}
               permissions={permissions}
+              settings={settings}
               currentUserId={currentUserId}
               token={token}
               onRefresh={onRefresh}

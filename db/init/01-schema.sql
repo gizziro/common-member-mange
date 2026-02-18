@@ -460,7 +460,7 @@ CREATE TABLE tb_board_settings (
   editor_type           VARCHAR(20)     NOT NULL DEFAULT 'MARKDOWN',                                     -- 에디터 타입 (PLAIN_TEXT/MARKDOWN)
   posts_per_page        INT             NOT NULL DEFAULT 20,                                              -- 페이지당 게시글 수
   display_format        VARCHAR(20)     NOT NULL DEFAULT 'LIST',                                         -- 목록 표시 형식 (LIST/GALLERY/CARD)
-  pagination_type       VARCHAR(20)     NOT NULL DEFAULT 'OFFSET',                                       -- 페이지네이션 방식 (OFFSET/CURSOR)
+  pagination_type       VARCHAR(20)     NOT NULL DEFAULT 'OFFSET',                                       -- 페이지네이션 방식 (OFFSET/CURSOR/INFINITE_SCROLL/LOAD_MORE)
   allow_anonymous_access TINYINT(1)     NOT NULL DEFAULT 0,                                              -- 비로그인 사용자 접근 허용 여부
   allow_file_upload     TINYINT(1)      NOT NULL DEFAULT 1,                                              -- 파일 업로드 허용 여부
   allowed_file_types    VARCHAR(500)    NULL DEFAULT 'jpg,jpeg,png,gif,pdf,zip,doc,docx,xls,xlsx',       -- 허용 파일 확장자 (쉼표 구분)

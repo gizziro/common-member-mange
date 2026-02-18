@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { apiGet } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -11,11 +11,12 @@ import {
   PencilSimpleLine,
   MagnifyingGlass,
   Lock,
-  Megaphone,
   Paperclip,
   CaretLeft,
   CaretRight,
   ChatCircle,
+  SortAscending,
+  Tag,
 } from "@phosphor-icons/react";
 
 /* ===========================
@@ -55,6 +56,45 @@ interface PageResponse<T> {
   size: number;
 }
 
+/** 게시판 설정 응답 */
+interface BoardSettings {
+  editorType: string;
+  postsPerPage: number;
+  displayFormat: string;
+  paginationType: string;
+  allowAnonymousAccess: boolean;
+  allowFileUpload: boolean;
+  allowedFileTypes: string;
+  maxFileSize: number;
+  maxFilesPerPost: number;
+  maxReplyDepth: number;
+  maxCommentDepth: number;
+  allowSecretPosts: boolean;
+  allowDraft: boolean;
+  allowTags: boolean;
+  allowVote: boolean;
+  useCategory: boolean;
+}
+
+/** 카테고리 응답 */
+interface CategoryItem {
+  id: string;
+  boardInstanceId: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  sortOrder: number;
+  isActive: boolean;
+}
+
+/** 태그 응답 */
+interface TagItem {
+  id: string;
+  name: string;
+  slug: string;
+  postCount: number;
+}
+
 /** 컴포넌트 Props */
 interface BoardViewerProps {
   /** 게시판 인스턴스 ID */
@@ -71,6 +111,22 @@ interface BoardViewerProps {
   subPath: string | null;
 }
 
+/** 정렬 옵션 */
+const SORT_OPTIONS = [
+  { value: "newest", label: "최신순" },
+  { value: "oldest", label: "오래된순" },
+  { value: "viewCount", label: "조회순" },
+  { value: "voteUp", label: "추천순" },
+  { value: "commentCount", label: "댓글순" },
+] as const;
+
+/** 검색 유형 옵션 */
+const SEARCH_TYPE_OPTIONS = [
+  { value: "all", label: "전체" },
+  { value: "title", label: "제목" },
+  { value: "author", label: "작성자" },
+] as const;
+
 /* ===========================
  * BoardViewer — 게시판 뷰어 (라우팅 분기)
  * =========================== */
@@ -84,6 +140,27 @@ export function BoardViewer({
   subPath,
 }: BoardViewerProps) {
   const router = useRouter();
+
+  // 게시판 설정 상태
+  const [settings, setSettings] = useState<BoardSettings | null>(null);
+
+  // 인증 토큰
+  const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") ?? undefined : undefined;
+
+  // 게시판 설정 로드
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const res = await apiGet<BoardSettings>(`/boards/${boardId}/settings`, token);
+        if (res.success && res.data) {
+          setSettings(res.data);
+        }
+      } catch {
+        // 설정 로드 실패 — 기본값 사용
+      }
+    };
+    loadSettings();
+  }, [boardId, token]);
 
   // subPath 파싱으로 뷰 결정
   const navigate = (path: string | null) => {
@@ -101,6 +178,7 @@ export function BoardViewer({
         boardId={boardId}
         boardName={boardName}
         permissions={permissions}
+        settings={settings}
         onBack={() => navigate(null)}
         onSaved={(postId) => navigate(postId)}
       />
@@ -115,6 +193,7 @@ export function BoardViewer({
         boardName={boardName}
         postId={editPostId}
         permissions={permissions}
+        settings={settings}
         onBack={() => navigate(null)}
         onSaved={(postId) => navigate(postId)}
       />
@@ -130,6 +209,7 @@ export function BoardViewer({
         moduleSlug={moduleSlug}
         boardSlug={boardSlug}
         permissions={permissions}
+        settings={settings}
         onBack={() => navigate(null)}
         onEdit={(postId) => navigate(`${postId}/edit`)}
       />
@@ -144,6 +224,7 @@ export function BoardViewer({
       boardSlug={boardSlug}
       moduleSlug={moduleSlug}
       permissions={permissions}
+      settings={settings}
       onNavigate={navigate}
     />
   );
@@ -159,6 +240,7 @@ interface PostListViewProps {
   boardSlug: string;
   moduleSlug: string;
   permissions: Record<string, string[]>;
+  settings: BoardSettings | null;
   onNavigate: (path: string | null) => void;
 }
 
@@ -168,6 +250,7 @@ function PostListView({
   boardSlug,
   moduleSlug,
   permissions,
+  settings,
   onNavigate,
 }: PostListViewProps) {
   const [posts, setPosts] = useState<PostListItem[]>([]);
@@ -179,10 +262,18 @@ function PostListView({
   // 검색
   const [searchKeyword, setSearchKeyword] = useState("");
   const [activeKeyword, setActiveKeyword] = useState("");
+  const [searchType, setSearchType] = useState("all");
+
+  // 정렬
+  const [sortField, setSortField] = useState("newest");
 
   // 카테고리 필터
-  const [categories, setCategories] = useState<string[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [categories, setCategories] = useState<CategoryItem[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
+
+  // 태그 필터
+  const [tags, setTags] = useState<TagItem[]>([]);
+  const [selectedTagId, setSelectedTagId] = useState<string>("");
 
   // 인증 토큰
   const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") ?? undefined : undefined;
@@ -190,39 +281,94 @@ function PostListView({
   // 글쓰기 권한
   const canWrite = permissions?.post?.includes("write") ?? false;
 
-  // 게시글 목록 로드
-  const loadPosts = useCallback(async (p: number, keyword?: string, categoryId?: string) => {
-    setLoading(true);
+  // 페이지당 게시글 수 (설정에서 가져오기, 기본 20)
+  const pageSize = settings?.postsPerPage ?? 20;
+
+  // 카테고리 + 태그 목록 로드
+  useEffect(() => {
+    const loadMeta = async () => {
+      // 카테고리 로드 (useCategory가 true이거나 설정 미로드 시)
+      if (settings === null || settings.useCategory) {
+        try {
+          const res = await apiGet<CategoryItem[]>(`/boards/${boardId}/categories`, token);
+          if (res.success && res.data) {
+            // 활성화된 카테고리만 필터
+            setCategories(res.data.filter((c) => c.isActive));
+          }
+        } catch {
+          // 카테고리 로드 실패
+        }
+      }
+
+      // 태그 로드 (allowTags가 true이거나 설정 미로드 시)
+      if (settings === null || settings.allowTags) {
+        try {
+          const res = await apiGet<TagItem[]>(`/boards/${boardId}/tags`, token);
+          if (res.success && res.data) {
+            setTags(res.data);
+          }
+        } catch {
+          // 태그 로드 실패
+        }
+      }
+    };
+    loadMeta();
+  }, [boardId, token, settings]);
+
+  // 추가 로드 중 여부 (무한스크롤/더보기용)
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  // 페이지네이션 유형 (설정에서 가져오기, 기본 OFFSET)
+  const paginationType = settings?.paginationType ?? "OFFSET";
+
+  // 게시글 목록 로드 (append: true이면 기존 목록에 추가)
+  const loadPosts = useCallback(async (
+    p: number,
+    keyword?: string,
+    currentSearchType?: string,
+    categoryId?: string,
+    tagId?: string,
+    sort?: string,
+    append?: boolean,
+  ) => {
+    if (append) {
+      setLoadingMore(true);
+    } else {
+      setLoading(true);
+    }
     try {
       let path: string;
       if (keyword) {
-        path = `/boards/${boardId}/posts/search?keyword=${encodeURIComponent(keyword)}&page=${p}&size=20&sort=createdAt,desc`;
+        // 검색 모드
+        const st = currentSearchType || "all";
+        path = `/boards/${boardId}/posts/search?keyword=${encodeURIComponent(keyword)}&searchType=${st}&page=${p}&size=${pageSize}`;
       } else {
-        path = `/boards/${boardId}/posts?page=${p}&size=20&sort=createdAt,desc`;
+        // 일반 목록 모드
+        const s = sort || sortField;
+        path = `/boards/${boardId}/posts?page=${p}&size=${pageSize}&sort=${s}`;
         if (categoryId) path += `&categoryId=${categoryId}`;
+        if (tagId) path += `&tagId=${tagId}`;
       }
 
       const res = await apiGet<PageResponse<PostListItem>>(path, token);
       if (res.success && res.data) {
-        setPosts(res.data.content);
+        if (append) {
+          // 기존 목록에 새 게시글 추가 (무한스크롤/더보기)
+          setPosts((prev) => [...prev, ...res.data!.content]);
+        } else {
+          setPosts(res.data.content);
+        }
         setTotalPages(res.data.totalPages);
         setTotalElements(res.data.totalElements);
         setPage(res.data.number);
-
-        // 카테고리 목록 추출 (첫 로드 시)
-        if (categories.length === 0 && !keyword) {
-          const catNames = Array.from(
-            new Set(res.data.content.map((p) => p.categoryName).filter(Boolean))
-          ) as string[];
-          setCategories(catNames);
-        }
       }
     } catch {
       // 로드 실패
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
-  }, [boardId, token, categories.length]);
+  }, [boardId, token, pageSize, sortField]);
 
   useEffect(() => {
     loadPosts(0);
@@ -231,19 +377,92 @@ function PostListView({
   // 검색 실행
   const handleSearch = () => {
     setActiveKeyword(searchKeyword);
-    setSelectedCategory("");
-    loadPosts(0, searchKeyword);
+    setSelectedCategoryId("");
+    setSelectedTagId("");
+    loadPosts(0, searchKeyword, searchType);
   };
 
-  // 카테고리 필터
-  const handleCategoryFilter = (cat: string) => {
-    setSelectedCategory(cat);
+  // 검색 초기화
+  const handleResetSearch = () => {
     setActiveKeyword("");
     setSearchKeyword("");
-    // 카테고리 ID가 아닌 이름으로 필터링 — 서버에서 categoryId로 필터하므로 여기선 클라이언트 필터
-    // 실제로는 서버에 categoryId를 보내야 하지만, 목록에서 categoryId가 있으므로 전체 재로드 후 클라이언트 필터
-    loadPosts(0, undefined, undefined);
+    setSearchType("all");
+    loadPosts(0, undefined, undefined, selectedCategoryId, selectedTagId, sortField);
   };
+
+  // 카테고리 필터 변경
+  const handleCategoryFilter = (catId: string) => {
+    setSelectedCategoryId(catId);
+    setSelectedTagId("");
+    setActiveKeyword("");
+    setSearchKeyword("");
+    loadPosts(0, undefined, undefined, catId, undefined, sortField);
+  };
+
+  // 태그 필터 변경
+  const handleTagFilter = (tagId: string) => {
+    // 같은 태그 클릭 시 해제
+    const newTagId = selectedTagId === tagId ? "" : tagId;
+    setSelectedTagId(newTagId);
+    setSelectedCategoryId("");
+    setActiveKeyword("");
+    setSearchKeyword("");
+    loadPosts(0, undefined, undefined, undefined, newTagId || undefined, sortField);
+  };
+
+  // 정렬 변경
+  const handleSortChange = (newSort: string) => {
+    setSortField(newSort);
+    if (activeKeyword) {
+      loadPosts(0, activeKeyword, searchType);
+    } else {
+      loadPosts(0, undefined, undefined, selectedCategoryId || undefined, selectedTagId || undefined, newSort);
+    }
+  };
+
+  // 페이지 변경
+  const handlePageChange = (p: number) => {
+    if (activeKeyword) {
+      loadPosts(p, activeKeyword, searchType);
+    } else {
+      loadPosts(p, undefined, undefined, selectedCategoryId || undefined, selectedTagId || undefined, sortField);
+    }
+  };
+
+  // 다음 페이지 추가 로드 (무한스크롤/더보기 공용)
+  const loadNextPage = () => {
+    if (page < totalPages - 1 && !loadingMore) {
+      const nextPage = page + 1;
+      if (activeKeyword) {
+        loadPosts(nextPage, activeKeyword, searchType, undefined, undefined, undefined, true);
+      } else {
+        loadPosts(nextPage, undefined, undefined, selectedCategoryId || undefined, selectedTagId || undefined, sortField, true);
+      }
+    }
+  };
+
+  // 무한 스크롤 IntersectionObserver 설정
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (paginationType !== "INFINITE_SCROLL") return;
+
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        // 센티넬이 화면에 보이면 다음 페이지 로드
+        if (entries[0].isIntersecting && !loadingMore && page < totalPages - 1) {
+          loadNextPage();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [paginationType, page, totalPages, loadingMore, activeKeyword, searchType, selectedCategoryId, selectedTagId, sortField]);
 
   // 날짜 포맷
   const formatDate = (d: string) => {
@@ -258,10 +477,6 @@ function PostListView({
   // 공지글 분리
   const noticePosts = posts.filter((p) => p.isNotice);
   const normalPosts = posts.filter((p) => !p.isNotice);
-  // 카테고리 클라이언트 필터 적용
-  const filteredNormal = selectedCategory
-    ? normalPosts.filter((p) => p.categoryName === selectedCategory)
-    : normalPosts;
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-8">
@@ -276,33 +491,65 @@ function PostListView({
         )}
       </div>
 
-      {/* 카테고리 필터 */}
-      {categories.length > 0 && (
+      {/* 카테고리 필터 (useCategory 설정 시에만 표시) */}
+      {(settings === null || settings.useCategory) && categories.length > 0 && (
         <div className="flex items-center gap-2 mb-4 flex-wrap">
           <button
-            onClick={() => { setSelectedCategory(""); loadPosts(0); }}
+            onClick={() => handleCategoryFilter("")}
             className={`px-3 py-1 text-sm rounded-full border transition-colors ${
-              !selectedCategory ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+              !selectedCategoryId ? "bg-primary text-primary-foreground" : "hover:bg-muted"
             }`}
           >
             전체
           </button>
           {categories.map((cat) => (
             <button
-              key={cat}
-              onClick={() => handleCategoryFilter(cat)}
+              key={cat.id}
+              onClick={() => handleCategoryFilter(cat.id)}
               className={`px-3 py-1 text-sm rounded-full border transition-colors ${
-                selectedCategory === cat ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                selectedCategoryId === cat.id ? "bg-primary text-primary-foreground" : "hover:bg-muted"
               }`}
             >
-              {cat}
+              {cat.name}
             </button>
           ))}
         </div>
       )}
 
-      {/* 검색 */}
-      <div className="flex gap-2 mb-4">
+      {/* 태그 필터 (allowTags 설정 시에만 표시) */}
+      {(settings === null || settings.allowTags) && tags.length > 0 && (
+        <div className="flex items-center gap-1.5 mb-4 flex-wrap">
+          <Tag size={16} className="text-muted-foreground shrink-0" />
+          {tags.map((tag) => (
+            <button
+              key={tag.id}
+              onClick={() => handleTagFilter(tag.id)}
+              className={`px-2.5 py-0.5 text-xs rounded-full border transition-colors ${
+                selectedTagId === tag.id
+                  ? "bg-primary text-primary-foreground"
+                  : "hover:bg-muted text-muted-foreground"
+              }`}
+            >
+              {tag.name} ({tag.postCount})
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* 검색 + 정렬 */}
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        {/* 검색 유형 선택 */}
+        <select
+          value={searchType}
+          onChange={(e) => setSearchType(e.target.value)}
+          className="rounded-lg border px-2 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+        >
+          {SEARCH_TYPE_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+
+        {/* 검색 입력 */}
         <div className="relative flex-1 max-w-sm">
           <input
             type="text"
@@ -316,13 +563,23 @@ function PostListView({
         </div>
         <Button variant="outline" size="sm" onClick={handleSearch}>검색</Button>
         {activeKeyword && (
-          <Button variant="ghost" size="sm" onClick={() => {
-            setActiveKeyword("");
-            setSearchKeyword("");
-            loadPosts(0);
-          }}>
-            초기화
-          </Button>
+          <Button variant="ghost" size="sm" onClick={handleResetSearch}>초기화</Button>
+        )}
+
+        {/* 정렬 드롭다운 (검색 중이 아닐 때만) */}
+        {!activeKeyword && (
+          <div className="ml-auto flex items-center gap-1.5">
+            <SortAscending size={16} className="text-muted-foreground" />
+            <select
+              value={sortField}
+              onChange={(e) => handleSortChange(e.target.value)}
+              className="rounded-lg border px-2 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            >
+              {SORT_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
         )}
       </div>
 
@@ -367,14 +624,14 @@ function PostListView({
               ))}
 
               {/* 일반 게시글 */}
-              {filteredNormal.length === 0 && noticePosts.length === 0 ? (
+              {normalPosts.length === 0 && noticePosts.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-12 text-center text-muted-foreground">
                     {activeKeyword ? `"${activeKeyword}" 검색 결과가 없습니다.` : "게시글이 없습니다."}
                   </td>
                 </tr>
               ) : (
-                filteredNormal.map((post) => (
+                normalPosts.map((post) => (
                   <tr key={post.id} className="border-b hover:bg-muted/50 transition-colors cursor-pointer"
                     onClick={() => onNavigate(post.id)}>
                     <td className="px-4 py-3">
@@ -404,36 +661,66 @@ function PostListView({
         </div>
       )}
 
-      {/* 페이지네이션 */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-1 mt-6">
-          <Button
-            variant="outline" size="icon-sm" disabled={page === 0}
-            onClick={() => loadPosts(page - 1, activeKeyword || undefined)}
-          >
-            <CaretLeft size={16} />
-          </Button>
-          {getVisiblePages(page, totalPages).map((p, i) =>
-            p === -1 ? (
-              <span key={`dots-${i}`} className="px-2 text-muted-foreground">...</span>
-            ) : (
-              <Button
-                key={p}
-                variant={p === page ? "default" : "outline"}
-                size="sm"
-                onClick={() => loadPosts(p, activeKeyword || undefined)}
-              >
-                {p + 1}
-              </Button>
-            )
+      {/* 페이지네이션 — 유형별 분기 렌더링 */}
+      {paginationType === "INFINITE_SCROLL" ? (
+        <>
+          {/* 무한 스크롤: 스크롤 하단 감지용 센티넬 */}
+          <div ref={sentinelRef} className="h-4" />
+          {loadingMore && (
+            <div className="flex items-center justify-center py-4">
+              <div className="h-6 w-6 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            </div>
           )}
-          <Button
-            variant="outline" size="icon-sm" disabled={page === totalPages - 1}
-            onClick={() => loadPosts(page + 1, activeKeyword || undefined)}
-          >
-            <CaretRight size={16} />
-          </Button>
-        </div>
+        </>
+      ) : paginationType === "LOAD_MORE" ? (
+        <>
+          {/* 더보기 버튼 */}
+          {page < totalPages - 1 && (
+            <div className="flex items-center justify-center mt-6">
+              <Button
+                variant="outline"
+                onClick={loadNextPage}
+                disabled={loadingMore}
+              >
+                {loadingMore ? "로딩 중..." : "더보기"}
+              </Button>
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          {/* OFFSET(기본): 번호 기반 페이지네이션 */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-1 mt-6">
+              <Button
+                variant="outline" size="icon-sm" disabled={page === 0}
+                onClick={() => handlePageChange(page - 1)}
+              >
+                <CaretLeft size={16} />
+              </Button>
+              {getVisiblePages(page, totalPages).map((p, i) =>
+                p === -1 ? (
+                  <span key={`dots-${i}`} className="px-2 text-muted-foreground">...</span>
+                ) : (
+                  <Button
+                    key={p}
+                    variant={p === page ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handlePageChange(p)}
+                  >
+                    {p + 1}
+                  </Button>
+                )
+              )}
+              <Button
+                variant="outline" size="icon-sm" disabled={page === totalPages - 1}
+                onClick={() => handlePageChange(page + 1)}
+              >
+                <CaretRight size={16} />
+              </Button>
+            </div>
+          )}
+        </>
       )}
 
       {/* 총 게시글 수 */}

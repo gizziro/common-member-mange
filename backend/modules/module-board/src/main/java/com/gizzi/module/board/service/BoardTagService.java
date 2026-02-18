@@ -1,5 +1,6 @@
 package com.gizzi.module.board.service;
 
+import com.gizzi.module.board.dto.tag.TagResponseDto;
 import com.gizzi.module.board.entity.BoardPostTagEntity;
 import com.gizzi.module.board.entity.BoardTagEntity;
 import com.gizzi.module.board.repository.BoardPostTagRepository;
@@ -28,6 +29,22 @@ public class BoardTagService {
 
 	// 게시글-태그 연결 리포지토리
 	private final BoardPostTagRepository postTagRepository;
+
+	// ─── 태그 목록 조회 (User API용) ───
+
+	// 게시판의 사용 중인 태그 목록 조회 (postCount > 0, 인기순)
+	public List<TagResponseDto> getTagList(String boardId) {
+		// 게시판의 전체 태그를 인기순으로 조회 후 postCount > 0인 것만 필터
+		return tagRepository.findByBoardInstanceIdOrderByPostCountDesc(boardId).stream()
+				.filter(tag -> tag.getPostCount() > 0)
+				.map(tag -> TagResponseDto.builder()
+						.id(tag.getId())
+						.name(tag.getName())
+						.slug(tag.getSlug())
+						.postCount(tag.getPostCount())
+						.build())
+				.collect(Collectors.toList());
+	}
 
 	// ─── 태그 조회/생성 ───
 

@@ -8,6 +8,7 @@ import com.gizzi.module.board.entity.BoardCommentClosureEntity;
 import com.gizzi.module.board.entity.BoardCommentEntity;
 import com.gizzi.module.board.entity.BoardPostEntity;
 import com.gizzi.module.board.entity.BoardSettingsEntity;
+import com.gizzi.module.board.entity.PostContentType;
 import com.gizzi.module.board.exception.BoardErrorCode;
 import com.gizzi.module.board.repository.BoardCommentClosureRepository;
 import com.gizzi.module.board.repository.BoardCommentRepository;
@@ -47,6 +48,9 @@ public class BoardCommentService {
 	// 게시판 권한 헬퍼 (수정/삭제 권한 체크)
 	private final BoardPermissionHelper          permissionHelper;
 
+	// HTML 콘텐츠 위생 처리 유틸리티 (XSS 방어)
+	private final ContentSanitizer               contentSanitizer;
+
 	// ─── 댓글 생성 ───
 
 	// 댓글 생성 (대댓글 Closure Table 관리 + 게시글 댓글 수 증가)
@@ -76,10 +80,13 @@ public class BoardCommentService {
 			}
 		}
 
+		// 댓글 콘텐츠 살균 (XSS 방어 — 댓글은 HTML 가능성이 있으므로 HTML 모드로 살균)
+		String sanitizedContent = contentSanitizer.sanitize(request.getContent(), PostContentType.HTML);
+
 		// 댓글 엔티티 생성
 		BoardCommentEntity comment = BoardCommentEntity.create(
 				postId, request.getParentId(), depth,
-				request.getContent(), userId, username
+				sanitizedContent, userId, username
 		);
 		// DB에 댓글 저장
 		commentRepository.save(comment);
@@ -123,8 +130,11 @@ public class BoardCommentService {
 			throw new BusinessException(BoardErrorCode.BOARD_COMMENT_EDIT_DENIED);
 		}
 
+		// 댓글 콘텐츠 살균 (XSS 방어)
+		String sanitizedContent = contentSanitizer.sanitize(request.getContent(), PostContentType.HTML);
+
 		// 댓글 내용 수정
-		comment.updateContent(request.getContent());
+		comment.updateContent(sanitizedContent);
 		commentRepository.save(comment);
 
 		// 응답 DTO 변환 후 반환
@@ -178,7 +188,7 @@ public class BoardCommentService {
 				.postId(comment.getPostId())
 				.parentId(comment.getParentId())
 				.depth(comment.getDepth())
-				.content(comment.getIsDeleted() ? null : comment.getContent())
+				.content(comment.getIsDeleted() ? "삭제된 댓글입니다" : comment.getContent())
 				.authorId(comment.getAuthorId())
 				.authorName(comment.getAuthorName())
 				.voteUpCount(comment.getVoteUpCount())

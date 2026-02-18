@@ -76,6 +76,26 @@ interface VoteResponse {
   userVoteType: string | null;
 }
 
+/** 게시판 설정 */
+interface BoardSettings {
+  editorType: string;
+  postsPerPage: number;
+  displayFormat: string;
+  paginationType: string;
+  allowAnonymousAccess: boolean;
+  allowFileUpload: boolean;
+  allowedFileTypes: string;
+  maxFileSize: number;
+  maxFilesPerPost: number;
+  maxReplyDepth: number;
+  maxCommentDepth: number;
+  allowSecretPosts: boolean;
+  allowDraft: boolean;
+  allowTags: boolean;
+  allowVote: boolean;
+  useCategory: boolean;
+}
+
 /** 컴포넌트 Props */
 interface PostDetailProps {
   /** 게시판 인스턴스 ID */
@@ -90,6 +110,8 @@ interface PostDetailProps {
   boardSlug: string;
   /** 권한 목록 */
   permissions: Record<string, string[]>;
+  /** 게시판 설정 (null이면 모든 기능 표시) */
+  settings: BoardSettings | null;
   /** 목록으로 돌아가기 콜백 */
   onBack: () => void;
   /** 수정 페이지로 이동 콜백 */
@@ -107,6 +129,7 @@ export function PostDetail({
   moduleSlug,
   boardSlug,
   permissions,
+  settings,
   onBack,
   onEdit,
 }: PostDetailProps) {
@@ -116,6 +139,10 @@ export function PostDetail({
   const [voteUp, setVoteUp] = useState(0);
   const [voteDown, setVoteDown] = useState(0);
   const [userVoteType, setUserVoteType] = useState<string | null>(null);
+
+  // 설정 기반 기능 토글
+  const showVote = settings?.allowVote ?? true;
+  const showTags = settings?.allowTags ?? true;
 
   // 인증 토큰 + 사용자 ID
   const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") ?? undefined : undefined;
@@ -254,8 +281,8 @@ export function PostDetail({
           <span>조회 {post.viewCount}</span>
         </div>
 
-        {/* 태그 */}
-        {post.tags && post.tags.length > 0 && (
+        {/* 태그 (allowTags 설정 시에만) */}
+        {showTags && post.tags && post.tags.length > 0 && (
           <div className="flex items-center gap-1.5 flex-wrap">
             <Tag size={14} className="text-muted-foreground" />
             {post.tags.map((tag) => (
@@ -296,27 +323,29 @@ export function PostDetail({
         </div>
       )}
 
-      {/* 투표 버튼 */}
-      <div className="mt-8 flex items-center justify-center gap-4">
-        <Button
-          variant={userVoteType === "UP" ? "default" : "outline"}
-          size="sm"
-          onClick={() => handleVote("UP")}
-          disabled={!token}
-        >
-          <ThumbsUp size={16} />
-          추천 {voteUp}
-        </Button>
-        <Button
-          variant={userVoteType === "DOWN" ? "destructive" : "outline"}
-          size="sm"
-          onClick={() => handleVote("DOWN")}
-          disabled={!token}
-        >
-          <ThumbsDown size={16} />
-          비추천 {voteDown}
-        </Button>
-      </div>
+      {/* 투표 버튼 (allowVote 설정 시에만) */}
+      {showVote && (
+        <div className="mt-8 flex items-center justify-center gap-4">
+          <Button
+            variant={userVoteType === "UP" ? "default" : "outline"}
+            size="sm"
+            onClick={() => handleVote("UP")}
+            disabled={!token}
+          >
+            <ThumbsUp size={16} />
+            추천 {voteUp}
+          </Button>
+          <Button
+            variant={userVoteType === "DOWN" ? "destructive" : "outline"}
+            size="sm"
+            onClick={() => handleVote("DOWN")}
+            disabled={!token}
+          >
+            <ThumbsDown size={16} />
+            비추천 {voteDown}
+          </Button>
+        </div>
+      )}
 
       {/* 수정/삭제 버튼 */}
       {(canModify || canDelete) && (
@@ -344,6 +373,7 @@ export function PostDetail({
         boardId={boardId}
         postId={post.id}
         permissions={permissions}
+        settings={settings}
         currentUserId={currentUserId}
       />
     </div>

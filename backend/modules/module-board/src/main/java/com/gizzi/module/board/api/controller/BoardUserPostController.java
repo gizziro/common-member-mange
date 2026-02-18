@@ -54,11 +54,13 @@ public class BoardUserPostController {
 
 	// ─── 게시글 목록 조회 ───
 
-	// 게시글 목록 조회 (공개 게시판, 카테고리 필터 + 페이징 지원)
+	// 게시글 목록 조회 (카테고리/태그 필터 + 동적 정렬 + 페이징 지원)
 	@GetMapping("/{id}/posts")
 	public ResponseEntity<ApiResponseDto<Page<PostListResponseDto>>> getPosts(
 			@PathVariable String id,
 			@RequestParam(required = false) String categoryId,
+			@RequestParam(required = false) String tagId,
+			@RequestParam(required = false) String sort,
 			Pageable pageable,
 			Authentication authentication) {
 		// 인증 정보에서 userId 추출 (비로그인 시 null)
@@ -69,8 +71,8 @@ public class BoardUserPostController {
 			throw new BusinessException(BoardErrorCode.BOARD_ACCESS_DENIED);
 		}
 
-		// 게시글 목록 조회 (카테고리 필터, 페이징)
-		Page<PostListResponseDto> posts = postService.getPosts(id, categoryId, pageable);
+		// 게시글 목록 조회 (카테고리/태그 필터, 동적 정렬, 페이징)
+		Page<PostListResponseDto> posts = postService.getPosts(id, categoryId, tagId, sort, pageable);
 		return ResponseEntity.ok(ApiResponseDto.ok(posts));
 	}
 
@@ -185,11 +187,12 @@ public class BoardUserPostController {
 
 	// ─── 게시글 검색 ───
 
-	// 게시글 검색 (제목, 내용, 작성자명 키워드 검색)
+	// 게시글 검색 (검색 유형별: all / title / author)
 	@GetMapping("/{id}/posts/search")
 	public ResponseEntity<ApiResponseDto<Page<PostListResponseDto>>> searchPosts(
 			@PathVariable String id,
 			@RequestParam String keyword,
+			@RequestParam(required = false, defaultValue = "all") String searchType,
 			Pageable pageable,
 			Authentication authentication) {
 		// 인증 정보에서 userId 추출 (비로그인 시 null)
@@ -200,8 +203,8 @@ public class BoardUserPostController {
 			throw new BusinessException(BoardErrorCode.BOARD_ACCESS_DENIED);
 		}
 
-		// 게시글 키워드 검색 (페이징)
-		Page<PostListResponseDto> results = postService.searchPosts(id, keyword, pageable);
+		// 게시글 키워드 검색 (검색 유형, 페이징)
+		Page<PostListResponseDto> results = postService.searchPosts(id, keyword, searchType, pageable);
 		return ResponseEntity.ok(ApiResponseDto.ok(results));
 	}
 

@@ -18,7 +18,9 @@ import com.gizzi.module.board.repository.BoardSettingsRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -51,6 +53,9 @@ public class BoardPostService {
 	// 게시판 권한 헬퍼 (수정/삭제/비밀글 열람 권한 체크)
 	private final BoardPermissionHelper       permissionHelper;
 
+	// HTML 콘텐츠 위생 처리 유틸리티 (XSS 방어)
+	private final ContentSanitizer            contentSanitizer;
+
 	// ─── 게시글 생성 ───
 
 	// 게시글 생성 (답글 Closure Table 관리 포함)
@@ -78,10 +83,13 @@ public class BoardPostService {
 			}
 		}
 
-		// 3. 게시글 엔티티 생성
+		// 3. HTML 콘텐츠 살균 (XSS 방어)
+		String sanitizedContent = contentSanitizer.sanitize(request.getContent(), contentType);
+
+		// 4. 게시글 엔티티 생성
 		BoardPostEntity post = BoardPostEntity.create(
 				boardId, request.getCategoryId(), request.getParentId(), depth,
-				request.getTitle(), request.getContent(), contentType,
+				request.getTitle(), sanitizedContent, contentType,
 				request.getSlug(),
 				Boolean.TRUE.equals(request.getIsSecret()),
 				Boolean.TRUE.equals(request.getIsDraft()),
@@ -132,8 +140,11 @@ public class BoardPostService {
 		// 콘텐츠 타입 파싱
 		PostContentType contentType = parseContentType(request.getContentType());
 
+		// HTML 콘텐츠 살균 (XSS 방어)
+		String sanitizedContent = contentSanitizer.sanitize(request.getContent(), contentType);
+
 		// 게시글 내용 수정
-		post.updateContent(request.getTitle(), request.getContent(), contentType,
+		post.updateContent(request.getTitle(), sanitizedContent, contentType,
 				request.getCategoryId(), request.getSlug(),
 				request.getMetaTitle(), request.getMetaDescription());
 		// 변경 사항 저장
@@ -198,18 +209,26 @@ public class BoardPostService {
 
 	// ─── 게시글 목록 조회 ───
 
-	// 게시글 목록 조회 (페이징, 카테고리 필터 지원)
-	public Page<PostListResponseDto> getPosts(String boardId, String categoryId, Pageable pageable) {
+	// 게시글 목록 조회 (페이징, 카테고리 필터, 태그 필터, 동적 정렬 지원)
+	public Page<PostListResponseDto> getPosts(String boardId, String categoryId,
+	                                          String tagId, String sortField, Pageable pageable) {
+		// 동적 정렬 Pageable 생성 (공지 우선 + 사용자 지정 정렬)
+		Pageable sortedPageable = buildSortedPageable(pageable, sortField);
+
 		Page<BoardPostEntity> posts;
 
+		// 태그 필터가 지정된 경우 태그 기반 조회
+		if (tagId != null && !tagId.isBlank()) {
+			posts = postRepository.findByBoardInstanceIdAndTagId(boardId, tagId, sortedPageable);
+		}
 		// 카테고리가 지정된 경우 카테고리별 조회
-		if (categoryId != null && !categoryId.isBlank()) {
-			posts = postRepository.findByBoardInstanceIdAndCategoryIdAndIsDeletedFalseAndIsDraftFalseOrderByIsNoticeDescCreatedAtDesc(
-					boardId, categoryId, pageable);
+		else if (categoryId != null && !categoryId.isBlank()) {
+			posts = postRepository.findByBoardInstanceIdAndCategoryIdAndIsDeletedFalseAndIsDraftFalse(
+					boardId, categoryId, sortedPageable);
 		} else {
-			// 전체 게시글 조회 (삭제/임시저장 제외, 공지 우선)
-			posts = postRepository.findByBoardInstanceIdAndIsDeletedFalseAndIsDraftFalseOrderByIsNoticeDescCreatedAtDesc(
-					boardId, pageable);
+			// 전체 게시글 조회 (삭제/임시저장 제외)
+			posts = postRepository.findByBoardInstanceIdAndIsDeletedFalseAndIsDraftFalse(
+					boardId, sortedPageable);
 		}
 
 		// 목록용 DTO로 변환
@@ -218,10 +237,23 @@ public class BoardPostService {
 
 	// ─── 게시글 검색 ───
 
-	// 게시글 검색 (제목, 내용, 작성자명 키워드 검색)
-	public Page<PostListResponseDto> searchPosts(String boardId, String keyword, Pageable pageable) {
-		return postRepository.searchPosts(boardId, keyword, pageable)
-				.map(this::toPostListResponseDto);
+	// 게시글 검색 (검색 유형별 분기: all / title / author)
+	public Page<PostListResponseDto> searchPosts(String boardId, String keyword,
+	                                             String searchType, Pageable pageable) {
+		// 검색 유형에 따라 다른 쿼리 호출
+		Page<BoardPostEntity> results;
+		if ("title".equalsIgnoreCase(searchType)) {
+			// 제목만 검색
+			results = postRepository.searchByTitle(boardId, keyword, pageable);
+		} else if ("author".equalsIgnoreCase(searchType)) {
+			// 작성자명만 검색
+			results = postRepository.searchByAuthor(boardId, keyword, pageable);
+		} else {
+			// 전체 검색 (제목 + 내용 + 작성자명)
+			results = postRepository.searchPosts(boardId, keyword, pageable);
+		}
+
+		return results.map(this::toPostListResponseDto);
 	}
 
 	// ─── 공지글 ───
@@ -260,6 +292,31 @@ public class BoardPostService {
 	}
 
 	// ─── Private 헬퍼 ───
+
+	// 정렬 필드 문자열 → Sort 객체 변환 (공지 우선 + 사용자 지정 정렬 복합 구성)
+	private Pageable buildSortedPageable(Pageable pageable, String sortField) {
+		// 사용자 지정 정렬 (기본: 최신순)
+		Sort userSort;
+		if (sortField == null || sortField.isBlank() || "newest".equalsIgnoreCase(sortField)) {
+			userSort = Sort.by(Sort.Direction.DESC, "createdAt");
+		} else if ("oldest".equalsIgnoreCase(sortField)) {
+			userSort = Sort.by(Sort.Direction.ASC, "createdAt");
+		} else if ("viewCount".equalsIgnoreCase(sortField)) {
+			userSort = Sort.by(Sort.Direction.DESC, "viewCount");
+		} else if ("voteUp".equalsIgnoreCase(sortField)) {
+			userSort = Sort.by(Sort.Direction.DESC, "voteUpCount");
+		} else if ("commentCount".equalsIgnoreCase(sortField)) {
+			userSort = Sort.by(Sort.Direction.DESC, "commentCount");
+		} else {
+			userSort = Sort.by(Sort.Direction.DESC, "createdAt");
+		}
+
+		// 공지 우선 정렬 + 사용자 지정 정렬 결합
+		Sort compositeSort = Sort.by(Sort.Direction.DESC, "isNotice").and(userSort);
+
+		// 기존 Pageable의 페이지/사이즈 유지, 정렬만 교체
+		return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), compositeSort);
+	}
 
 	// 콘텐츠 타입 문자열 → PostContentType 변환 (기본값: MARKDOWN)
 	private PostContentType parseContentType(String type) {

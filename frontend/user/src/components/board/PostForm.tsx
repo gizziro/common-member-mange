@@ -23,6 +23,26 @@ interface PostDto {
   tags: string[];
 }
 
+/** 게시판 설정 */
+interface BoardSettings {
+  editorType: string;
+  postsPerPage: number;
+  displayFormat: string;
+  paginationType: string;
+  allowAnonymousAccess: boolean;
+  allowFileUpload: boolean;
+  allowedFileTypes: string;
+  maxFileSize: number;
+  maxFilesPerPost: number;
+  maxReplyDepth: number;
+  maxCommentDepth: number;
+  allowSecretPosts: boolean;
+  allowDraft: boolean;
+  allowTags: boolean;
+  allowVote: boolean;
+  useCategory: boolean;
+}
+
 /** 컴포넌트 Props */
 interface PostFormProps {
   /** 게시판 인스턴스 ID */
@@ -33,6 +53,8 @@ interface PostFormProps {
   postId?: string;
   /** 권한 목록 */
   permissions: Record<string, string[]>;
+  /** 게시판 설정 (null이면 모든 기능 표시) */
+  settings: BoardSettings | null;
   /** 목록으로 돌아가기 콜백 */
   onBack: () => void;
   /** 저장 완료 후 이동 콜백 (게시글 ID 전달) */
@@ -48,6 +70,7 @@ export function PostForm({
   boardName,
   postId,
   permissions,
+  settings,
   onBack,
   onSaved,
 }: PostFormProps) {
@@ -66,6 +89,12 @@ export function PostForm({
   // 파일 업로드
   const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
+
+  // 설정 기반 기능 토글 (null이면 기본 true — 설정 미로드 시 모두 표시)
+  const showSecretOption  = settings?.allowSecretPosts ?? true;
+  const showDraftOption   = settings?.allowDraft ?? true;
+  const showTagInput      = settings?.allowTags ?? true;
+  const showFileUpload    = settings?.allowFileUpload ?? true;
 
   // 인증 토큰
   const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") ?? undefined : undefined;
@@ -118,9 +147,9 @@ export function PostForm({
       title,
       content,
       contentType,
-      isSecret,
-      isDraft,
-      tagNames: tagNames.length > 0 ? tagNames : undefined,
+      isSecret: showSecretOption ? isSecret : false,
+      isDraft: showDraftOption ? isDraft : false,
+      tagNames: showTagInput && tagNames.length > 0 ? tagNames : undefined,
     };
 
     try {
@@ -137,7 +166,7 @@ export function PostForm({
         const savedPostId = res.data.id;
 
         // 파일 업로드 (저장된 게시글에 첨부)
-        if (files.length > 0) {
+        if (showFileUpload && files.length > 0) {
           setUploading(true);
           for (const file of files) {
             await uploadFile(boardId, savedPostId, file);
@@ -264,20 +293,23 @@ export function PostForm({
           />
         </div>
 
-        {/* 태그 */}
-        <div className="space-y-1.5">
-          <Label htmlFor="postTags">태그 (쉼표로 구분)</Label>
-          <Input
-            id="postTags"
-            placeholder="태그1, 태그2, 태그3"
-            value={tagInput}
-            onChange={(e) => setTagInput(e.target.value)}
-          />
-        </div>
+        {/* 태그 (설정에서 allowTags일 때만) */}
+        {showTagInput && (
+          <div className="space-y-1.5">
+            <Label htmlFor="postTags">태그 (쉼표로 구분)</Label>
+            <Input
+              id="postTags"
+              placeholder="태그1, 태그2, 태그3"
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+            />
+          </div>
+        )}
 
-        {/* 옵션 토글 */}
+        {/* 옵션 토글 (설정 기반 조건부 표시) */}
         <div className="flex items-center gap-6">
-          {permissions?.post?.includes("write") && (
+          {/* 비밀글 (allowSecretPosts일 때만) */}
+          {showSecretOption && permissions?.post?.includes("write") && (
             <label className="flex items-center gap-2 text-sm cursor-pointer">
               <input
                 type="checkbox"
@@ -288,19 +320,22 @@ export function PostForm({
               비밀글
             </label>
           )}
-          <label className="flex items-center gap-2 text-sm cursor-pointer">
-            <input
-              type="checkbox"
-              checked={isDraft}
-              onChange={(e) => setIsDraft(e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300"
-            />
-            임시저장
-          </label>
+          {/* 임시저장 (allowDraft일 때만) */}
+          {showDraftOption && (
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isDraft}
+                onChange={(e) => setIsDraft(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300"
+              />
+              임시저장
+            </label>
+          )}
         </div>
 
-        {/* 파일 업로드 */}
-        {!isEdit && (
+        {/* 파일 업로드 (allowFileUpload일 때만) */}
+        {showFileUpload && !isEdit && (
           <div className="space-y-2">
             <Label>첨부파일</Label>
             <input

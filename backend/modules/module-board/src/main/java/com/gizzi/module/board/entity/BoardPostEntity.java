@@ -58,8 +58,8 @@ public class BoardPostEntity {
 	@Column(name = "content_type", nullable = false, length = 20)
 	private PostContentType contentType;
 
-	// URL 슬러그 (게시판 내 유니크)
-	@Column(name = "slug", nullable = false, length = 200)
+	// URL 슬러그 (게시판 내 유니크, 선택적 — null 허용)
+	@Column(name = "slug", nullable = true, length = 200)
 	private String slug;
 
 	// 비밀글 여부
