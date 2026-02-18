@@ -161,6 +161,67 @@
 - [x] 그룹 권한 API: GET /pages/permission-definitions, GET/PUT /pages/{id}/permissions
 - [x] 사용자 개인 권한 API: GET/PUT /pages/{id}/user-permissions
 
+### 4.4 게시판 모듈 (module-board, Phase 1a+1b+1c 구현 완료)
+
+#### 백엔드 — Phase 1a
+- [x] BoardModuleDefinition — MULTI 타입 모듈 (code=board, slug=board, 게시판별 모듈 인스턴스)
+- [x] 게시판 인스턴스 CRUD (BoardInstanceService — 모듈 인스턴스 + BoardSettings 동시 생성/삭제)
+- [x] 게시판 설정 (tb_board_settings: 에디터 유형, 페이지당 글 수, 표시 형식, 페이지네이션, 익명 접근, 파일 업로드, 비밀글, 임시저장, 태그, 투표, 카테고리 등)
+- [x] 카테고리 CRUD (BoardCategoryService — slug 유니크 검증, 정렬 순서, 활성/비활성 토글)
+- [x] 태그 관리 (BoardTagService — getOrCreateTags, syncPostTags, postCount 비정규화)
+- [x] 게시글 CRUD (BoardPostService — 생성/수정/삭제/조회/목록/검색)
+  - 계층형 게시글: Closure Table (tb_board_post_closure, parentId, depth, maxReplyDepth 제한)
+  - 소프트 삭제: is_deleted + deleted_at + deleted_by
+  - 비정규화 카운트: view_count, vote_up_count, vote_down_count, comment_count
+  - 공지 게시글: isNotice + noticeScope (BOARD/GLOBAL)
+  - 비밀 게시글: isSecret (canReadSecret 권한 체크)
+  - 임시 저장: isDraft (목록 노출 제외)
+  - SEO: metaTitle, metaDescription, slug
+- [x] 댓글 CRUD (BoardCommentService — 생성/수정/삭제/조회)
+  - 계층형 댓글: Closure Table (tb_board_comment_closure, parentId, depth, maxCommentDepth 제한)
+  - 소프트 삭제: is_deleted + deleted_at (구조 보존, content 비공개)
+  - 비정규화 카운트: vote_up_count, vote_down_count
+- [x] 투표 (BoardVoteService — 게시글/댓글 추천/비추천, 토글 방식, 자기 투표 방지)
+- [x] 파일 관리 (BoardFileService — 업로드/다운로드/삭제, FileStorageService 인터페이스 → LocalFileStorageService)
+- [x] 부관리자 (BoardAdminService — 게시판별 부관리자 등록/삭제/목록)
+- [x] 권한 (BoardPermissionHelper — administrator → board admin → instance owner → 개별/그룹 권한, 17개 권한 정의)
+- [x] DB 스키마: 11개 테이블 (tb_board_settings, categories, tags, posts, post_closure, post_tags, comments, comment_closure, files, votes, admins)
+- [x] 에러 코드: BoardErrorCode (20+ 에러 코드)
+
+#### 백엔드 — Phase 1c (보안 강화 + 기능 보완)
+- [x] 서버사이드 XSS 방어 (OWASP Java HTML Sanitizer — ContentSanitizer 유틸리티)
+  - 허용 태그 화이트리스트 (h1-h6, p, a[href], img[src,alt], ul, ol, li, table, code, pre, blockquote, br, hr, strong, em, del, span, div)
+  - BoardPostService/BoardCommentService: 게시글·댓글 생성/수정 시 서버사이드 살균 적용
+- [x] PostContentType enum: PLAIN_TEXT, MARKDOWN, HTML
+- [x] 데이터 정합성: 삭제 댓글 content "삭제된 댓글입니다" 반환, slug nullable=true 정합
+- [x] 동적 정렬: 최신순/오래된순/조회순/추천순/댓글순 + 공지 우선 복합 Sort
+- [x] 태그 필터: JPQL JOIN 쿼리로 태그별 게시글 필터링
+- [x] 확장 검색: searchType(all/title/author) 파라미터, 제목/작성자별 분리 검색
+- [x] User API 설정 엔드포인트: GET /boards/{id}/settings, categories, tags
+- [x] TagResponseDto: id, name, slug, postCount
+- [x] 페이지네이션 유형 확장: PaginationType enum (OFFSET, CURSOR, INFINITE_SCROLL, LOAD_MORE)
+
+#### 프론트엔드 — Phase 1b + 1c
+
+**Admin (frontend/admin)**
+- [x] 게시판 목록 페이지 (/boards — 게시판 생성/삭제)
+- [x] 게시판 상세 페이지 (/boards/[id] — 7개 탭)
+  - 기본 정보 탭: 이름/슬러그/설명 수정
+  - 설정 탭: 에디터/페이지네이션/익명/파일/비밀글/태그/투표 등
+  - 카테고리 탭: CRUD + 정렬 + 활성/비활성
+  - 게시글 탭: 목록 + 공지 토글 + 삭제
+  - 댓글 탭: 전체 댓글 목록 + 삭제
+  - 권한 탭: 그룹/사용자 권한 매트릭스 (17개 권한)
+  - 부관리자 탭: 부관리자 추가/제거
+
+**User (frontend/user)**
+- [x] BoardViewer: 게시판 목록 + 라우팅 (설정 API 연동, 정렬 드롭다운, 검색 유형, 태그 필터, 카테고리 필터)
+- [x] PostDetail: 게시글 상세 (투표, 태그, 첨부파일, 수정/삭제, 설정 기반 기능 토글)
+- [x] PostForm: 게시글 작성/수정 (설정 기반 조건부 렌더링 — 비밀글/임시저장/태그/파일)
+- [x] CommentSection: 트리형 댓글 (답글/수정/삭제/투표, 설정 기반 깊이 제한·투표 토글)
+- [x] 페이지네이션 유형 분기: OFFSET(번호), INFINITE_SCROLL(IntersectionObserver), LOAD_MORE(더보기 버튼)
+- [x] [...slug]/page.tsx: board 모듈 분기 + instance 옵셔널 체이닝
+
 ## 5. 권한 체크 로직
 
 ### 5.1 권한 체크 흐름(권장)
@@ -414,6 +475,59 @@
 - [x] PATCH `/pages/{id}/publish` — 공개/비공개 토글 (admin-api)
 - [x] GET `/pages/{slug}` — 공개 페이지 조회 + 권한 체크 (user-api, 미인가 시 404)
 
+### 8.11 게시판 모듈 — Admin API (구현 완료)
+- [x] POST `/boards` — 게시판 생성 (모듈 인스턴스 + 설정 동시 생성)
+- [x] GET `/boards` — 게시판 목록 (페이지네이션)
+- [x] GET `/boards/{id}` — 게시판 상세 조회
+- [x] PUT `/boards/{id}` — 게시판 수정 (이름/슬러그/설명)
+- [x] DELETE `/boards/{id}` — 게시판 삭제 (모듈 인스턴스 cascade)
+- [x] GET `/boards/{id}/settings` — 게시판 설정 조회
+- [x] PUT `/boards/{id}/settings` — 게시판 설정 수정
+- [x] GET `/boards/{id}/categories` — 카테고리 목록
+- [x] POST `/boards/{id}/categories` — 카테고리 생성
+- [x] PUT `/boards/{id}/categories/{catId}` — 카테고리 수정
+- [x] DELETE `/boards/{id}/categories/{catId}` — 카테고리 삭제
+- [x] PATCH `/boards/{id}/categories/{catId}/toggle` — 카테고리 활성/비활성
+- [x] GET `/boards/{id}/posts` — 게시글 목록 (관리자: 임시저장 포함)
+- [x] PATCH `/boards/{id}/posts/{postId}/notice` — 공지 토글
+- [x] DELETE `/boards/{id}/posts/{postId}` — 게시글 삭제
+- [x] GET `/boards/{id}/comments` — 댓글 전체 목록
+- [x] DELETE `/boards/{id}/comments/{commentId}` — 댓글 삭제
+- [x] GET `/boards/{id}/permissions` — 게시판 그룹 권한 현황
+- [x] PUT `/boards/{id}/permissions` — 게시판 그룹 권한 설정
+- [x] GET `/boards/{id}/user-permissions` — 게시판 사용자 권한 현황
+- [x] PUT `/boards/{id}/user-permissions` — 게시판 사용자 권한 설정
+- [x] GET `/boards/{id}/admins` — 부관리자 목록
+- [x] POST `/boards/{id}/admins` — 부관리자 추가
+- [x] DELETE `/boards/{id}/admins/{adminId}` — 부관리자 제거
+- [x] GET `/boards/permission-definitions` — 게시판 권한 정의 목록
+
+### 8.12 게시판 모듈 — User API (구현 완료)
+- [x] GET `/boards/{id}/posts` — 게시글 목록 (정렬: sort, 태그 필터: tagId, 카테고리 필터: categoryId)
+- [x] POST `/boards/{id}/posts` — 게시글 작성
+- [x] GET `/boards/{id}/posts/{postId}` — 게시글 상세 (조회수 증가, 비밀글 권한 체크)
+- [x] PUT `/boards/{id}/posts/{postId}` — 게시글 수정
+- [x] DELETE `/boards/{id}/posts/{postId}` — 게시글 삭제
+- [x] POST `/boards/{id}/posts/{postId}/vote` — 게시글 투표 (추천/비추천 토글)
+- [x] GET `/boards/{id}/posts/search` — 게시글 검색 (keyword, searchType: all/title/author)
+- [x] GET `/boards/{id}/posts/{postId}/comments` — 댓글 트리 조회
+- [x] POST `/boards/{id}/posts/{postId}/comments` — 댓글 작성
+- [x] PUT `/boards/{id}/comments/{commentId}` — 댓글 수정
+- [x] DELETE `/boards/{id}/comments/{commentId}` — 댓글 삭제
+- [x] POST `/boards/{id}/comments/{commentId}/vote` — 댓글 투표
+- [x] POST `/boards/{id}/files` — 파일 업로드
+- [x] GET `/boards/files/{fileId}/download` — 파일 다운로드
+- [x] DELETE `/boards/{id}/files/{fileId}` — 파일 삭제
+- [x] GET `/boards/{id}/settings` — 게시판 설정 조회 (프론트엔드 기능 토글용)
+- [x] GET `/boards/{id}/categories` — 카테고리 목록 (필터 UI용)
+- [x] GET `/boards/{id}/tags` — 태그 목록 (필터 UI용, postCount > 0만)
+
+### 8.13 SMS 수동 발송 — Admin API (구현 완료)
+- [x] POST `/sms/send` — 수동 SMS 대량 발송 (ALL/GROUP/INDIVIDUAL)
+- [x] GET `/sms/logs` — SMS 발송 이력 (페이지네이션 + 필터)
+- [x] GET `/sms/recipients/count` — 수신 대상 인원수 조회
+- [x] GET `/sms/recipients/groups` — 수신 대상 그룹 목록
+
 ## 9. 프론트엔드
 
 ### 9.1 사용자 웹 (frontend/user)
@@ -431,6 +545,10 @@
 - [x] 동적 라우팅 ([...slug]/page.tsx — resolve API + 별칭 subPath 통합 + MULTI 인스턴스 slug 지원)
 - [x] 페이지 뷰어 (PageViewer.tsx — HTML/Markdown/Text 렌더링, 미인가 시 404 표시, DOMPurify XSS 방지, react-markdown+remark-gfm Markdown 렌더링)
 - [x] 페이지 목록 뷰 (PageListView — /page 접근 시 공개 페이지 목록 표시)
+- [x] 게시판 뷰어 (BoardViewer.tsx — 목록+라우팅, 설정 API 연동, 정렬/검색/태그/카테고리 필터, 페이지네이션 유형 분기)
+- [x] 게시글 상세 (PostDetail.tsx — 투표/태그/첨부파일/수정/삭제, 설정 기반 기능 토글)
+- [x] 게시글 작성/수정 (PostForm.tsx — 설정 기반 조건부 렌더링: 비밀글/임시저장/태그/파일)
+- [x] 댓글 섹션 (CommentSection.tsx — 트리형 댓글, 답글/수정/삭제/투표, 깊이 제한)
 
 ### 9.2 관리자 웹 (frontend/admin)
 - [x] 관리자 로그인 페이지 (2단계 SMS OTP 인증 UI)
@@ -450,6 +568,10 @@
   - 권한 설정 탭: 그룹 권한 매트릭스 + 사용자 개인 권한 매트릭스 (5개 권한 열)
 - [x] 회원 상세 — 권한 요약 카드 (읽기 전용, 직접/그룹 출처 표시)
 - [x] 그룹 상세 — 권한 요약 카드 (읽기 전용)
+- [x] 게시판 목록 페이지 (/boards — 게시판 생성/삭제)
+- [x] 게시판 상세 페이지 (/boards/[id] — 7탭: 기본정보/설정/카테고리/게시글/댓글/권한/부관리자)
+- [x] SMS 수동 발송 페이지 (/sms — 발송 탭 + 이력 탭)
+- [x] 회원 상세 — 비밀번호 초기화 버튼 + 결과 다이얼로그
 - [ ] 모듈/인스턴스 관리 페이지
 - [x] 시스템 설정 페이지 (/settings/system — 그룹별 Card UI, 타입별 입력, 그룹별 저장)
 - [x] 감사 로그 조회 페이지 (필터링+상세 Dialog+페이지네이션)
