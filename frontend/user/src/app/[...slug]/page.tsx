@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { apiGet } from "@/lib/api";
 import { PageViewer } from "@/components/PageViewer";
+import { BoardViewer } from "@/components/board/BoardViewer";
 
 /* ===========================
  * 타입 정의
@@ -190,6 +191,22 @@ function renderModule(resolved: ResolveResponse, subPath: string | null) {
 
 		// /page (하위 경로 없음) → 페이지 목록 표시
 		return <PageListView />;
+	}
+
+	// 게시판 모듈
+	if (mod.code === "board") {
+		if (mod.type === "MULTI" && instance.instanceId) {
+			return (
+				<BoardViewer
+					boardId={instance.instanceId}
+					boardName={instance.name}
+					boardSlug={instance.slug}
+					moduleSlug={mod.slug}
+					permissions={resolved.permissions}
+					subPath={subPath}
+				/>
+			);
+		}
 	}
 
 	// 미구현 모듈 — 기본 정보 표시
