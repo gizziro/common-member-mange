@@ -11,10 +11,14 @@
 - [x] 소셜 회원가입(OAuth2: Google/Kakao/Naver)
 - [x] 로컬/소셜 계정 병합 정책(동일 이메일 시 로컬 ID/PW 확인 후 연동)
 
-### 1.1-1 2차 인증(2FA)
-- [ ] 이메일/휴대폰 2차 인증 지원
-- [ ] OTP 또는 코드 기반 인증 플로우 제공
-- [ ] 2차 인증 코드 발급/만료/재전송 정책 정의
+### 1.1-1 2차 인증(2FA) — SMS OTP
+- [x] 휴대폰 SMS OTP 2차 인증 (관리자 로그인 2FA — Challenge-Response 방식)
+- [x] OTP 코드 기반 인증 플로우 (6자리 숫자, Redis 저장, 3분 TTL)
+- [x] OTP 발급/만료(3분)/재전송 쿨다운(1분)/일일 한도(10건) 정책
+- [x] 멀티 프로바이더 SMS 발송 (SmsProviderSender 인터페이스, SOLAPI 구현체)
+- [x] SOLAPI REST API 직접 호출 (HMAC-SHA256 서명, RestClient 사용)
+- [ ] 이메일 2차 인증 지원
+- [ ] TOTP 기반 인증 (Google Authenticator)
 
 ### 1.2 JWT 토큰 발급
 - [x] Access Token (30분) / Refresh Token (7일) 발급
@@ -28,14 +32,25 @@
 - [ ] 중복 접속 차단 정책 적용(단일 세션 또는 N개 허용)
 
 ### 1.4 사용자 상태 관리
-- [ ] 이메일/휴대폰 인증 처리 (`email_verified`, `phone_verified`)
+- [x] 휴대폰 인증 처리 (`phone_verified`) — SMS OTP 검증 토큰 방식 (회원가입/셋업 위자드)
+- [ ] 이메일 인증 처리 (`email_verified`)
 - [x] 잠금 정책 (auth.max_login_fail 설정 기반 동적 임계값, 자동 잠금)
 - [x] 잠금 자동 해제 (auth.lock_duration_min 설정 기반, 시간 경과 시 로그인 시 자동 해제)
 - [x] 계정 상태 관리 (`user_status`: PENDING → ACTIVE → SUSPENDED)
 - [x] 회원가입 시 초기 상태 설정 연동 (signup.default_status → ACTIVE/PENDING)
 - [x] 토큰 만료 시간 설정 연동 (session.access_token_exp, refresh_token_exp — DB 설정 우선, yml 폴백)
 
-### 1.5 페이지/리소스별 2FA 정책
+### 1.5 SMS 인증 인프라 (구현 완료)
+- [x] tb_sms_providers 테이블 (프로바이더 코드/이름/API Key/Secret/발신번호/활성화)
+- [x] tb_users.is_sms_agree 컬럼 추가 (SMS 수신 동의)
+- [x] SmsProviderSender 인터페이스 + SolapiSender 구현체 (HMAC-SHA256, RestClient)
+- [x] SmsService 오케스트레이션 (활성 프로바이더 자동 선택, 감사 로그 연동)
+- [x] OtpService (Redis 기반 OTP 생성/검증/레이트리밋/검증 토큰 발급)
+- [x] SmsErrorCode 10개 (발송 실패, OTP 만료/불일치, 레이트리밋, 일일 한도 등)
+- [x] SOLAPI 에러 메시지 상세 전달 (extractSolapiErrorMessage — 관리자가 원인 즉시 파악)
+- [x] UserEntity: isSmsAgree 필드, updateSmsConsent/updatePhone 메서드
+
+### 1.6 페이지/리소스별 2FA 정책
 - [ ] 특정 페이지/기능 접근 시 2FA 요구 정책 정의
 - [ ] 2FA 필요 여부 판단 로직(권한 체크 이전/이후) 결정
 - [ ] 2FA 성공 시 일정 기간 재요구 여부(세션 단위/시간 단위) 결정
@@ -61,8 +76,8 @@
 - [x] AuditLogEntity (tb_audit_logs 매핑, BaseEntity 미상속, @PrePersist UUID+createdAt)
 - [x] AuditLogRepository (복합 필터 JPQL — actorUserId, actionType, startTime, endTime)
 - [x] AuditLogService (log/logIndependent/logSuccess/logFailure + extractRequestInfo + mapToJson)
-- [x] AuditAction 상수 클래스 (17개 액션: LOGIN, LOGOUT, TOKEN_REFRESH, USER_SIGNUP 등)
-- [x] AuditTarget 상수 클래스 (5개 대상: USER, GROUP, MEMBER, SETTING, IDENTITY)
+- [x] AuditAction 상수 클래스 (19개 액션: LOGIN, LOGOUT, TOKEN_REFRESH, USER_SIGNUP 등 + SMS_SEND, SMS_OTP_VERIFY)
+- [x] AuditTarget 상수 클래스 (6개 대상: USER, GROUP, MEMBER, SETTING, IDENTITY, SMS)
 - [x] AuditLogResponseDto (from(entity) 정적 팩토리)
 - [x] AuditLogController (admin-api: GET /audit-logs — 페이지네이션+필터)
 
@@ -165,17 +180,18 @@
 
 ### 7.1 기능 플래그
 - [x] 통합 설정 테이블 (`tb_settings` — 시스템+모듈 설정 통합, module_code/setting_group/setting_key 3단 계층)
-- [x] 시스템 기본 설정 자동 등록 (SettingsRegistry @Order(3), 10개 기본 설정)
+- [x] 시스템 기본 설정 자동 등록 (SettingsRegistry @Order(3), 14개 기본 설정)
   - general: site_name, site_description
-  - signup: enabled, email_verification, default_status
+  - signup: enabled, email_verification, default_status, oauth2_enabled
   - auth: max_login_fail, lock_duration_min, otp_required
   - session: access_token_exp, refresh_token_exp
+  - sms: enabled, otp_length, otp_ttl_seconds, daily_limit
 - [x] 모듈 기본 설정 자동 등록 (ModuleDefinition.getDefaultSettings() → SettingsRegistry)
   - page 모듈: default_content_type, auto_publish
 - [x] 회원가입 활성화 여부 (UserService — signup.enabled 체크, SIGNUP_DISABLED 에러)
 - [x] 회원가입 시 기본 상태 (UserService — signup.default_status 적용, ACTIVE/PENDING 등)
 - [x] 소셜 로그인 사용 여부 (OAuth2Service — signup.oauth2_enabled 체크, OAUTH2_DISABLED 에러)
-- [ ] 2차 인증 필수 여부 및 적용 범위 (설정 연동)
+- [x] 2차 인증 필수 여부 및 적용 범위 (auth.otp_required + user.is_otp_use → 관리자 로그인 SMS OTP 자동 발송)
 
 ### 7.2 관리자 페이지 접근 제어
 - [x] admin-api 접근 시 administrator 그룹 소속 여부 검증 (AdminGroupFilter — JwtAuthenticationFilter 이후 실행)
@@ -270,12 +286,17 @@
 - [x] DELETE `/auth/oauth2/identities/{id}` — 소셜 연동 해제
 - [x] POST `/auth/oauth2/set-password` — 소셜 전용 사용자 로컬 자격증명(ID+PW) 설정
 - [x] DELETE `/auth/withdraw` — 사용자 본인 탈퇴
+- [x] POST `/auth/sms/send-otp` — SMS OTP 발송 (회원가입 전화번호 인증)
+- [x] POST `/auth/sms/verify-otp` — SMS OTP 검증 (검증 토큰 반환)
 
 ### 8.1-1 인증/회원 (admin-api)
-- [x] POST `/auth/login` — 관리자 로그인
+- [x] POST `/auth/login` — 관리자 로그인 (OTP 필요 시 requireOtp=true 반환)
 - [x] POST `/auth/logout` — 관리자 로그아웃
 - [x] POST `/auth/refresh` — 관리자 토큰 갱신
 - [x] GET `/auth/me` — 관리자 현재 사용자 정보
+- [x] POST `/auth/otp/verify` — 관리자 로그인 2FA OTP 검증 → JWT 발급
+- [x] POST `/auth/sms/send-otp` — SMS OTP 발송 (셋업 위자드용)
+- [x] POST `/auth/sms/verify-otp` — SMS OTP 검증 (셋업 위자드용, 검증 토큰 반환)
 - [x] GET `/auth/providers` — 소셜 Provider 전체 목록
 - [x] GET `/auth/providers/{id}` — Provider 상세 조회
 - [x] PUT `/auth/providers/{id}` — Provider 설정 수정
@@ -346,10 +367,15 @@
 - [x] GET `/settings/modules/{code}` — 모듈 설정 전체 조회 (그룹별 묶음, admin-api)
 - [x] PUT `/settings/modules/{code}/{group}` — 모듈 특정 그룹 설정 일괄 수정 (admin-api)
 
-### 8.8 감사 로그 (구현 완료)
+### 8.8 SMS 프로바이더 관리 (admin-api, 구현 완료)
+- [x] GET `/sms/providers` — SMS 프로바이더 목록 조회
+- [x] PUT `/sms/providers/{id}` — SMS 프로바이더 설정 수정 (API Key/Secret, 발신번호, 활성화)
+- [x] POST `/sms/providers/{id}/test` — SMS 테스트 발송
+
+### 8.9 감사 로그 (구현 완료)
 - [x] GET `/audit-logs` — 감사 로그 목록 조회 (admin-api, 페이지네이션+필터: actorUserId, actionType, startTime, endTime)
 
-### 8.9 페이지 모듈 (구현 완료)
+### 8.10 페이지 모듈 (구현 완료)
 - [x] POST `/pages` — 페이지 생성 + 모듈 인스턴스 동시 생성 (admin-api)
 - [x] GET `/pages` — 페이지 목록 (admin-api: 전체 / user-api: 공개+권한 필터링)
 - [x] GET `/pages/{id}` — 페이지 상세 (admin-api)
@@ -361,7 +387,7 @@
 ## 9. 프론트엔드
 
 ### 9.1 사용자 웹 (frontend/user)
-- [x] 회원가입 페이지
+- [x] 회원가입 페이지 (전화번호 + SMS OTP 인증 UI — 발송/검증/재발송 카운트다운)
 - [x] 로그인 페이지 (소셜 로그인 버튼 포함)
 - [x] 프로필 페이지 (소셜 계정 연동/해제, 비밀번호 설정, 회원 탈퇴)
 - [x] 소개 페이지
@@ -377,13 +403,14 @@
 - [x] 페이지 목록 뷰 (PageListView — /page 접근 시 공개 페이지 목록 표시)
 
 ### 9.2 관리자 웹 (frontend/admin)
-- [x] 관리자 로그인 페이지
-- [x] 초기 설정 위자드 페이지
+- [x] 관리자 로그인 페이지 (2단계 SMS OTP 인증 UI)
+- [x] 초기 설정 위자드 페이지 (전화번호 + SMS OTP 인증 UI)
 - [x] 대시보드 페이지
 - [x] 회원 목록 페이지 (인라인 상태 변경, 삭제)
 - [x] 회원 상세 페이지 (정보 수정, 비밀번호 변경, 잠금 해제, 소셜 연동 표시)
 - [x] 그룹 관리 페이지 (목록/상세/멤버 관리)
 - [x] 소셜 Provider 설정 관리 페이지 (settings/auth-providers)
+- [x] SMS 프로바이더 설정 관리 페이지 (settings/sms-providers — API Key/Secret 마스킹, 테스트 발송)
 - [x] shadcn/ui 컴포넌트 전환
 - [x] JWT 인증 컨텍스트 및 API 유틸리티
 - [x] 메뉴 관리 페이지 (메뉴 CRUD + alias/contentPath 입력 + 모듈/인스턴스 선택)
