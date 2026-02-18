@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { apiGet, apiPost, apiPut } from "@/lib/api";
+import { apiGet, apiPost, apiPut, getAccessToken } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -96,9 +96,6 @@ export function PostForm({
   const showTagInput      = settings?.allowTags ?? true;
   const showFileUpload    = settings?.allowFileUpload ?? true;
 
-  // 인증 토큰
-  const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") ?? undefined : undefined;
-
   // 수정 모드 시 기존 게시글 로드
   useEffect(() => {
     if (!isEdit || !postId) return;
@@ -106,8 +103,7 @@ export function PostForm({
       setLoading(true);
       try {
         const res = await apiGet<PostDto>(
-          `/boards/${boardId}/posts/${postId}`,
-          token
+          `/boards/${boardId}/posts/${postId}`
         );
         if (res.success && res.data) {
           setTitle(res.data.title);
@@ -126,7 +122,7 @@ export function PostForm({
       }
     };
     loadPost();
-  }, [boardId, postId, isEdit, token]);
+  }, [boardId, postId, isEdit]);
 
   // 저장 처리
   const handleSubmit = async () => {
@@ -156,10 +152,10 @@ export function PostForm({
       let res;
       if (isEdit && postId) {
         // 수정
-        res = await apiPut<PostDto>(`/boards/${boardId}/posts/${postId}`, body, token);
+        res = await apiPut<PostDto>(`/boards/${boardId}/posts/${postId}`, body);
       } else {
         // 생성
-        res = await apiPost<PostDto>(`/boards/${boardId}/posts`, body, token);
+        res = await apiPost<PostDto>(`/boards/${boardId}/posts`, body);
       }
 
       if (res.success && res.data) {
@@ -192,7 +188,8 @@ export function PostForm({
     formData.append("postId", pId);
 
     const headers: Record<string, string> = {};
-    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const accessToken = getAccessToken();
+    if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`;
 
     try {
       await fetch(`/api/boards/${bId}/files`, {

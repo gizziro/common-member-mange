@@ -2,7 +2,7 @@
 
 import { useState, useEffect, type FormEvent } from "react";
 import Link from "next/link";
-import { apiGet, apiPost } from "@/lib/api";
+import { apiGet, apiPost, setTokens } from "@/lib/api";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -165,9 +165,8 @@ export default function LoginForm() {
 
 			// 3. 성공 응답 처리
 			if (json.success && json.data) {
-				// localStorage에 토큰 저장
-				localStorage.setItem("accessToken", json.data.accessToken);
-				localStorage.setItem("refreshToken", json.data.refreshToken);
+				// 토큰 저장
+				setTokens(json.data.accessToken, json.data.refreshToken);
 
 				// 성공 toast
 				toast.success("로그인 성공", {

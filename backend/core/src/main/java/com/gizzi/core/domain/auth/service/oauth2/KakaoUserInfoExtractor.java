@@ -50,11 +50,4 @@ public class KakaoUserInfoExtractor implements OAuth2UserInfoExtractor {
 			.profileImageUrl(profileImage)
 			.build();
 	}
-
-	// Map에서 String 값 안전 추출
-	private String getString(Map<String, Object> map, String key) {
-		// 키가 존재하면 String으로 변환, 없으면 null 반환
-		Object value = map.get(key);
-		return value != null ? value.toString() : null;
-	}
 }

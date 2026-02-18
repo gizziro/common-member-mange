@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { apiGet } from "@/lib/api";
+import type { PageResponse } from "@/types/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PostDetail } from "./PostDetail";
@@ -45,15 +46,6 @@ interface PostListItem {
   hasFiles: boolean;
   createdAt: string;
   updatedAt: string;
-}
-
-/** Spring Page 응답 */
-interface PageResponse<T> {
-  content: T[];
-  totalElements: number;
-  totalPages: number;
-  number: number;
-  size: number;
 }
 
 /** 게시판 설정 응답 */
@@ -144,14 +136,11 @@ export function BoardViewer({
   // 게시판 설정 상태
   const [settings, setSettings] = useState<BoardSettings | null>(null);
 
-  // 인증 토큰
-  const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") ?? undefined : undefined;
-
   // 게시판 설정 로드
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const res = await apiGet<BoardSettings>(`/boards/${boardId}/settings`, token);
+        const res = await apiGet<BoardSettings>(`/boards/${boardId}/settings`);
         if (res.success && res.data) {
           setSettings(res.data);
         }
@@ -160,7 +149,7 @@ export function BoardViewer({
       }
     };
     loadSettings();
-  }, [boardId, token]);
+  }, [boardId]);
 
   // subPath 파싱으로 뷰 결정
   const navigate = (path: string | null) => {
@@ -275,9 +264,6 @@ function PostListView({
   const [tags, setTags] = useState<TagItem[]>([]);
   const [selectedTagId, setSelectedTagId] = useState<string>("");
 
-  // 인증 토큰
-  const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") ?? undefined : undefined;
-
   // 글쓰기 권한
   const canWrite = permissions?.post?.includes("write") ?? false;
 
@@ -290,7 +276,7 @@ function PostListView({
       // 카테고리 로드 (useCategory가 true이거나 설정 미로드 시)
       if (settings === null || settings.useCategory) {
         try {
-          const res = await apiGet<CategoryItem[]>(`/boards/${boardId}/categories`, token);
+          const res = await apiGet<CategoryItem[]>(`/boards/${boardId}/categories`);
           if (res.success && res.data) {
             // 활성화된 카테고리만 필터
             setCategories(res.data.filter((c) => c.isActive));
@@ -303,7 +289,7 @@ function PostListView({
       // 태그 로드 (allowTags가 true이거나 설정 미로드 시)
       if (settings === null || settings.allowTags) {
         try {
-          const res = await apiGet<TagItem[]>(`/boards/${boardId}/tags`, token);
+          const res = await apiGet<TagItem[]>(`/boards/${boardId}/tags`);
           if (res.success && res.data) {
             setTags(res.data);
           }
@@ -313,7 +299,7 @@ function PostListView({
       }
     };
     loadMeta();
-  }, [boardId, token, settings]);
+  }, [boardId, settings]);
 
   // 추가 로드 중 여부 (무한스크롤/더보기용)
   const [loadingMore, setLoadingMore] = useState(false);
@@ -350,7 +336,7 @@ function PostListView({
         if (tagId) path += `&tagId=${tagId}`;
       }
 
-      const res = await apiGet<PageResponse<PostListItem>>(path, token);
+      const res = await apiGet<PageResponse<PostListItem>>(path);
       if (res.success && res.data) {
         if (append) {
           // 기존 목록에 새 게시글 추가 (무한스크롤/더보기)
@@ -368,7 +354,7 @@ function PostListView({
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [boardId, token, pageSize, sortField]);
+  }, [boardId, pageSize, sortField]);
 
   useEffect(() => {
     loadPosts(0);

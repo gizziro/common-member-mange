@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
-import { apiGet, apiPost, apiPut, apiDelete } from "@/lib/api";
+import { apiGet, apiPost, apiPut, apiDelete, clearTokens } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -99,12 +99,9 @@ export default function ProfileContent() {
 
 	// 소셜 연동 목록 로드
 	const loadIdentities = useCallback(async () => {
-		const token = localStorage.getItem("accessToken");
-		if (!token) return;
-
 		setIdentitiesLoading(true);
 		try {
-			const res = await apiGet<UserIdentity[]>("/auth/oauth2/identities", token);
+			const res = await apiGet<UserIdentity[]>("/auth/oauth2/identities");
 			if (res.success && res.data) {
 				setIdentities(res.data);
 			}
@@ -145,15 +142,12 @@ export default function ProfileContent() {
 			return;
 		}
 
-		const token = localStorage.getItem("accessToken");
-		if (!token) return;
-
 		setSettingPassword(true);
 		try {
 			const res = await apiPost("/auth/oauth2/set-password", {
 				userId: newUserId,
 				password: newPassword,
-			}, token);
+			});
 
 			if (res.success) {
 				toast.success("비밀번호가 설정되었습니다.", {
@@ -178,11 +172,8 @@ export default function ProfileContent() {
 
 	// 소셜 연동 추가 핸들러
 	async function handleLink(providerCode: string) {
-		const token = localStorage.getItem("accessToken");
-		if (!token) return;
-
 		try {
-			const res = await apiGet<string>(`/auth/oauth2/link/${providerCode}`, token);
+			const res = await apiGet<string>(`/auth/oauth2/link/${providerCode}`);
 			if (res.success && res.data) {
 				// 소셜 로그인 페이지로 리다이렉트
 				window.location.href = res.data;
@@ -198,12 +189,9 @@ export default function ProfileContent() {
 
 	// 소셜 연동 해제 핸들러
 	async function handleUnlink(identityId: string) {
-		const token = localStorage.getItem("accessToken");
-		if (!token) return;
-
 		setUnlinking(identityId);
 		try {
-			const res = await apiDelete(`/auth/oauth2/identities/${identityId}`, token);
+			const res = await apiDelete(`/auth/oauth2/identities/${identityId}`);
 			if (res.success) {
 				toast.success("연동이 해제되었습니다.");
 				await loadIdentities();
@@ -221,14 +209,11 @@ export default function ProfileContent() {
 
 	// SMS 수신 동의 변경 핸들러
 	async function handleSmsAgreeChange(checked: boolean) {
-		const token = localStorage.getItem("accessToken");
-		if (!token) return;
-
 		setSmsAgreeLoading(true);
 		try {
 			const res = await apiPut("/auth/me/sms-consent", {
 				isSmsAgree: checked,
-			}, token);
+			});
 
 			if (res.success) {
 				setSmsAgree(checked);
@@ -249,16 +234,12 @@ export default function ProfileContent() {
 
 	// 회원 탈퇴 핸들러
 	async function handleWithdraw() {
-		const token = localStorage.getItem("accessToken");
-		if (!token) return;
-
 		setWithdrawing(true);
 		try {
-			const res = await apiDelete("/auth/withdraw", token);
+			const res = await apiDelete("/auth/withdraw");
 			if (res.success) {
 				// 로컬 토큰 삭제
-				localStorage.removeItem("accessToken");
-				localStorage.removeItem("refreshToken");
+				clearTokens();
 
 				toast.success("회원 탈퇴가 완료되었습니다.");
 

@@ -71,15 +71,11 @@ export default function DynamicPage() {
 			setResolved(null);
 			setSubPath(null);
 
-			// 인증 토큰 (권한 기반 해석에 필요)
-			const token = localStorage.getItem("accessToken") ?? undefined;
-
 			try {
 				if (slugParts.length >= 2) {
 					// 2개 이상 slug: MULTI 모듈 시도 (또는 별칭+하위경로)
 					const multiRes = await apiGet<ResolveResponse>(
-						`/resolve/${slugParts[0]}/${slugParts[1]}`,
-						token
+						`/resolve/${slugParts[0]}/${slugParts[1]}`
 					);
 
 					if (multiRes.success && multiRes.data) {
@@ -95,8 +91,7 @@ export default function DynamicPage() {
 					} else {
 						// MULTI 실패 → SINGLE 모듈로 재시도 (나머지는 하위 경로)
 						const singleRes = await apiGet<ResolveResponse>(
-							`/resolve/${slugParts[0]}`,
-							token
+							`/resolve/${slugParts[0]}`
 						);
 
 						if (singleRes.success && singleRes.data) {
@@ -115,8 +110,7 @@ export default function DynamicPage() {
 				} else if (slugParts.length === 1) {
 					// 1개 slug: SINGLE 모듈 또는 별칭 해석
 					const res = await apiGet<ResolveResponse>(
-						`/resolve/${slugParts[0]}`,
-						token
+						`/resolve/${slugParts[0]}`
 					);
 
 					if (res.success && res.data) {
@@ -247,9 +241,8 @@ function PageListView() {
 		const loadPages = async () => {
 			setLoading(true);
 			try {
-				// 인증 토큰 (권한 기반 필터링에 필요)
-				const token = localStorage.getItem("accessToken") ?? undefined;
-				const res = await apiGet<PageListItem[]>("/pages", token);
+				// 페이지 목록 조회 (인증 토큰 자동 포함 — 권한 기반 필터링)
+				const res = await apiGet<PageListItem[]>("/pages");
 				if (res.success && res.data) {
 					setPages(res.data);
 				} else {

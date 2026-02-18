@@ -85,9 +85,6 @@ export function CommentSection({ boardId, postId, permissions, settings, current
   const [newComment, setNewComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // 인증 토큰
-  const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") ?? undefined : undefined;
-
   // 댓글 작성 권한 확인
   const canWrite = permissions?.comment?.includes("write") ?? false;
 
@@ -95,8 +92,7 @@ export function CommentSection({ boardId, postId, permissions, settings, current
   const loadComments = useCallback(async () => {
     try {
       const res = await apiGet<CommentDto[]>(
-        `/boards/${boardId}/posts/${postId}/comments`,
-        token
+        `/boards/${boardId}/posts/${postId}/comments`
       );
       if (res.success && res.data) {
         setComments(res.data);
@@ -106,7 +102,7 @@ export function CommentSection({ boardId, postId, permissions, settings, current
     } finally {
       setLoading(false);
     }
-  }, [boardId, postId, token]);
+  }, [boardId, postId]);
 
   useEffect(() => {
     loadComments();
@@ -119,8 +115,7 @@ export function CommentSection({ boardId, postId, permissions, settings, current
     try {
       const res = await apiPost(
         `/boards/${boardId}/posts/${postId}/comments`,
-        { content: newComment },
-        token
+        { content: newComment }
       );
       if (res.success) {
         setNewComment("");
@@ -180,7 +175,6 @@ export function CommentSection({ boardId, postId, permissions, settings, current
               permissions={permissions}
               settings={settings}
               currentUserId={currentUserId}
-              token={token}
               onRefresh={loadComments}
               depth={0}
             />
@@ -202,12 +196,11 @@ interface CommentNodeProps {
   permissions: Record<string, string[]>;
   settings: BoardSettings | null;
   currentUserId: string | null;
-  token: string | undefined;
   onRefresh: () => Promise<void>;
   depth: number;
 }
 
-function CommentNode({ comment, boardId, postId, permissions, settings, currentUserId, token, onRefresh, depth }: CommentNodeProps) {
+function CommentNode({ comment, boardId, postId, permissions, settings, currentUserId, onRefresh, depth }: CommentNodeProps) {
   const [replyOpen, setReplyOpen] = useState(false);
   const [replyContent, setReplyContent] = useState("");
   const [replying, setReplying] = useState(false);
@@ -233,8 +226,7 @@ function CommentNode({ comment, boardId, postId, permissions, settings, currentU
     try {
       const res = await apiPost(
         `/boards/${boardId}/posts/${postId}/comments`,
-        { content: replyContent, parentId: comment.id },
-        token
+        { content: replyContent, parentId: comment.id }
       );
       if (res.success) {
         setReplyContent("");
@@ -255,8 +247,7 @@ function CommentNode({ comment, boardId, postId, permissions, settings, currentU
     try {
       const res = await apiPut(
         `/boards/${boardId}/comments/${comment.id}`,
-        { content: editContent },
-        token
+        { content: editContent }
       );
       if (res.success) {
         setEditing(false);
@@ -273,8 +264,7 @@ function CommentNode({ comment, boardId, postId, permissions, settings, currentU
   const handleDelete = async () => {
     try {
       const res = await apiDelete(
-        `/boards/${boardId}/comments/${comment.id}`,
-        token
+        `/boards/${boardId}/comments/${comment.id}`
       );
       if (res.success) {
         await onRefresh();
@@ -290,8 +280,7 @@ function CommentNode({ comment, boardId, postId, permissions, settings, currentU
     try {
       await apiPost<VoteResponse>(
         `/boards/${boardId}/comments/${comment.id}/vote`,
-        { voteType },
-        token
+        { voteType }
       );
       await onRefresh();
     } catch {
@@ -431,7 +420,6 @@ function CommentNode({ comment, boardId, postId, permissions, settings, currentU
               permissions={permissions}
               settings={settings}
               currentUserId={currentUserId}
-              token={token}
               onRefresh={onRefresh}
               depth={depth + 1}
             />

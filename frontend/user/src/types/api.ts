@@ -55,3 +55,12 @@ export interface LoginResponse {
 	username: string;
 	email: string;
 }
+
+// Spring Page 응답 공통 타입
+export interface PageResponse<T> {
+	content: T[];
+	totalElements: number;
+	totalPages: number;
+	number: number;
+	size: number;
+}

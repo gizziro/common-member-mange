@@ -55,11 +55,8 @@ export function PageViewer({ slug }: PageViewerProps) {
 			setError(null);
 
 			try {
-				// 인증 토큰 (권한 기반 페이지 접근에 필요)
-				const token = localStorage.getItem("accessToken") ?? undefined;
-
-				// 페이지 slug 조회 (인증 토큰 포함 — 권한 체크용)
-				const res = await apiGet<PageDetail>(`/pages/${slug}`, token);
+				// 페이지 slug 조회 (인증 토큰 자동 포함 — 권한 체크용)
+				const res = await apiGet<PageDetail>(`/pages/${slug}`);
 
 				if (res.success && res.data) {
 					setPage(res.data);

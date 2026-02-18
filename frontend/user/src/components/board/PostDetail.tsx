@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import DOMPurify from "dompurify";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { apiGet, apiPost, apiDelete } from "@/lib/api";
+import { apiGet, apiPost, apiDelete, getAccessToken } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CommentSection } from "./CommentSection";
@@ -144,8 +144,7 @@ export function PostDetail({
   const showVote = settings?.allowVote ?? true;
   const showTags = settings?.allowTags ?? true;
 
-  // 인증 토큰 + 사용자 ID
-  const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") ?? undefined : undefined;
+  // 사용자 ID (권한 체크용)
   const currentUserId = typeof window !== "undefined" ? localStorage.getItem("userPk") ?? null : null;
 
   // 게시글 상세 로드
@@ -154,8 +153,7 @@ export function PostDetail({
     setError(null);
     try {
       const res = await apiGet<PostDto>(
-        `/boards/${boardId}/posts/${postId}`,
-        token
+        `/boards/${boardId}/posts/${postId}`
       );
       if (res.success && res.data) {
         setPost(res.data);
@@ -169,7 +167,7 @@ export function PostDetail({
     } finally {
       setLoading(false);
     }
-  }, [boardId, postId, token]);
+  }, [boardId, postId]);
 
   useEffect(() => {
     loadPost();
@@ -177,12 +175,11 @@ export function PostDetail({
 
   // 투표 처리
   const handleVote = async (voteType: "UP" | "DOWN") => {
-    if (!token) return;
+    if (!getAccessToken()) return;
     try {
       const res = await apiPost<VoteResponse>(
         `/boards/${boardId}/posts/${postId}/vote`,
-        { voteType },
-        token
+        { voteType }
       );
       if (res.success && res.data) {
         setVoteUp(res.data.voteUpCount);
@@ -199,8 +196,7 @@ export function PostDetail({
     if (!confirm("게시글을 삭제하시겠습니까?")) return;
     try {
       const res = await apiDelete(
-        `/boards/${boardId}/posts/${postId}`,
-        token
+        `/boards/${boardId}/posts/${postId}`
       );
       if (res.success) {
         onBack();
@@ -330,7 +326,7 @@ export function PostDetail({
             variant={userVoteType === "UP" ? "default" : "outline"}
             size="sm"
             onClick={() => handleVote("UP")}
-            disabled={!token}
+            disabled={!getAccessToken()}
           >
             <ThumbsUp size={16} />
             추천 {voteUp}
@@ -339,7 +335,7 @@ export function PostDetail({
             variant={userVoteType === "DOWN" ? "destructive" : "outline"}
             size="sm"
             onClick={() => handleVote("DOWN")}
-            disabled={!token}
+            disabled={!getAccessToken()}
           >
             <ThumbsDown size={16} />
             비추천 {voteDown}

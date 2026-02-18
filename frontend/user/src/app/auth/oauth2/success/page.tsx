@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
+import { setTokens } from "@/lib/api";
 import { toast } from "sonner";
 
 // 소셜 로그인 콜백 처리 컴포넌트
@@ -16,9 +17,8 @@ function OAuth2SuccessHandler() {
 		const username = searchParams.get("username");
 
 		if (token && refresh) {
-			// localStorage에 토큰 저장
-			localStorage.setItem("accessToken", token);
-			localStorage.setItem("refreshToken", refresh);
+			// 토큰 저장
+			setTokens(token, refresh);
 
 			// 성공 toast 표시
 			toast.success("소셜 로그인 성공", {

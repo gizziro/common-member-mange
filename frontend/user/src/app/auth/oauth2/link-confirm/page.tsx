@@ -2,7 +2,7 @@
 
 import { Suspense, useState, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
-import { apiPost } from "@/lib/api";
+import { apiPost, setTokens } from "@/lib/api";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -72,8 +72,7 @@ function LinkConfirmForm() {
 
 			if (json.success && json.data) {
 				// 토큰 저장
-				localStorage.setItem("accessToken", json.data.accessToken);
-				localStorage.setItem("refreshToken", json.data.refreshToken);
+				setTokens(json.data.accessToken, json.data.refreshToken);
 
 				toast.success("계정 연동 완료!", {
 					description: `${providerName} 계정이 연동되었습니다.`,

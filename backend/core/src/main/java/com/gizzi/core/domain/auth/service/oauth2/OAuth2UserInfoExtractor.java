@@ -13,4 +13,11 @@ public interface OAuth2UserInfoExtractor {
 
 	// Provider 응답 Map → 공통 OAuth2UserInfo로 변환
 	OAuth2UserInfo extract(Map<String, Object> attributes);
+
+	// Map에서 String 값 안전 추출 (공통 유틸리티)
+	default String getString(Map<String, Object> map, String key) {
+		// 키가 존재하면 String으로 변환, 없으면 null 반환
+		Object value = map.get(key);
+		return value != null ? value.toString() : null;
+	}
 }
