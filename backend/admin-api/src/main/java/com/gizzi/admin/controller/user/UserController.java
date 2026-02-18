@@ -8,6 +8,7 @@ import com.gizzi.core.domain.group.dto.GroupResponseDto;
 import com.gizzi.core.domain.group.service.GroupService;
 import com.gizzi.core.module.dto.PermissionSummaryDto;
 import com.gizzi.core.module.service.ModulePermissionService;
+import com.gizzi.core.domain.sms.dto.ResetPasswordResponseDto;
 import com.gizzi.core.domain.user.dto.ChangePasswordRequestDto;
 import com.gizzi.core.domain.user.dto.UpdateUserRequestDto;
 import com.gizzi.core.domain.user.dto.UserListResponseDto;
@@ -25,6 +26,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -110,6 +112,21 @@ public class UserController {
 
 		// 200 OK 응답 반환
 		return ResponseEntity.ok(ApiResponseDto.ok(null));
+	}
+
+	// 비밀번호 초기화 API (임시 비밀번호 생성 + SMS 자동 발송)
+	@PostMapping("/{id}/reset-password")
+	public ResponseEntity<ApiResponseDto<ResetPasswordResponseDto>> resetPassword(
+			@PathVariable String id,
+			Authentication authentication) {
+		// 현재 관리자 PK
+		String adminPk = authentication.getName();
+
+		// 비밀번호 초기화
+		ResetPasswordResponseDto response = userService.resetPassword(id, adminPk);
+
+		// 200 OK 응답 반환
+		return ResponseEntity.ok(ApiResponseDto.ok(response));
 	}
 
 	// 사용자 삭제 API (자기 자신 삭제 불가)

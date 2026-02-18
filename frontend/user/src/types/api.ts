@@ -37,6 +37,8 @@ export interface UserMeResponse {
 	email: string;
 	userStatus: string;
 	provider: string;
+	phone: string | null;
+	isSmsAgree: boolean | null;
 }
 
 // 로그인 요청 DTO (백엔드 LoginRequestDto 매핑)

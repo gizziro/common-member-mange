@@ -27,6 +27,12 @@ public class UserMeResponseDto {
 	// 가입/로그인 제공자 (LOCAL, GOOGLE, KAKAO, NAVER)
 	private final String provider;
 
+	// 전화번호
+	private final String phone;
+
+	// SMS 수신 동의 여부
+	private final Boolean isSmsAgree;
+
 	// UserEntity 엔티티로부터 응답 DTO 생성
 	public static UserMeResponseDto from(UserEntity user) {
 		return UserMeResponseDto.builder()
@@ -36,6 +42,8 @@ public class UserMeResponseDto {
 			.email(user.getEmail())
 			.userStatus(user.getUserStatus())
 			.provider(user.getProvider())
+			.phone(user.getPhone())
+			.isSmsAgree(user.getIsSmsAgree())
 			.build();
 	}
 }

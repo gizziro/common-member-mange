@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, type FormEvent } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { apiGet, apiPut, type ApiResponse } from "@/lib/api";
+import { apiGet, apiPost, apiPut, type ApiResponse } from "@/lib/api";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -37,7 +37,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ArrowLeft, FloppyDisk, LockOpen, Key } from "@phosphor-icons/react";
+import { ArrowLeft, FloppyDisk, LockOpen, Key, ArrowsClockwise } from "@phosphor-icons/react";
 import { toast } from "sonner";
 
 /* ===========================
@@ -54,6 +54,7 @@ interface UserDetail {
   emailVerified: boolean;
   phone: string | null;
   phoneVerified: boolean;
+  isSmsAgree: boolean;
   isOtpUse: boolean;
   loginFailCount: number;
   isLocked: boolean;
@@ -115,9 +116,10 @@ export default function UserDetailPage() {
 
   /* 사용자 정보 상태 */
   const [user, setUser] = useState<UserDetail | null>(null);
-  const [editUsername, setEditUsername] = useState("");
-  const [editEmail, setEditEmail] = useState("");
-  const [editStatus, setEditStatus] = useState("");
+  const [editUsername, setEditUsername]     = useState("");
+  const [editEmail, setEditEmail]         = useState("");
+  const [editStatus, setEditStatus]       = useState("");
+  const [editSmsAgree, setEditSmsAgree]   = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -141,6 +143,10 @@ export default function UserDetailPage() {
   const [newPassword, setNewPassword] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
 
+  /* 비밀번호 초기화 상태 */
+  const [resettingPassword, setResettingPassword] = useState(false);
+  const [resetResult, setResetResult] = useState<{ temporaryPassword: string; smsSent: boolean } | null>(null);
+
   /* 사용자 정보 로드 */
   const loadUser = useCallback(async () => {
     setLoading(true);
@@ -151,6 +157,7 @@ export default function UserDetailPage() {
         setEditUsername(res.data.username);
         setEditEmail(res.data.email);
         setEditStatus(res.data.userStatus);
+        setEditSmsAgree(res.data.isSmsAgree ?? false);
       } else {
         toast.error(res.error?.message ?? "사용자 정보를 불러올 수 없습니다.");
       }
@@ -227,6 +234,7 @@ export default function UserDetailPage() {
         username: editUsername,
         email: editEmail,
         userStatus: editStatus,
+        isSmsAgree: editSmsAgree,
       });
 
       if (res.success) {
@@ -286,6 +294,26 @@ export default function UserDetailPage() {
       toast.error("서버에 연결할 수 없습니다.");
     } finally {
       setChangingPassword(false);
+    }
+  };
+
+  /* 비밀번호 초기화 */
+  const handleResetPassword = async () => {
+    setResettingPassword(true);
+    try {
+      const res = await apiPost<{ temporaryPassword: string; smsSent: boolean }>(
+        `/users/${userId}/reset-password`
+      );
+      if (res.success && res.data) {
+        setResetResult(res.data);
+        toast.success("비밀번호가 초기화되었습니다.");
+      } else {
+        toast.error(res.error?.message ?? "비밀번호 초기화에 실패했습니다.");
+      }
+    } catch {
+      toast.error("서버에 연결할 수 없습니다.");
+    } finally {
+      setResettingPassword(false);
     }
   };
 
@@ -388,6 +416,20 @@ export default function UserDetailPage() {
                 </Select>
               </div>
 
+              {/* SMS 수신 동의 */}
+              <div className="flex items-center gap-3 pt-1">
+                <input
+                  id="editSmsAgree"
+                  type="checkbox"
+                  checked={editSmsAgree}
+                  onChange={(e) => setEditSmsAgree(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 accent-primary"
+                />
+                <Label htmlFor="editSmsAgree" className="cursor-pointer">
+                  SMS 수신 동의
+                </Label>
+              </div>
+
               {/* 저장 버튼 */}
               <div>
                 <Button type="submit" size="sm" disabled={saving}>
@@ -423,6 +465,16 @@ export default function UserDetailPage() {
                     <Badge className="bg-success text-white">인증됨</Badge>
                   ) : (
                     <Badge variant="secondary">미인증</Badge>
+                  )}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">SMS 수신 동의</p>
+                <p className="text-sm">
+                  {user.isSmsAgree ? (
+                    <Badge className="bg-success text-white">동의</Badge>
+                  ) : (
+                    <Badge variant="secondary">미동의</Badge>
                   )}
                 </p>
               </div>
@@ -636,23 +688,39 @@ export default function UserDetailPage() {
           </CardContent>
         </Card>
 
-        {/* Card 6: 비밀번호 변경 */}
+        {/* Card 6: 비밀번호 관리 */}
         <Card>
           <CardHeader className="border-b">
             <CardTitle>비밀번호 관리</CardTitle>
           </CardHeader>
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground mb-4">
-              관리자 권한으로 이 사용자의 비밀번호를 강제 변경할 수 있습니다.
+              관리자 권한으로 이 사용자의 비밀번호를 강제 변경하거나 임시 비밀번호로 초기화할 수 있습니다.
             </p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPasswordDialogOpen(true)}
-            >
-              <Key size={16} className="mr-1.5" />
-              비밀번호 변경
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPasswordDialogOpen(true)}
+              >
+                <Key size={16} className="mr-1.5" />
+                비밀번호 변경
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={resettingPassword}
+                onClick={handleResetPassword}
+              >
+                <ArrowsClockwise size={16} className="mr-1.5" />
+                {resettingPassword ? "초기화 중..." : "비밀번호 초기화"}
+              </Button>
+            </div>
+            {user.phone && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                비밀번호 초기화 시 임시 비밀번호가 {user.phone}으로 SMS 발송됩니다.
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -695,6 +763,43 @@ export default function UserDetailPage() {
             >
               {changingPassword ? "변경 중..." : "변경"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 비밀번호 초기화 결과 다이얼로그 */}
+      <Dialog open={!!resetResult} onOpenChange={(open) => !open && setResetResult(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>비밀번호 초기화 완료</DialogTitle>
+            <DialogDescription>
+              임시 비밀번호가 생성되었습니다. 사용자에게 전달해 주세요.
+            </DialogDescription>
+          </DialogHeader>
+          {resetResult && (
+            <div className="space-y-4 py-2">
+              <div className="rounded-lg border bg-muted/30 p-4 text-center">
+                <p className="text-xs text-muted-foreground mb-1">임시 비밀번호</p>
+                <p className="text-lg font-mono font-bold tracking-wider select-all">
+                  {resetResult.temporaryPassword}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                {resetResult.smsSent ? (
+                  <Badge className="bg-success text-white text-xs">SMS 발송 완료</Badge>
+                ) : (
+                  <Badge variant="secondary" className="text-xs">SMS 미발송</Badge>
+                )}
+                <span className="text-xs text-muted-foreground">
+                  {resetResult.smsSent
+                    ? "임시 비밀번호가 SMS로 전송되었습니다."
+                    : "전화번호가 없거나 SMS 발송에 실패했습니다."}
+                </span>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={() => setResetResult(null)}>확인</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

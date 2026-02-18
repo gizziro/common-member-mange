@@ -75,4 +75,10 @@ public final class AuditAction {
 
 	// SMS OTP 인증 검증
 	public static final String SMS_OTP_VERIFY = "SMS_OTP_VERIFY";
+
+	// SMS 대량 발송
+	public static final String SMS_BULK_SEND  = "SMS_BULK_SEND";
+
+	// 비밀번호 초기화
+	public static final String PASSWORD_RESET = "PASSWORD_RESET";
 }

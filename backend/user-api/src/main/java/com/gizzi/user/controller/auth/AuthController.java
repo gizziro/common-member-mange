@@ -23,11 +23,14 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.Map;
 
 // 인증 관련 API 컨트롤러 (회원가입, 로그인, 로그아웃, 토큰 갱신, 사용자 정보)
 @Slf4j
@@ -141,6 +144,25 @@ public class AuthController {
 
 		// 200 OK 응답 반환
 		return ResponseEntity.ok(ApiResponseDto.ok(response));
+	}
+
+	// 사용자 본인 SMS 수신 동의 변경 API
+	@PutMapping("/me/sms-consent")
+	public ResponseEntity<ApiResponseDto<Void>> updateSmsConsent(
+			@RequestBody Map<String, Boolean> body,
+			Authentication authentication) {
+		// 현재 로그인한 사용자 PK
+		String userPk = authentication.getName();
+
+		// SMS 수신 동의 여부 변경
+		Boolean agree = body.get("isSmsAgree");
+		if (agree == null) {
+			agree = false;
+		}
+		userService.updateSmsConsent(userPk, agree);
+
+		// 200 OK 응답 반환
+		return ResponseEntity.ok(ApiResponseDto.ok(null));
 	}
 
 	// 사용자 본인 탈퇴 API (인증 필요)

@@ -6,6 +6,7 @@ SET NAMES utf8mb4;
 
 -- Drop existing tables if re-running manually
 SET FOREIGN_KEY_CHECKS = 0;
+DROP TABLE IF EXISTS tb_sms_logs;
 DROP TABLE IF EXISTS tb_group_member_roles;
 DROP TABLE IF EXISTS tb_group_roles;
 DROP TABLE IF EXISTS tb_user_roles;
@@ -398,6 +399,25 @@ CREATE TABLE tb_sms_providers (
   created_at      DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,                             -- 생성 일시
   updated_at      DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, -- 수정 일시
   UNIQUE KEY uq_sms_providers_code (code)
+);
+
+-- SMS 발송 이력 (감사 로그와 분리 — 수신자/메시지 중심 이력)
+CREATE TABLE tb_sms_logs (
+  id                CHAR(36)        PRIMARY KEY DEFAULT (UUID()),                                  -- SMS 로그 PK
+  send_type         VARCHAR(20)     NOT NULL,                                                      -- 발송 유형 (MANUAL/AUTO)
+  trigger_type      VARCHAR(50)     NULL,                                                          -- AUTO 전용: 트리거 유형 (PASSWORD_RESET 등)
+  sender_user_id    CHAR(36)        NULL,                                                          -- 발송자(관리자) PK
+  recipient_phone   VARCHAR(20)     NOT NULL,                                                      -- 수신 전화번호
+  recipient_user_id CHAR(36)        NULL,                                                          -- 수신자 PK
+  message           TEXT            NOT NULL,                                                      -- 메시지 내용
+  provider_code     VARCHAR(50)     NULL,                                                          -- 사용 프로바이더 코드
+  send_status       VARCHAR(20)     NOT NULL DEFAULT 'PENDING',                                    -- 발송 상태 (PENDING/SUCCESS/FAILED)
+  error_message     VARCHAR(500)    NULL,                                                          -- 실패 시 에러 메시지
+  batch_id          CHAR(36)        NULL,                                                          -- 대량 발송 묶음 ID
+  created_at        DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,                             -- 발송 일시
+  KEY idx_sms_logs_batch_id (batch_id),
+  KEY idx_sms_logs_created_at (created_at),
+  KEY idx_sms_logs_send_type (send_type)
 );
 
 -- Audit logs

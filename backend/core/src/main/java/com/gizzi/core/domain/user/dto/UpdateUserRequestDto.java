@@ -25,4 +25,7 @@ public class UpdateUserRequestDto {
 	// 사용자 상태 (PENDING, ACTIVE, SUSPENDED)
 	@NotBlank(message = "사용자 상태는 필수입니다")
 	private String userStatus;
+
+	// SMS 수신 동의 여부
+	private Boolean isSmsAgree;
 }

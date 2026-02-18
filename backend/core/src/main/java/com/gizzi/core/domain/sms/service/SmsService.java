@@ -87,6 +87,40 @@ public class SmsService {
 			"SMS 발송: " + to, Map.of("provider", provider.getCode()));
 	}
 
+	// SMS 발송 후 사용한 프로바이더 코드를 반환 (로그 기록용)
+	// 감사 로그는 호출자가 별도로 기록한다 (대량 발송 시 개별 감사 로그 방지)
+	public String sendAndGetProviderCode(String to, String message) {
+		// 시스템 설정: SMS 인증 활성화 여부 확인
+		boolean smsEnabled = settingService.getSystemBoolean("sms", "enabled");
+		if (!smsEnabled) {
+			throw new BusinessException(SmsErrorCode.SMS_DISABLED);
+		}
+
+		// 활성화된 프로바이더 목록 조회 (표시 순서 정렬)
+		List<SmsProviderEntity> activeProviders = smsProviderRepository
+			.findByIsEnabledTrueOrderByDisplayOrder();
+
+		if (activeProviders.isEmpty()) {
+			throw new BusinessException(SmsErrorCode.SMS_NO_ACTIVE_PROVIDER);
+		}
+
+		// 첫 번째 활성 프로바이더 선택
+		SmsProviderEntity provider = activeProviders.get(0);
+
+		// 프로바이더 코드로 Sender 구현체 찾기
+		SmsProviderSender sender = senderMap.get(provider.getCode());
+		if (sender == null) {
+			log.error("SMS Sender 구현체를 찾을 수 없음: code={}", provider.getCode());
+			throw new BusinessException(SmsErrorCode.SMS_SEND_FAILED);
+		}
+
+		// SMS 발송
+		sender.send(provider, to, message);
+
+		// 프로바이더 코드 반환
+		return provider.getCode();
+	}
+
 	// 특정 프로바이더로 테스트 SMS 발송
 	public void sendTest(String providerId, String to) {
 		// 프로바이더 조회

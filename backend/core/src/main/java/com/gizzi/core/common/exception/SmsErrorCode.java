@@ -37,7 +37,13 @@ public enum SmsErrorCode implements ErrorCode {
 	SMS_DISABLED            ("SMS_DISABLED",             "SMS 인증이 비활성화되어 있습니다",         "시스템 설정(sms/enabled)이 false 상태",               HttpStatus.FORBIDDEN),
 
 	// OTP 검증 토큰 무효
-	SMS_VERIFICATION_INVALID("SMS_VERIFICATION_INVALID", "전화번호 인증이 완료되지 않았습니다",      "Redis에 검증 토큰이 없거나 만료됨",                   HttpStatus.BAD_REQUEST);
+	SMS_VERIFICATION_INVALID("SMS_VERIFICATION_INVALID", "전화번호 인증이 완료되지 않았습니다",      "Redis에 검증 토큰이 없거나 만료됨",                   HttpStatus.BAD_REQUEST),
+
+	// 수동 SMS: 수신 대상 없음
+	SMS_NO_RECIPIENTS       ("SMS_NO_RECIPIENTS",        "SMS 수신 대상이 없습니다",                 "조건에 맞는 수신자가 0명",                            HttpStatus.BAD_REQUEST),
+
+	// 수동 SMS: 잘못된 수신 대상 유형
+	SMS_INVALID_RECIPIENT_TYPE("SMS_INVALID_RECIPIENT_TYPE", "잘못된 수신 대상 유형입니다",           "recipientType 값이 유효하지 않음",                    HttpStatus.BAD_REQUEST);
 
 	// 에러 코드 문자열
 	private final String     code;

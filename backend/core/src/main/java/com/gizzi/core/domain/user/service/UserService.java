@@ -14,6 +14,8 @@ import com.gizzi.core.domain.group.entity.GroupEntity;
 import com.gizzi.core.domain.group.repository.GroupMemberRepository;
 import com.gizzi.core.domain.group.repository.GroupRepository;
 import com.gizzi.core.domain.group.service.GroupService;
+import com.gizzi.core.domain.sms.dto.ResetPasswordResponseDto;
+import com.gizzi.core.domain.sms.service.SmsNotificationService;
 import com.gizzi.core.domain.user.dto.AvailabilityCheckResponseDto;
 import com.gizzi.core.domain.user.dto.ChangePasswordRequestDto;
 import com.gizzi.core.domain.user.dto.SignupRequestDto;
@@ -33,6 +35,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.SecureRandom;
 import java.util.List;
 import java.util.Map;
 
@@ -72,6 +75,9 @@ public class UserService {
 
 	// OTP 서비스 (SMS 전화번호 인증)
 	private final OtpService              otpService;
+
+	// SMS 알림 서비스 (비밀번호 초기화 SMS 발송용)
+	private final SmsNotificationService  smsNotificationService;
 
 	// 로컬 회원가입 처리
 	@Transactional
@@ -217,8 +223,13 @@ public class UserService {
 		// 사용자 정보 수정
 		user.updateByAdmin(request.getUsername(), request.getEmail(), request.getUserStatus());
 
-		log.info("사용자 정보 수정: id={}, username={}, email={}, status={}",
-			id, request.getUsername(), request.getEmail(), request.getUserStatus());
+		// SMS 수신 동의 여부 수정 (요청에 포함된 경우만)
+		if (request.getIsSmsAgree() != null) {
+			user.updateSmsConsent(request.getIsSmsAgree());
+		}
+
+		log.info("사용자 정보 수정: id={}, username={}, email={}, status={}, smsAgree={}",
+			id, request.getUsername(), request.getEmail(), request.getUserStatus(), request.getIsSmsAgree());
 
 		// 사용자 수정 감사 로그
 		auditLogService.logSuccess(null, AuditAction.USER_UPDATE, AuditTarget.USER, id,
@@ -350,5 +361,58 @@ public class UserService {
 		// 비밀번호 변경 감사 로그
 		auditLogService.logSuccess(null, AuditAction.PASSWORD_CHANGE, AuditTarget.USER, id,
 			"비밀번호 변경: " + user.getUserId(), null);
+	}
+
+	// 임시 비밀번호 생성 문자셋 (영대소문자 + 숫자 + 특수문자)
+	private static final String TEMP_PASSWORD_CHARS =
+		"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%&*";
+
+	// 사용자 본인 SMS 수신 동의 변경
+	@Transactional
+	public void updateSmsConsent(String userPk, boolean agree) {
+		// PK로 사용자 조회 (없으면 예외)
+		UserEntity user = userRepository.findById(userPk)
+			.orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
+
+		// SMS 수신 동의 상태 변경
+		user.updateSmsConsent(agree);
+
+		log.info("SMS 수신 동의 변경: userId={}, agree={}", user.getUserId(), agree);
+	}
+
+	// 관리자에 의한 비밀번호 초기화 (임시 비밀번호 생성 + SMS 자동 발송)
+	@Transactional
+	public ResetPasswordResponseDto resetPassword(String id, String adminPk) {
+		// PK로 사용자 조회 (없으면 예외)
+		UserEntity user = userRepository.findById(id)
+			.orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
+
+		// SecureRandom으로 임시 비밀번호 생성 (10자)
+		SecureRandom random      = new SecureRandom();
+		StringBuilder tempPwBuilder = new StringBuilder(10);
+		for (int i = 0; i < 10; i++) {
+			int idx = random.nextInt(TEMP_PASSWORD_CHARS.length());
+			tempPwBuilder.append(TEMP_PASSWORD_CHARS.charAt(idx));
+		}
+		String tempPassword = tempPwBuilder.toString();
+
+		// BCrypt 해싱 후 비밀번호 변경
+		String encodedPassword = passwordEncoder.encode(tempPassword);
+		user.changePassword(encodedPassword);
+
+		log.info("비밀번호 초기화: id={}, userId={}", id, user.getUserId());
+
+		// 비밀번호 초기화 감사 로그
+		auditLogService.logSuccess(adminPk, AuditAction.PASSWORD_RESET, AuditTarget.USER, id,
+			"비밀번호 초기화: " + user.getUserId(), null);
+
+		// 전화번호가 있으면 SMS 발송 시도 (실패해도 비밀번호는 이미 변경됨)
+		boolean smsSent = smsNotificationService.sendPasswordResetSms(user, tempPassword, adminPk);
+
+		// 임시 비밀번호 + SMS 발송 여부 반환
+		return ResetPasswordResponseDto.builder()
+			.temporaryPassword(tempPassword)
+			.smsSent(smsSent)
+			.build();
 	}
 }

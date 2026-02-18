@@ -36,6 +36,9 @@ public class UserResponseDto {
 	// 전화번호 인증 여부
 	private final Boolean       phoneVerified;
 
+	// SMS 수신 동의 여부
+	private final Boolean       isSmsAgree;
+
 	// OTP 사용 여부
 	private final Boolean       isOtpUse;
 
@@ -68,6 +71,7 @@ public class UserResponseDto {
 			.emailVerified(user.getEmailVerified())
 			.phone(user.getPhone())
 			.phoneVerified(user.getPhoneVerified())
+			.isSmsAgree(user.getIsSmsAgree())
 			.isOtpUse(user.getIsOtpUse())
 			.loginFailCount(user.getLoginFailCount())
 			.isLocked(user.getIsLocked())

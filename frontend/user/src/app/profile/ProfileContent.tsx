@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
-import { apiGet, apiPost, apiDelete } from "@/lib/api";
+import { apiGet, apiPost, apiPut, apiDelete } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -26,6 +26,7 @@ import {
 	AlertDialogTitle,
 	AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Switch } from "@/components/ui/switch";
 import { LockIcon } from "lucide-react";
 import { toast } from "sonner";
 
@@ -86,6 +87,10 @@ export default function ProfileContent() {
 	const [newPassword, setNewPassword]     = useState("");
 	const [settingPassword, setSettingPassword] = useState(false);
 
+	// SMS 수신 동의 상태
+	const [smsAgree, setSmsAgree]           = useState(false);
+	const [smsAgreeLoading, setSmsAgreeLoading] = useState(false);
+
 	// 회원 탈퇴 상태
 	const [withdrawing, setWithdrawing] = useState(false);
 
@@ -122,11 +127,12 @@ export default function ProfileContent() {
 		}
 	}, []);
 
-	// 인증 완료 후 연동 목록 + Provider 목록 로드
+	// 인증 완료 후 연동 목록 + Provider 목록 로드 + SMS 동의 상태 초기화
 	useEffect(() => {
 		if (user) {
 			loadIdentities();
 			loadProviders();
+			setSmsAgree(user.isSmsAgree ?? false);
 		}
 	}, [user, loadIdentities, loadProviders]);
 
@@ -210,6 +216,34 @@ export default function ProfileContent() {
 			toast.error("서버 연결 오류");
 		} finally {
 			setUnlinking(null);
+		}
+	}
+
+	// SMS 수신 동의 변경 핸들러
+	async function handleSmsAgreeChange(checked: boolean) {
+		const token = localStorage.getItem("accessToken");
+		if (!token) return;
+
+		setSmsAgreeLoading(true);
+		try {
+			const res = await apiPut("/auth/me/sms-consent", {
+				isSmsAgree: checked,
+			}, token);
+
+			if (res.success) {
+				setSmsAgree(checked);
+				toast.success(checked ? "SMS 수신에 동의했습니다." : "SMS 수신 동의를 해제했습니다.");
+				// 사용자 정보 새로고침
+				await refresh();
+			} else {
+				toast.error("변경 실패", {
+					description: res.error?.message ?? "SMS 수신 동의를 변경할 수 없습니다.",
+				});
+			}
+		} catch {
+			toast.error("서버 연결 오류");
+		} finally {
+			setSmsAgreeLoading(false);
 		}
 	}
 
@@ -331,6 +365,12 @@ export default function ProfileContent() {
 							<span className="text-sm">{user.email}</span>
 						</div>
 
+						{/* 전화번호 */}
+						<div className="flex items-center justify-between">
+							<span className="text-sm text-muted-foreground">전화번호</span>
+							<span className="text-sm">{user.phone ?? "미등록"}</span>
+						</div>
+
 						{/* 계정 상태 */}
 						<div className="flex items-center justify-between">
 							<span className="text-sm text-muted-foreground">상태</span>
@@ -413,6 +453,35 @@ export default function ProfileContent() {
 					</CardContent>
 				</Card>
 			)}
+
+			{/* SMS 수신 동의 카드 */}
+			<Card className="mt-5">
+				<CardHeader>
+					<CardTitle className="text-lg">SMS 수신 동의</CardTitle>
+					<CardDescription>
+						SMS 수신에 동의하면 비밀번호 초기화, 공지사항 등 중요 알림을 받을 수 있습니다.
+					</CardDescription>
+				</CardHeader>
+				<CardContent>
+					<div className="flex items-center justify-between">
+						<div>
+							<p className="text-sm font-medium">
+								SMS 수신 {smsAgree ? "동의" : "거부"}
+							</p>
+							<p className="text-xs text-muted-foreground">
+								{user.phone
+									? `등록된 전화번호: ${user.phone}`
+									: "전화번호가 등록되지 않았습니다."}
+							</p>
+						</div>
+						<Switch
+							checked={smsAgree}
+							onCheckedChange={handleSmsAgreeChange}
+							disabled={smsAgreeLoading}
+						/>
+					</div>
+				</CardContent>
+			</Card>
 
 			{/* 소셜 계정 연동 카드 */}
 			<Card className="mt-5">

@@ -1,4 +1,4 @@
-import { House, Users, UsersThree, Gear, GearSix, Key, List, FileText, ClockCounterClockwise, ChatCircleDots } from "@phosphor-icons/react";
+import { House, Users, UsersThree, Gear, GearSix, Key, List, FileText, ClockCounterClockwise, ChatCircleDots, PaperPlaneTilt } from "@phosphor-icons/react";
 import type { SidebarNavItem } from "@/types/components";
 
 /**
@@ -42,6 +42,12 @@ export const adminNavItems: SidebarNavItem[] = [
     label: "페이지 관리",
     href: "/pages",
     icon: <FileText size={20} />,
+  },
+  {
+    type: "link",
+    label: "SMS 발송",
+    href: "/sms",
+    icon: <PaperPlaneTilt size={20} />,
   },
   {
     type: "header",

@@ -45,6 +45,29 @@ export async function apiGet<T>(
 	return res.json();
 }
 
+// 백엔드 API PUT 요청 유틸리티
+export async function apiPut<T>(
+	path: string,
+	body: unknown,
+	token?: string
+): Promise<ApiResponse<T>> {
+	// 요청 헤더 구성 (JSON + 선택적 인증 토큰)
+	const headers: Record<string, string> = {
+		"Content-Type": "application/json",
+	};
+	if (token) {
+		headers["Authorization"] = `Bearer ${token}`;
+	}
+
+	const res = await fetch(`${API_PREFIX}${path}`, {
+		method: "PUT",
+		headers,
+		body: JSON.stringify(body),
+	});
+
+	return res.json();
+}
+
 // 백엔드 API DELETE 요청 유틸리티
 export async function apiDelete<T>(
 	path: string,
