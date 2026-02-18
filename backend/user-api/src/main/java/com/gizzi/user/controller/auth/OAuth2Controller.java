@@ -13,6 +13,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -39,6 +40,10 @@ public class OAuth2Controller {
 
 	// OAuth2 서비스
 	private final OAuth2Service oauth2Service;
+
+	// 사용자 프론트엔드 URL (OAuth2 콜백 리다이렉트에 사용)
+	@Value("${app.frontend-url}")
+	private String frontendUrl;
 
 	// 활성 소셜 Provider 목록 조회 (로그인 페이지 표시용)
 	@GetMapping("/providers")
@@ -78,7 +83,7 @@ public class OAuth2Controller {
 				oauth2Service.processLinkCallback(provider, code, state);
 
 				// 프론트엔드 연동 성공 페이지로 리다이렉트
-				String redirectUrl = "http://localhost:3020/auth/oauth2/link-success"
+				String redirectUrl = frontendUrl + "/auth/oauth2/link-success"
 					+ "?provider=" + URLEncoder.encode(provider, StandardCharsets.UTF_8);
 
 				log.info("OAuth2 연동 콜백 리다이렉트: provider={}", provider);
@@ -108,7 +113,7 @@ public class OAuth2Controller {
 
 			if ("SUCCESS".equals(result.getType())) {
 				// 성공: 토큰과 함께 성공 페이지로 리다이렉트
-				redirectUrl = "http://localhost:3020/auth/oauth2/success"
+				redirectUrl = frontendUrl + "/auth/oauth2/success"
 					+ "?token=" + URLEncoder.encode(result.getAccessToken(), StandardCharsets.UTF_8)
 					+ "&refresh=" + URLEncoder.encode(result.getRefreshToken(), StandardCharsets.UTF_8)
 					+ "&username=" + URLEncoder.encode(result.getUsername(), StandardCharsets.UTF_8);
@@ -116,7 +121,7 @@ public class OAuth2Controller {
 				log.info("OAuth2 콜백 성공 리다이렉트: provider={}", provider);
 			} else {
 				// 연동 대기: 연동 확인 페이지로 리다이렉트
-				redirectUrl = "http://localhost:3020/auth/oauth2/link-confirm"
+				redirectUrl = frontendUrl + "/auth/oauth2/link-confirm"
 					+ "?pendingId=" + URLEncoder.encode(result.getPendingId(), StandardCharsets.UTF_8)
 					+ "&email=" + URLEncoder.encode(result.getEmail(), StandardCharsets.UTF_8)
 					+ "&provider=" + URLEncoder.encode(result.getProviderCode(), StandardCharsets.UTF_8)
@@ -141,7 +146,7 @@ public class OAuth2Controller {
 	// mode: "login" 또는 "link" (에러 발생 맥락)
 	private ResponseEntity<Void> buildErrorRedirect(String mode, String errorCode, String message) {
 		// 프론트엔드 에러 페이지로 리다이렉트
-		String redirectUrl = "http://localhost:3020/auth/oauth2/error"
+		String redirectUrl = frontendUrl + "/auth/oauth2/error"
 			+ "?mode=" + URLEncoder.encode(mode, StandardCharsets.UTF_8)
 			+ "&code=" + URLEncoder.encode(errorCode, StandardCharsets.UTF_8)
 			+ "&message=" + URLEncoder.encode(message, StandardCharsets.UTF_8);

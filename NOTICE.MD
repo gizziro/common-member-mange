@@ -373,7 +373,7 @@
 - [x] toast 알림 (sonner) 적용
 - [x] 동적 메뉴 렌더링 (Header.tsx — 공개 메뉴 API 기반, aliasPath 우선 URL)
 - [x] 동적 라우팅 ([...slug]/page.tsx — resolve API + 별칭 subPath 통합 + MULTI 인스턴스 slug 지원)
-- [x] 페이지 뷰어 (PageViewer.tsx — HTML/Markdown/Text 렌더링, 미인가 시 404 표시, DOMPurify XSS 방지)
+- [x] 페이지 뷰어 (PageViewer.tsx — HTML/Markdown/Text 렌더링, 미인가 시 404 표시, DOMPurify XSS 방지, react-markdown+remark-gfm Markdown 렌더링)
 - [x] 페이지 목록 뷰 (PageListView — /page 접근 시 공개 페이지 목록 표시)
 
 ### 9.2 관리자 웹 (frontend/admin)
@@ -408,7 +408,7 @@
 - [x] 필터 체인 에러 응답 ApiResponseDto 직렬화 통일 (FilterErrorResponseWriter)
 - [x] 페이지네이션 공통 응답 DTO (PageResponseDto)
 - [x] **admin-api 접근 제어: administrator 그룹 소속자만 허용 (AdminGroupFilter + AuthController 로그인/갱신 차단)**
-- [ ] **OAuth2 콜백 리다이렉트 URL 외부화**: `OAuth2Controller`의 프론트엔드 리다이렉트 URL(`http://localhost:3020/auth/oauth2/...`)이 하드코딩됨. `application.yml`에 `app.frontend-url` 등의 프로퍼티로 추출하여 환경별(로컬/운영) 설정 가능하도록 리팩토링 필요
+- [x] **OAuth2 콜백 리다이렉트 URL 외부화**: `app.frontend-url` 프로퍼티로 추출 완료 (환경변수 `APP_FRONTEND_URL` 지원, 기본값 `http://localhost:3020`)
 - [x] 서비스 관리 스크립트 (run.sh / run.bat — 빌드/실행/종료/DB초기화 텍스트 UI)
 - [ ] 트랜잭션 처리 범위 정의
 - [ ] FK 제약 위반 대비 예외 처리

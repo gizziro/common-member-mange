@@ -36,6 +36,8 @@ management:
 app:
   # API 유형 식별자 — 기능 모듈의 @ConditionalOnProperty 분기에 사용
   api-type: user
+  # 사용자 프론트엔드 URL — OAuth2 콜백 리다이렉트 등에 사용
+  frontend-url: ${APP_FRONTEND_URL:http://localhost:3020}
   jwt:
     secret-key: ${JWT_SECRET_KEY:user-secret-key-must-be-at-least-32-characters-long!!}
     access-token-expiration: ${JWT_ACCESS_EXPIRATION:1800000}

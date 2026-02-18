@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import DOMPurify from "dompurify";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { apiGet } from "@/lib/api";
 
 /* ===========================
@@ -119,7 +121,7 @@ export function PageViewer({ slug }: PageViewerProps) {
 /**
  * 콘텐츠 유형에 따라 적절한 렌더링 방식 선택
  * - HTML: DOMPurify로 XSS 위험 태그/속성 제거 후 렌더링
- * - MARKDOWN: 현재는 텍스트로 렌더링 (향후 markdown 렌더러 적용)
+ * - MARKDOWN: react-markdown + remark-gfm으로 GFM 렌더링
  * - TEXT: <pre> 태그로 렌더링
  */
 function renderContent(content: string | null, contentType: string) {
@@ -138,11 +140,11 @@ function renderContent(content: string | null, contentType: string) {
 			);
 
 		case "MARKDOWN":
-			// Markdown 렌더러 미구현 — 현재는 원본 텍스트 표시
+			// GFM(GitHub Flavored Markdown) 지원 Markdown 렌더링
 			return (
-				<pre className="whitespace-pre-wrap rounded-lg bg-muted p-4 font-mono text-sm">
+				<ReactMarkdown remarkPlugins={[remarkGfm]}>
 					{content}
-				</pre>
+				</ReactMarkdown>
 			);
 
 		case "TEXT":
