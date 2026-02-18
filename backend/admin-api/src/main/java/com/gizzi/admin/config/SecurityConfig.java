@@ -55,8 +55,10 @@ public class SecurityConfig {
 			.authorizeHttpRequests(authorize -> authorize
 				// 셋업 위자드 엔드포인트 인증 없이 허용
 				.requestMatchers("/setup/**").permitAll()
-				// 인증 엔드포인트 (로그인, 토큰 갱신) 인증 없이 허용
-				.requestMatchers("/auth/login", "/auth/refresh").permitAll()
+				// 인증 엔드포인트 (로그인, 토큰 갱신, OTP 검증) 인증 없이 허용
+				.requestMatchers("/auth/login", "/auth/refresh", "/auth/otp/verify").permitAll()
+				// SMS OTP 발송/검증 (관리자 셋업 위자드에서 사용)
+				.requestMatchers("/auth/sms/**").permitAll()
 				// Actuator 헬스체크 허용
 				.requestMatchers("/actuator/health", "/actuator/info").permitAll()
 				// 관리자 API는 모든 엔드포인트 인증 필수

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, useEffect, useRef, type FormEvent } from "react";
 import Link from "next/link";
 import { apiPost } from "@/lib/api";
 import { toast } from "sonner";
@@ -16,6 +16,13 @@ interface FieldErrors {
 	password?: string;
 	username?: string;
 	email?: string;
+	phone?: string;
+}
+
+// OTP 검증 응답 타입
+interface VerifyOtpResponse {
+	verified: boolean;
+	verificationToken: string;
 }
 
 // 클라이언트 유효성 검증
@@ -58,17 +65,129 @@ function validate(fields: {
 	return Object.keys(errors).length > 0 ? errors : null;
 }
 
+// 전화번호 포맷 유효성 검증 (숫자만 10~11자리)
+function isValidPhone(phone: string): boolean {
+	return /^[0-9]{10,11}$/.test(phone);
+}
+
 export default function SignupForm() {
 	// 폼 입력 상태
 	const [userId, setUserId] = useState("");
 	const [password, setPassword] = useState("");
 	const [username, setUsername] = useState("");
 	const [email, setEmail] = useState("");
+	const [phone, setPhone] = useState("");
+
+	// OTP 인증 상태
+	const [otpCode, setOtpCode] = useState("");
+	const [otpSent, setOtpSent] = useState(false);
+	const [otpVerified, setOtpVerified] = useState(false);
+	const [verificationToken, setVerificationToken] = useState("");
+	const [sendingOtp, setSendingOtp] = useState(false);
+	const [verifyingOtp, setVerifyingOtp] = useState(false);
+	const [otpCountdown, setOtpCountdown] = useState(0);
 
 	// UI 상태
 	const [pending, setPending] = useState(false);
 	const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 	const [successData, setSuccessData] = useState<SignupResponse | null>(null);
+
+	// 타이머 참조
+	const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+	// OTP 재발송 카운트다운 타이머
+	useEffect(() => {
+		if (otpCountdown > 0) {
+			timerRef.current = setInterval(() => {
+				setOtpCountdown((prev) => {
+					if (prev <= 1) {
+						if (timerRef.current) clearInterval(timerRef.current);
+						return 0;
+					}
+					return prev - 1;
+				});
+			}, 1000);
+		}
+		return () => {
+			if (timerRef.current) clearInterval(timerRef.current);
+		};
+	}, [otpCountdown]);
+
+	// 전화번호 변경 시 OTP 상태 초기화
+	const handlePhoneChange = (value: string) => {
+		setPhone(value);
+		// 전화번호가 변경되면 인증 상태 리셋
+		if (otpSent || otpVerified) {
+			setOtpSent(false);
+			setOtpVerified(false);
+			setOtpCode("");
+			setVerificationToken("");
+			setOtpCountdown(0);
+		}
+	};
+
+	// OTP 발송 핸들러
+	const handleSendOtp = async () => {
+		// 전화번호 유효성 검증
+		if (!isValidPhone(phone)) {
+			setFieldErrors((prev) => ({
+				...prev,
+				phone: "올바른 전화번호를 입력해 주세요 (숫자 10~11자리)",
+			}));
+			return;
+		}
+
+		setFieldErrors((prev) => ({ ...prev, phone: undefined }));
+		setSendingOtp(true);
+
+		try {
+			const res = await apiPost("/auth/sms/send-otp", { phone });
+
+			if (res.success) {
+				setOtpSent(true);
+				// 60초 재발송 쿨다운
+				setOtpCountdown(60);
+				toast.success("인증번호가 발송되었습니다");
+			} else {
+				const errorMessage = res.error?.message ?? "인증번호 발송에 실패했습니다";
+				toast.error(errorMessage);
+			}
+		} catch {
+			toast.error("서버에 연결할 수 없습니다");
+		} finally {
+			setSendingOtp(false);
+		}
+	};
+
+	// OTP 검증 핸들러
+	const handleVerifyOtp = async () => {
+		if (!otpCode.trim()) {
+			toast.error("인증번호를 입력해 주세요");
+			return;
+		}
+
+		setVerifyingOtp(true);
+
+		try {
+			const res = await apiPost<VerifyOtpResponse>("/auth/sms/verify-otp", {
+				phone,
+				code: otpCode,
+			});
+
+			if (res.success && res.data?.verified) {
+				setOtpVerified(true);
+				setVerificationToken(res.data.verificationToken);
+				toast.success("전화번호가 인증되었습니다");
+			} else {
+				const errorMessage = res.error?.message ?? "인증번호가 올바르지 않습니다";
+				toast.error(errorMessage);
+			}
+		} catch {
+			toast.error("서버에 연결할 수 없습니다");
+		} finally {
+			setVerifyingOtp(false);
+		}
+	};
 
 	// 폼 제출 핸들러
 	async function handleSubmit(e: FormEvent<HTMLFormElement>) {
@@ -85,13 +204,23 @@ export default function SignupForm() {
 		setPending(true);
 
 		try {
-			// 2. 백엔드 API 호출 (JSON 요청)
-			const json = await apiPost<SignupResponse>("/auth/signup", {
+			// 2. 백엔드 API 호출 (JSON 요청) — 전화번호 + 검증 토큰 포함
+			const body: Record<string, string> = {
 				userId,
 				password,
 				username,
 				email,
-			});
+			};
+
+			// 전화번호 입력 시 포함 (인증 완료된 경우 토큰도 함께)
+			if (phone.trim()) {
+				body.phone = phone;
+			}
+			if (verificationToken) {
+				body.phoneVerificationToken = verificationToken;
+			}
+
+			const json = await apiPost<SignupResponse>("/auth/signup", body);
 
 			// 3. 성공 응답 처리
 			if (json.success && json.data) {
@@ -110,6 +239,8 @@ export default function SignupForm() {
 				setFieldErrors({ userId: errorMessage });
 			} else if (errorCode === "USER_DUPLICATE_EMAIL") {
 				setFieldErrors({ email: errorMessage });
+			} else if (errorCode === "SMS_VERIFICATION_INVALID") {
+				setFieldErrors({ phone: errorMessage });
 			} else {
 				toast.error("회원가입 실패", { description: errorMessage });
 			}
@@ -217,6 +348,69 @@ export default function SignupForm() {
 				/>
 				{fieldErrors.email && (
 					<p className="text-xs text-destructive">{fieldErrors.email}</p>
+				)}
+			</div>
+
+			{/* 전화번호 + OTP 인증 */}
+			<div className="space-y-2">
+				<Label htmlFor="phone">전화번호 (선택)</Label>
+				<div className="flex gap-2">
+					<Input
+						id="phone"
+						type="tel"
+						value={phone}
+						onChange={(e) => handlePhoneChange(e.target.value)}
+						placeholder="01012345678"
+						maxLength={11}
+						disabled={otpVerified}
+						className="flex-1"
+					/>
+					{/* 인증 완료 표시 또는 발송 버튼 */}
+					{otpVerified ? (
+						<span className="inline-flex items-center rounded-md bg-green-50 px-3 text-sm font-medium text-green-700">
+							인증완료
+						</span>
+					) : (
+						<Button
+							type="button"
+							variant="outline"
+							onClick={handleSendOtp}
+							disabled={sendingOtp || otpCountdown > 0 || !phone.trim()}
+						>
+							{sendingOtp
+								? "발송 중..."
+								: otpCountdown > 0
+									? `${otpCountdown}초`
+									: otpSent
+										? "재발송"
+										: "인증번호 발송"}
+						</Button>
+					)}
+				</div>
+				{fieldErrors.phone && (
+					<p className="text-xs text-destructive">{fieldErrors.phone}</p>
+				)}
+
+				{/* OTP 코드 입력 (발송 후 & 미인증 시 표시) */}
+				{otpSent && !otpVerified && (
+					<div className="flex gap-2 pt-1">
+						<Input
+							type="text"
+							value={otpCode}
+							onChange={(e) => setOtpCode(e.target.value)}
+							placeholder="인증번호 6자리"
+							maxLength={6}
+							className="flex-1"
+						/>
+						<Button
+							type="button"
+							variant="outline"
+							onClick={handleVerifyOtp}
+							disabled={verifyingOtp || !otpCode.trim()}
+						>
+							{verifyingOtp ? "확인 중..." : "인증 확인"}
+						</Button>
+					</div>
 				)}
 			</div>
 

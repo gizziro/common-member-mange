@@ -2,6 +2,7 @@ package com.gizzi.core.domain.auth.service;
 
 import com.gizzi.core.common.exception.AuthErrorCode;
 import com.gizzi.core.common.exception.BusinessException;
+import com.gizzi.core.common.exception.SmsErrorCode;
 import com.gizzi.core.common.exception.UserErrorCode;
 import com.gizzi.core.common.security.JwtTokenProvider;
 import com.gizzi.core.domain.audit.AuditAction;
@@ -9,6 +10,7 @@ import com.gizzi.core.domain.audit.AuditTarget;
 import com.gizzi.core.domain.audit.service.AuditLogService;
 import com.gizzi.core.domain.auth.dto.LoginRequestDto;
 import com.gizzi.core.domain.auth.dto.LoginResponseDto;
+import com.gizzi.core.domain.auth.dto.OtpVerifyRequestDto;
 import com.gizzi.core.domain.auth.dto.TokenRefreshRequestDto;
 import com.gizzi.core.domain.auth.dto.TokenRefreshResponseDto;
 import com.gizzi.core.domain.auth.dto.UserMeResponseDto;
@@ -18,11 +20,14 @@ import com.gizzi.core.domain.user.entity.UserEntity;
 import com.gizzi.core.domain.user.repository.UserRepository;
 import com.gizzi.core.domain.user.service.UserService;
 import com.gizzi.core.domain.setting.service.SettingService;
+import com.gizzi.core.domain.sms.service.OtpService;
+import com.gizzi.core.domain.sms.service.SmsService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +38,8 @@ import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.util.HexFormat;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 // 인증 관련 비즈니스 로직을 처리하는 서비스
 // 로그인, 로그아웃, 토큰 갱신, 사용자 정보 조회를 담당한다
@@ -65,6 +72,21 @@ public class AuthService {
 
 	// 감사 로그 서비스
 	private final AuditLogService   auditLogService;
+
+	// Redis 템플릿 (OTP 세션 관리용)
+	private final StringRedisTemplate stringRedisTemplate;
+
+	// OTP 서비스 (SMS 인증)
+	private final OtpService        otpService;
+
+	// SMS 발송 서비스 (OTP 발송용)
+	private final SmsService        smsService;
+
+	// OTP 세션 Redis 키 접두사
+	private static final String OTP_SESSION_PREFIX = "auth:otp-session:";
+
+	// OTP 세션 TTL (5분)
+	private static final long   OTP_SESSION_TTL    = 300;
 
 	// 로그인 처리: 자격증명 검증 → JWT 발급 → Redis 저장 → DB 세션 기록
 	@Transactional
@@ -152,6 +174,106 @@ public class AuthService {
 			"로그인 성공: " + user.getUserId(), Map.of("sessionId", session.getId()));
 
 		// 11. 로그인 응답 반환
+		return LoginResponseDto.of(user, accessToken, refreshToken);
+	}
+
+	// OTP 필요 여부 판단 후 OTP 세션 생성 + SMS 발송
+	// 2FA 설정이 활성화되고 사용자가 OTP 사용 설정이 되어있으며 전화번호가 등록된 경우
+	// 반환: OTP 세션이 필요한 경우 LoginResponseDto (requireOtp=true), 불필요하면 null
+	public LoginResponseDto createOtpSessionIfNeeded(UserEntity user, boolean otpRequired) {
+		// 조건 확인: 시스템 OTP 필수 + 사용자 OTP 사용 + 전화번호 등록
+		if (!otpRequired) {
+			return null;
+		}
+		if (!Boolean.TRUE.equals(user.getIsOtpUse())) {
+			return null;
+		}
+		if (user.getPhone() == null || user.getPhone().isBlank()) {
+			return null;
+		}
+
+		// OTP 세션 ID 생성
+		String otpSessionId = UUID.randomUUID().toString();
+
+		// Redis에 OTP 세션 저장 (값: userPk, TTL: 5분)
+		stringRedisTemplate.opsForValue().set(
+			OTP_SESSION_PREFIX + otpSessionId,
+			user.getId(),
+			OTP_SESSION_TTL,
+			TimeUnit.SECONDS
+		);
+
+		// 사용자 전화번호로 OTP 발송
+		try {
+			otpService.generateAndSend(user.getPhone());
+		} catch (Exception e) {
+			// OTP 발송 실패 시 세션 삭제 후 에러 전파
+			stringRedisTemplate.delete(OTP_SESSION_PREFIX + otpSessionId);
+			throw e;
+		}
+
+		log.info("OTP 세션 생성: userId={}, otpSessionId={}", user.getUserId(), otpSessionId);
+
+		// OTP 필요 응답 반환 (JWT 미발급)
+		return LoginResponseDto.requireOtp(user, otpSessionId);
+	}
+
+	// OTP 검증 후 JWT 발급 (관리자 로그인 2FA 완료)
+	@Transactional
+	public LoginResponseDto verifyOtpAndLogin(OtpVerifyRequestDto request,
+	                                          String ipAddress, String userAgent) {
+		// 1. Redis에서 OTP 세션 조회
+		String userPk = stringRedisTemplate.opsForValue()
+			.get(OTP_SESSION_PREFIX + request.getOtpSessionId());
+
+		// 세션이 없으면 만료
+		if (userPk == null) {
+			throw new BusinessException(SmsErrorCode.SMS_OTP_EXPIRED);
+		}
+
+		// 2. 사용자 조회
+		UserEntity user = userRepository.findById(userPk)
+			.orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
+
+		// 3. OTP 코드 검증 (전화번호 기반)
+		otpService.verify(user.getPhone(), request.getCode());
+
+		// 4. OTP 세션 삭제 (1회용)
+		stringRedisTemplate.delete(OTP_SESSION_PREFIX + request.getOtpSessionId());
+
+		// 5. JWT 발급 (일반 로그인과 동일한 절차)
+		SessionEntity session = SessionEntity.create(
+			user.getId(),
+			user.getProvider(),
+			"pending",
+			"pending",
+			LocalDateTime.now().plusSeconds(jwtTokenProvider.getAccessTokenExpiration() / 1000),
+			LocalDateTime.now().plusSeconds(jwtTokenProvider.getRefreshTokenExpiration() / 1000),
+			ipAddress,
+			userAgent
+		);
+		sessionRepository.save(session);
+
+		String accessToken  = jwtTokenProvider.generateAccessToken(user.getId(), user.getUserId(), session.getId());
+		String refreshToken = jwtTokenProvider.generateRefreshToken(user.getId(), session.getId());
+
+		session.updateTokens(
+			sha256(accessToken),
+			sha256(refreshToken),
+			LocalDateTime.now().plusSeconds(jwtTokenProvider.getAccessTokenExpiration() / 1000),
+			LocalDateTime.now().plusSeconds(jwtTokenProvider.getRefreshTokenExpiration() / 1000)
+		);
+
+		redisTokenService.saveAccessToken(user.getId(), session.getId(), jwtTokenProvider.getAccessTokenExpiration());
+		redisTokenService.saveRefreshToken(user.getId(), session.getId(), jwtTokenProvider.getRefreshTokenExpiration());
+
+		log.info("OTP 검증 후 로그인 성공: userId={}, sessionId={}", user.getUserId(), session.getId());
+
+		// OTP 검증 성공 감사 로그
+		auditLogService.logSuccess(user.getId(), AuditAction.LOGIN, AuditTarget.USER, user.getId(),
+			"OTP 검증 후 로그인 성공: " + user.getUserId(),
+			Map.of("sessionId", session.getId(), "2fa", "true"));
+
 		return LoginResponseDto.of(user, accessToken, refreshToken);
 	}
 

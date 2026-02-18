@@ -95,6 +95,20 @@ public class SettingsRegistry implements ApplicationRunner {
 				"false", SettingValueType.BOOLEAN,
 				"2FA 필수 여부", "활성화 시 모든 사용자에게 2FA를 요구합니다", false, 2);
 
+		// ─── sms 그룹: SMS 인증 설정 ───
+		count += registerIfAbsent("system", "sms", "enabled",
+				"false", SettingValueType.BOOLEAN,
+				"SMS 인증 활성화", "비활성화 시 SMS 인증 기능이 차단됩니다", false, 0);
+		count += registerIfAbsent("system", "sms", "otp_length",
+				"6", SettingValueType.NUMBER,
+				"OTP 코드 길이", "SMS로 발송되는 인증 코드 자릿수", false, 1);
+		count += registerIfAbsent("system", "sms", "otp_ttl_seconds",
+				"180", SettingValueType.NUMBER,
+				"OTP 유효 시간 (초)", "인증 코드 만료 시간 (초 단위, 기본 3분)", false, 2);
+		count += registerIfAbsent("system", "sms", "daily_limit",
+				"10", SettingValueType.NUMBER,
+				"번호당 일일 발송 한도", "하나의 전화번호로 하루에 보낼 수 있는 최대 SMS 건수", false, 3);
+
 		// ─── session 그룹: 토큰 만료 설정 ───
 		count += registerIfAbsent("system", "session", "access_token_exp",
 				"1800000", SettingValueType.NUMBER,

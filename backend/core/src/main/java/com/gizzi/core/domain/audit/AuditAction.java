@@ -67,4 +67,12 @@ public final class AuditAction {
 
 	// 소셜 계정 연동 해제
 	public static final String OAUTH2_UNLINK = "OAUTH2_UNLINK";
+
+	// ─── SMS 관련 ───
+
+	// SMS 발송
+	public static final String SMS_SEND       = "SMS_SEND";
+
+	// SMS OTP 인증 검증
+	public static final String SMS_OTP_VERIFY = "SMS_OTP_VERIFY";
 }

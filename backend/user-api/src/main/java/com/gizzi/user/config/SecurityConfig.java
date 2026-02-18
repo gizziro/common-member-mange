@@ -56,6 +56,8 @@ public class SecurityConfig {
 				).permitAll()
 				// /auth/oauth2/identities, /auth/oauth2/link/*, /auth/oauth2/set-password 등은
 				// anyRequest().authenticated()에 의해 인증 필요
+				// SMS OTP 인증 엔드포인트 (인증 불필요)
+				.requestMatchers("/auth/sms/**").permitAll()
 				// 아이디/이메일 중복 확인 엔드포인트는 모두 허용
 				.requestMatchers("/auth/check/**").permitAll()
 				// 공개 페이지 엔드포인트 (인증 선택)

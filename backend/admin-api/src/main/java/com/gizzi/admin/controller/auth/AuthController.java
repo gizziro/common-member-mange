@@ -6,11 +6,13 @@ import com.gizzi.core.common.exception.BusinessException;
 import com.gizzi.core.common.security.JwtTokenProvider;
 import com.gizzi.core.domain.auth.dto.LoginRequestDto;
 import com.gizzi.core.domain.auth.dto.LoginResponseDto;
+import com.gizzi.core.domain.auth.dto.OtpVerifyRequestDto;
 import com.gizzi.core.domain.auth.dto.TokenRefreshRequestDto;
 import com.gizzi.core.domain.auth.dto.TokenRefreshResponseDto;
 import com.gizzi.core.domain.auth.dto.UserMeResponseDto;
 import com.gizzi.core.domain.auth.service.AuthService;
 import com.gizzi.core.domain.group.service.AdminAccessService;
+import com.gizzi.core.domain.setting.service.SettingService;
 import com.gizzi.core.domain.user.entity.UserEntity;
 import com.gizzi.core.domain.user.service.UserService;
 import io.jsonwebtoken.Claims;
@@ -46,6 +48,9 @@ public class AuthController {
 	// JWT 토큰 파싱 (refresh 시 userPk 추출용)
 	private final JwtTokenProvider  jwtTokenProvider;
 
+	// 시스템 설정 서비스 (OTP 필수 여부 확인)
+	private final SettingService    settingService;
+
 	// 관리자 로그인 API
 	// administrator 그룹 소속 사용자만 로그인을 허용한다
 	@PostMapping("/login")
@@ -68,6 +73,36 @@ public class AuthController {
 
 		// 로그인 서비스 호출 (자격증명 검증 → JWT 발급)
 		LoginResponseDto response = authService.login(request, ipAddress, userAgent);
+
+		// OTP 필수 여부 확인 (시스템 설정 auth/otp_required)
+		boolean otpRequired = settingService.getSystemBoolean("auth", "otp_required");
+
+		// OTP가 필요한 경우 JWT를 대신하여 OTP 세션 생성
+		if (otpRequired) {
+			LoginResponseDto otpResponse = authService.createOtpSessionIfNeeded(user, true);
+			if (otpResponse != null) {
+				// JWT 발급 취소: 방금 생성된 세션의 토큰을 무효화
+				authService.logout(response.getAccessToken());
+				return ResponseEntity.ok(ApiResponseDto.ok(otpResponse));
+			}
+		}
+
+		// 200 OK 응답 반환
+		return ResponseEntity.ok(ApiResponseDto.ok(response));
+	}
+
+	// OTP 검증 후 JWT 발급 API (관리자 로그인 2FA 완료)
+	@PostMapping("/otp/verify")
+	public ResponseEntity<ApiResponseDto<LoginResponseDto>> verifyOtp(
+			@Valid @RequestBody OtpVerifyRequestDto request,
+			HttpServletRequest httpRequest) {
+		// 클라이언트 IP 주소 추출
+		String ipAddress = httpRequest.getRemoteAddr();
+		// 클라이언트 User-Agent 추출
+		String userAgent = httpRequest.getHeader("User-Agent");
+
+		// OTP 검증 후 JWT 발급
+		LoginResponseDto response = authService.verifyOtpAndLogin(request, ipAddress, userAgent);
 
 		// 200 OK 응답 반환
 		return ResponseEntity.ok(ApiResponseDto.ok(response));

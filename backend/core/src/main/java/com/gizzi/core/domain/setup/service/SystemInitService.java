@@ -2,6 +2,7 @@ package com.gizzi.core.domain.setup.service;
 
 import com.gizzi.core.common.exception.BusinessException;
 import com.gizzi.core.common.exception.SetupErrorCode;
+import com.gizzi.core.domain.sms.service.OtpService;
 import com.gizzi.core.domain.group.entity.GroupEntity;
 import com.gizzi.core.domain.group.repository.GroupMemberRepository;
 import com.gizzi.core.domain.group.repository.GroupRepository;
@@ -45,6 +46,9 @@ public class SystemInitService {
 
 	// 그룹 멤버 리포지토리 (멤버 수 확인)
 	private final GroupMemberRepository  groupMemberRepository;
+
+	// OTP 서비스 (SMS 전화번호 인증)
+	private final OtpService             otpService;
 
 	// 초기화 상태 캐시 (true면 매 요청마다 DB 조회 생략)
 	private final AtomicBoolean initializedCache = new AtomicBoolean(false);
@@ -110,6 +114,17 @@ public class SystemInitService {
 		UserEntity user = userRepository.findById(signupResponse.getId())
 			.orElseThrow(() -> new BusinessException(SetupErrorCode.ADMIN_GROUP_NOT_FOUND));
 		user.activate();
+
+		// 3. 전화번호가 제공된 경우 설정
+		if (request.getPhone() != null && !request.getPhone().isBlank()) {
+			user.updatePhone(request.getPhone());
+			// 인증 토큰이 유효하면 인증 완료 처리
+			if (request.getPhoneVerificationToken() != null
+				&& otpService.isPhoneVerified(request.getPhone(), request.getPhoneVerificationToken())) {
+				user.verifyPhone();
+				otpService.consumeVerification(request.getPhone());
+			}
+		}
 
 		// 3. administrator 그룹에 멤버 추가 (로그인 ID 기반)
 		groupService.addMember(adminGroup.getId(), request.getUserId());

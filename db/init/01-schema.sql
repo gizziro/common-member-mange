@@ -28,6 +28,7 @@ DROP TABLE IF EXISTS tb_groups;
 DROP TABLE IF EXISTS tb_sessions;
 DROP TABLE IF EXISTS tb_user_identities;
 DROP TABLE IF EXISTS tb_auth_providers;
+DROP TABLE IF EXISTS tb_sms_providers;
 DROP TABLE IF EXISTS tb_users;
 SET FOREIGN_KEY_CHECKS = 1;
 
@@ -45,6 +46,7 @@ CREATE TABLE tb_users (
   email_verified        TINYINT(1)      NOT NULL DEFAULT 0,           -- 이메일 인증 여부
   phone                 VARCHAR(20)     NULL,                         -- 전화번호
   phone_verified        TINYINT(1)      NOT NULL DEFAULT 0,           -- 전화번호 인증 여부
+  is_sms_agree          TINYINT(1)      NOT NULL DEFAULT 0,           -- SMS 수신 동의 여부
   social_join_verified  TINYINT(1)      NOT NULL DEFAULT 0,           -- 소셜 가입 인증 여부
   social_join_token     VARCHAR(255)    NULL,                         -- 소셜 가입 인증 토큰
   is_otp_use            TINYINT(1)      NOT NULL DEFAULT 0,           -- OTP 사용 여부
@@ -380,6 +382,22 @@ CREATE TABLE tb_group_member_roles (
     FOREIGN KEY (group_id, user_id) REFERENCES tb_group_members(group_id, user_id) ON DELETE CASCADE,
   CONSTRAINT fk_group_member_roles_role
     FOREIGN KEY (role_id) REFERENCES tb_roles(id) ON DELETE CASCADE
+);
+
+-- SMS 발송 프로바이더 (SOLAPI, AWS SNS 등)
+CREATE TABLE tb_sms_providers (
+  id              CHAR(36)        PRIMARY KEY DEFAULT (UUID()),                                  -- 프로바이더 PK
+  code            VARCHAR(50)     NOT NULL,                                                      -- 프로바이더 코드 (solapi, aws_sns)
+  name            VARCHAR(100)    NOT NULL,                                                      -- 프로바이더 표시명
+  is_enabled      TINYINT(1)      NOT NULL DEFAULT 0,                                            -- 사용 여부
+  api_key         VARCHAR(255)    NULL,                                                          -- API Key
+  api_secret      VARCHAR(255)    NULL,                                                          -- API Secret
+  sender_number   VARCHAR(20)     NULL,                                                          -- 발신 번호
+  config_json     TEXT            NULL,                                                          -- 추가 설정 JSON
+  display_order   INT             NOT NULL DEFAULT 0,                                            -- 표시 순서
+  created_at      DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,                             -- 생성 일시
+  updated_at      DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, -- 수정 일시
+  UNIQUE KEY uq_sms_providers_code (code)
 );
 
 -- Audit logs

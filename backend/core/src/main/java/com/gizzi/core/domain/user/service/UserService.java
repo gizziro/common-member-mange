@@ -2,12 +2,14 @@ package com.gizzi.core.domain.user.service;
 
 import com.gizzi.core.common.exception.AuthErrorCode;
 import com.gizzi.core.common.exception.BusinessException;
+import com.gizzi.core.common.exception.SmsErrorCode;
 import com.gizzi.core.common.exception.UserErrorCode;
 import com.gizzi.core.domain.audit.AuditAction;
 import com.gizzi.core.domain.audit.AuditTarget;
 import com.gizzi.core.domain.audit.service.AuditLogService;
 import com.gizzi.core.domain.auth.repository.UserIdentityRepository;
 import com.gizzi.core.domain.auth.service.RedisTokenService;
+import com.gizzi.core.domain.sms.service.OtpService;
 import com.gizzi.core.domain.group.entity.GroupEntity;
 import com.gizzi.core.domain.group.repository.GroupMemberRepository;
 import com.gizzi.core.domain.group.repository.GroupRepository;
@@ -68,6 +70,9 @@ public class UserService {
 	// 감사 로그 서비스
 	private final AuditLogService         auditLogService;
 
+	// OTP 서비스 (SMS 전화번호 인증)
+	private final OtpService              otpService;
+
 	// 로컬 회원가입 처리
 	@Transactional
 	public SignupResponseDto signup(SignupRequestDto request) {
@@ -93,6 +98,16 @@ public class UserService {
 		// 시스템 설정: 신규 사용자 초기 상태 (ACTIVE, PENDING 등)
 		String defaultStatus = settingService.getSystemSetting("signup", "default_status");
 
+		// SMS 인증 활성화 시 전화번호 인증 검증
+		boolean smsEnabled = settingService.getSystemBoolean("sms", "enabled");
+		if (smsEnabled && request.getPhone() != null && !request.getPhone().isBlank()) {
+			// 전화번호가 제공된 경우 인증 토큰 검증
+			if (request.getPhoneVerificationToken() == null
+				|| !otpService.isPhoneVerified(request.getPhone(), request.getPhoneVerificationToken())) {
+				throw new BusinessException(SmsErrorCode.SMS_VERIFICATION_INVALID);
+			}
+		}
+
 		// 사용자 엔티티 생성 (초기 상태는 시스템 설정에서 결정)
 		UserEntity user = UserEntity.createLocalUser(
 			request.getUserId(),
@@ -101,6 +116,17 @@ public class UserService {
 			encodedPassword,
 			defaultStatus
 		);
+
+		// 전화번호가 제공된 경우 엔티티에 설정
+		if (request.getPhone() != null && !request.getPhone().isBlank()) {
+			user.updatePhone(request.getPhone());
+			// SMS 인증이 활성화되고 인증 토큰이 유효하면 인증 완료 처리
+			if (smsEnabled && request.getPhoneVerificationToken() != null) {
+				user.verifyPhone();
+				// 인증 완료 토큰 소비 (1회용)
+				otpService.consumeVerification(request.getPhone());
+			}
+		}
 
 		// DB 저장
 		UserEntity savedUser = userRepository.save(user);

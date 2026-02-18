@@ -1,4 +1,4 @@
-import { House, Users, UsersThree, Gear, GearSix, Key, List, FileText, ClockCounterClockwise } from "@phosphor-icons/react";
+import { House, Users, UsersThree, Gear, GearSix, Key, List, FileText, ClockCounterClockwise, ChatCircleDots } from "@phosphor-icons/react";
 import type { SidebarNavItem } from "@/types/components";
 
 /**
@@ -58,6 +58,12 @@ export const adminNavItems: SidebarNavItem[] = [
     label: "소셜 로그인",
     href: "/settings/auth-providers",
     icon: <Key size={20} />,
+  },
+  {
+    type: "link",
+    label: "SMS 프로바이더",
+    href: "/settings/sms-providers",
+    icon: <ChatCircleDots size={20} />,
   },
   {
     type: "link",

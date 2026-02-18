@@ -70,6 +70,10 @@ public class UserEntity extends BaseEntity {
 	@Column(name = "phone_verified", nullable = false)
 	private Boolean phoneVerified;
 
+	// SMS 수신 동의 여부
+	@Column(name = "is_sms_agree", nullable = false)
+	private Boolean isSmsAgree;
+
 	// 소셜 가입 인증 여부
 	@Column(name = "social_join_verified", nullable = false)
 	private Boolean socialJoinVerified;
@@ -135,6 +139,7 @@ public class UserEntity extends BaseEntity {
 		user.passwordChangeDate  = LocalDateTime.now();
 		user.emailVerified       = false;
 		user.phoneVerified       = false;
+		user.isSmsAgree          = false;
 		user.socialJoinVerified  = false;
 		user.isOtpUse            = false;
 		user.loginFailCount      = 0;
@@ -164,6 +169,7 @@ public class UserEntity extends BaseEntity {
 		// 소셜 로그인 사용자는 이메일 인증 처리 완료로 간주
 		user.emailVerified       = true;
 		user.phoneVerified       = false;
+		user.isSmsAgree          = false;
 		user.socialJoinVerified  = true;
 		user.isOtpUse            = false;
 		user.loginFailCount      = 0;
@@ -251,6 +257,22 @@ public class UserEntity extends BaseEntity {
 		this.passwordHash       = encodedPassword;
 		// 비밀번호 변경 일시 갱신
 		this.passwordChangeDate = LocalDateTime.now();
+	}
+
+	// SMS 수신 동의 상태 변경
+	public void updateSmsConsent(boolean agree) {
+		this.isSmsAgree = agree;
+	}
+
+	// 전화번호 변경 (인증 상태 초기화)
+	public void updatePhone(String phone) {
+		this.phone         = phone;
+		this.phoneVerified = false;
+	}
+
+	// 전화번호 인증 완료 처리
+	public void verifyPhone() {
+		this.phoneVerified = true;
 	}
 
 	// 소셜 전용 사용자에게 로컬 자격증명 설정 (로컬 ID + 비밀번호)

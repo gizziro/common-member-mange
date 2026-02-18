@@ -41,4 +41,10 @@ public class SystemSetupRequestDto {
 	@NotBlank(message = "이메일은 필수입니다")
 	@Email(message = "올바른 이메일 형식이 아닙니다")
 	private String email;
+
+	// 관리자 전화번호 (선택)
+	private String phone;
+
+	// 전화번호 인증 검증 토큰 (OTP 인증 성공 시 발급받은 토큰)
+	private String phoneVerificationToken;
 }

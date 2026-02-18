@@ -30,10 +30,12 @@ interface User {
   email: string;
 }
 
-/** 로그인 응답 */
+/** 로그인 응답 (OTP 필요 시 requireOtp=true, 토큰 없음) */
 interface LoginResponse {
-  accessToken: string;
-  refreshToken: string;
+  accessToken?: string;
+  refreshToken?: string;
+  requireOtp?: boolean;
+  otpSessionId?: string;
 }
 
 /** /auth/me 응답 */
@@ -57,8 +59,10 @@ interface AuthContextValue {
   isLoading: boolean;
   /** 시스템 초기화 여부 */
   isInitialized: boolean | null;
-  /** 로그인 */
+  /** 로그인 (OTP 필요 시 requireOtp=true 반환) */
   login: (userId: string, password: string) => Promise<ApiResponse<LoginResponse>>;
+  /** OTP 검증 후 로그인 완료 */
+  verifyOtp: (otpSessionId: string, code: string) => Promise<ApiResponse<LoginResponse>>;
   /** 로그아웃 */
   logout: () => Promise<void>;
   /** 시스템 초기화 완료 알림 (셋업 페이지에서 호출) */
@@ -157,12 +161,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [isLoading, isInitialized, user, pathname, router]);
 
-  /* 로그인 */
+  /* 로그인 — OTP 필요 시 requireOtp=true 반환, 토큰 미설정 */
   const login = useCallback(
     async (userId: string, password: string): Promise<ApiResponse<LoginResponse>> => {
       const res = await apiPost<LoginResponse>("/auth/login", { userId, password });
 
       if (res.success && res.data) {
+        // OTP가 필요한 경우 — 토큰 없이 응답만 반환
+        if (res.data.requireOtp) {
+          return res;
+        }
+
+        // 일반 로그인 — 토큰 저장 + 사용자 정보 조회
+        if (res.data.accessToken && res.data.refreshToken) {
+          setTokens(res.data.accessToken, res.data.refreshToken);
+
+          /* 사용자 정보 조회 */
+          const meRes = await apiGet<UserMeResponse>("/auth/me");
+          if (meRes.success && meRes.data) {
+            setUser({
+              id: meRes.data.id,
+              userId: meRes.data.userId,
+              username: meRes.data.username,
+              email: meRes.data.email,
+            });
+          }
+
+          router.replace("/dashboard");
+        }
+      }
+
+      return res;
+    },
+    [router]
+  );
+
+  /* OTP 검증 후 로그인 완료 */
+  const verifyOtp = useCallback(
+    async (otpSessionId: string, code: string): Promise<ApiResponse<LoginResponse>> => {
+      const res = await apiPost<LoginResponse>("/auth/otp/verify", {
+        otpSessionId,
+        code,
+      });
+
+      if (res.success && res.data?.accessToken && res.data?.refreshToken) {
+        // 토큰 저장
         setTokens(res.data.accessToken, res.data.refreshToken);
 
         /* 사용자 정보 조회 */
@@ -202,7 +245,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, isInitialized, login, logout, markInitialized }}>
+    <AuthContext.Provider value={{ user, isLoading, isInitialized, login, verifyOtp, logout, markInitialized }}>
       {children}
     </AuthContext.Provider>
   );

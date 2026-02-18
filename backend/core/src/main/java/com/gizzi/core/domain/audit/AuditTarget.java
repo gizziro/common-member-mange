@@ -21,4 +21,7 @@ public final class AuditTarget {
 
 	// 소셜 연동 (UserIdentity)
 	public static final String IDENTITY = "IDENTITY";
+
+	// SMS 관련
+	public static final String SMS      = "SMS";
 }
