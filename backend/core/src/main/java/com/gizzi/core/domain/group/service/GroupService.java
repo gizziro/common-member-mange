@@ -29,39 +29,66 @@ import java.util.Map;
 @Service
 @Transactional(readOnly = true)
 @RequiredArgsConstructor
-public class GroupService {
+public class GroupService
+{
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 상수 ]
+	//----------------------------------------------------------------------------------------------------------------------
+
+	// 기본 그룹 코드 (회원가입 시 자동 배정)
+	private static final String DEFAULT_GROUP_CODE = "user";
+
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 의존성 ]
+	//----------------------------------------------------------------------------------------------------------------------
 
 	// 그룹 리포지토리
 	private final GroupRepository       groupRepository;
 
 	// 그룹 멤버 리포지토리
-	private final GroupMemberRepository  groupMemberRepository;
+	private final GroupMemberRepository groupMemberRepository;
 
 	// 사용자 리포지토리
-	private final UserRepository         userRepository;
+	private final UserRepository        userRepository;
 
 	// 감사 로그 서비스
-	private final AuditLogService        auditLogService;
+	private final AuditLogService       auditLogService;
 
-	// 기본 그룹 코드 (회원가입 시 자동 배정)
-	private static final String DEFAULT_GROUP_CODE = "user";
+	//======================================================================================================================
+	// [ 그룹 CRUD ]
+	//======================================================================================================================
 
 	// 그룹 생성 + 소유자 멤버 자동 등록
 	@Transactional
-	public GroupResponseDto createGroup(CreateGroupRequestDto request, String ownerUserId) {
+	public GroupResponseDto createGroup(CreateGroupRequestDto request, String ownerUserId)
+	{
+		//----------------------------------------------------------------------------------------------------------------------
+		// 중복 검증
+		//----------------------------------------------------------------------------------------------------------------------
+
 		// 그룹 코드 중복 검증
-		if (groupRepository.existsByGroupCode(request.getGroupCode())) {
+		if (groupRepository.existsByGroupCode(request.getGroupCode()))
+		{
 			throw new BusinessException(GroupErrorCode.DUPLICATE_GROUP_CODE);
 		}
 
 		// 그룹 이름 중복 검증
-		if (groupRepository.existsByName(request.getName())) {
+		if (groupRepository.existsByName(request.getName()))
+		{
 			throw new BusinessException(GroupErrorCode.DUPLICATE_GROUP_NAME);
 		}
+
+		//----------------------------------------------------------------------------------------------------------------------
+		// 소유자 존재 검증
+		//----------------------------------------------------------------------------------------------------------------------
 
 		// 소유자 사용자 존재 검증
 		userRepository.findById(ownerUserId)
 			.orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
+
+		//----------------------------------------------------------------------------------------------------------------------
+		// 그룹 엔티티 생성 및 저장
+		//----------------------------------------------------------------------------------------------------------------------
 
 		// 사용자 그룹 엔티티 생성
 		GroupEntity group = GroupEntity.createUserGroup(
@@ -74,12 +101,20 @@ public class GroupService {
 		// DB 저장
 		GroupEntity savedGroup = groupRepository.save(group);
 
+		//----------------------------------------------------------------------------------------------------------------------
+		// 소유자 멤버 자동 등록
+		//----------------------------------------------------------------------------------------------------------------------
+
 		// 소유자를 멤버로 자동 등록
 		GroupMemberEntity ownerMember = GroupMemberEntity.create(savedGroup.getId(), ownerUserId);
 		groupMemberRepository.save(ownerMember);
 
 		log.info("그룹 생성 완료: groupCode={}, name={}, owner={}",
 			savedGroup.getGroupCode(), savedGroup.getName(), ownerUserId);
+
+		//----------------------------------------------------------------------------------------------------------------------
+		// 감사 로그 기록
+		//----------------------------------------------------------------------------------------------------------------------
 
 		// 그룹 생성 감사 로그
 		auditLogService.logSuccess(ownerUserId, AuditAction.GROUP_CREATE, AuditTarget.GROUP, savedGroup.getId(),
@@ -91,15 +126,29 @@ public class GroupService {
 
 	// 그룹 수정 (시스템 그룹은 이름/설명만 변경 가능)
 	@Transactional
-	public GroupResponseDto updateGroup(String groupId, UpdateGroupRequestDto request) {
+	public GroupResponseDto updateGroup(String groupId, UpdateGroupRequestDto request)
+	{
+		//----------------------------------------------------------------------------------------------------------------------
+		// 그룹 존재 검증
+		//----------------------------------------------------------------------------------------------------------------------
+
 		// 그룹 존재 검증
 		GroupEntity group = groupRepository.findById(groupId)
 			.orElseThrow(() -> new BusinessException(GroupErrorCode.GROUP_NOT_FOUND));
 
+		//----------------------------------------------------------------------------------------------------------------------
+		// 이름 중복 검증 (자기 자신 제외)
+		//----------------------------------------------------------------------------------------------------------------------
+
 		// 이름 변경 시 중복 검증 (자기 자신 제외)
-		if (!group.getName().equals(request.getName()) && groupRepository.existsByName(request.getName())) {
+		if (!group.getName().equals(request.getName()) && groupRepository.existsByName(request.getName()))
+		{
 			throw new BusinessException(GroupErrorCode.DUPLICATE_GROUP_NAME);
 		}
+
+		//----------------------------------------------------------------------------------------------------------------------
+		// 그룹 정보 수정
+		//----------------------------------------------------------------------------------------------------------------------
 
 		// 그룹 정보 수정
 		group.updateInfo(request.getName(), request.getDescription());
@@ -108,6 +157,10 @@ public class GroupService {
 		long memberCount = groupMemberRepository.countByGroupId(groupId);
 
 		log.info("그룹 수정 완료: groupId={}, name={}", groupId, request.getName());
+
+		//----------------------------------------------------------------------------------------------------------------------
+		// 감사 로그 기록
+		//----------------------------------------------------------------------------------------------------------------------
 
 		// 그룹 수정 감사 로그
 		auditLogService.logSuccess(null, AuditAction.GROUP_UPDATE, AuditTarget.GROUP, groupId,
@@ -119,28 +172,51 @@ public class GroupService {
 
 	// 그룹 삭제 (시스템 그룹 삭제 불가)
 	@Transactional
-	public void deleteGroup(String groupId) {
+	public void deleteGroup(String groupId)
+	{
+		//----------------------------------------------------------------------------------------------------------------------
+		// 그룹 존재 검증
+		//----------------------------------------------------------------------------------------------------------------------
+
 		// 그룹 존재 검증
 		GroupEntity group = groupRepository.findById(groupId)
 			.orElseThrow(() -> new BusinessException(GroupErrorCode.GROUP_NOT_FOUND));
 
+		//----------------------------------------------------------------------------------------------------------------------
 		// 시스템 그룹 삭제 방지
-		if (group.isSystemGroup()) {
+		//----------------------------------------------------------------------------------------------------------------------
+
+		// 시스템 그룹 삭제 방지
+		if (group.isSystemGroup())
+		{
 			throw new BusinessException(GroupErrorCode.SYSTEM_GROUP_UNDELETABLE);
 		}
+
+		//----------------------------------------------------------------------------------------------------------------------
+		// 그룹 삭제 (CASCADE로 멤버 자동 삭제)
+		//----------------------------------------------------------------------------------------------------------------------
 
 		// 그룹 삭제 (CASCADE로 멤버 자동 삭제)
 		groupRepository.delete(group);
 
 		log.info("그룹 삭제 완료: groupId={}, groupCode={}", groupId, group.getGroupCode());
 
+		//----------------------------------------------------------------------------------------------------------------------
+		// 감사 로그 기록
+		//----------------------------------------------------------------------------------------------------------------------
+
 		// 그룹 삭제 감사 로그
 		auditLogService.logSuccess(null, AuditAction.GROUP_DELETE, AuditTarget.GROUP, groupId,
 			"그룹 삭제: " + group.getGroupCode(), null);
 	}
 
+	//======================================================================================================================
+	// [ 그룹 조회 ]
+	//======================================================================================================================
+
 	// 그룹 단건 조회
-	public GroupResponseDto getGroup(String groupId) {
+	public GroupResponseDto getGroup(String groupId)
+	{
 		// 그룹 존재 검증
 		GroupEntity group = groupRepository.findById(groupId)
 			.orElseThrow(() -> new BusinessException(GroupErrorCode.GROUP_NOT_FOUND));
@@ -153,25 +229,40 @@ public class GroupService {
 	}
 
 	// 전체 그룹 목록 조회
-	public List<GroupResponseDto> getAllGroups() {
+	public List<GroupResponseDto> getAllGroups()
+	{
 		// 모든 그룹 조회
 		List<GroupEntity> groups = groupRepository.findAll();
 
 		// 각 그룹의 멤버 수를 포함하여 응답 DTO 목록 생성
 		return groups.stream()
-			.map(group -> {
+			.map(group ->
+			{
 				long memberCount = groupMemberRepository.countByGroupId(group.getId());
 				return GroupResponseDto.from(group, memberCount);
 			})
 			.toList();
 	}
 
+	//======================================================================================================================
+	// [ 멤버 관리 ]
+	//======================================================================================================================
+
 	// 그룹 멤버 추가 (로그인 ID 기반, 중복 검증)
 	@Transactional
-	public void addMember(String groupId, String loginId) {
+	public void addMember(String groupId, String loginId)
+	{
+		//----------------------------------------------------------------------------------------------------------------------
+		// 그룹 존재 검증
+		//----------------------------------------------------------------------------------------------------------------------
+
 		// 그룹 존재 검증
 		groupRepository.findById(groupId)
 			.orElseThrow(() -> new BusinessException(GroupErrorCode.GROUP_NOT_FOUND));
+
+		//----------------------------------------------------------------------------------------------------------------------
+		// 사용자 조회 및 중복 검증
+		//----------------------------------------------------------------------------------------------------------------------
 
 		// 로그인 ID로 사용자 조회 → PK 획득
 		UserEntity user = userRepository.findByUserId(loginId)
@@ -179,15 +270,24 @@ public class GroupService {
 
 		// 사용자 PK로 멤버 중복 검증
 		String userPk = user.getId();
-		if (groupMemberRepository.existsByGroupIdAndUserId(groupId, userPk)) {
+		if (groupMemberRepository.existsByGroupIdAndUserId(groupId, userPk))
+		{
 			throw new BusinessException(GroupErrorCode.MEMBER_ALREADY_EXISTS);
 		}
+
+		//----------------------------------------------------------------------------------------------------------------------
+		// 멤버 추가 (PK 기반)
+		//----------------------------------------------------------------------------------------------------------------------
 
 		// 멤버 추가 (PK 기반)
 		GroupMemberEntity member = GroupMemberEntity.create(groupId, userPk);
 		groupMemberRepository.save(member);
 
 		log.info("그룹 멤버 추가: groupId={}, loginId={}, userPk={}", groupId, loginId, userPk);
+
+		//----------------------------------------------------------------------------------------------------------------------
+		// 감사 로그 기록
+		//----------------------------------------------------------------------------------------------------------------------
 
 		// 멤버 추가 감사 로그
 		auditLogService.logSuccess(null, AuditAction.MEMBER_ADD, AuditTarget.MEMBER, groupId,
@@ -196,10 +296,19 @@ public class GroupService {
 
 	// 그룹 멤버 제거 (로그인 ID 기반)
 	@Transactional
-	public void removeMember(String groupId, String loginId) {
+	public void removeMember(String groupId, String loginId)
+	{
+		//----------------------------------------------------------------------------------------------------------------------
+		// 그룹 존재 검증
+		//----------------------------------------------------------------------------------------------------------------------
+
 		// 그룹 존재 검증
 		GroupEntity group = groupRepository.findById(groupId)
 			.orElseThrow(() -> new BusinessException(GroupErrorCode.GROUP_NOT_FOUND));
+
+		//----------------------------------------------------------------------------------------------------------------------
+		// 사용자 조회 및 멤버 존재 검증
+		//----------------------------------------------------------------------------------------------------------------------
 
 		// 로그인 ID로 사용자 조회 → PK 획득
 		UserEntity user = userRepository.findByUserId(loginId)
@@ -207,27 +316,46 @@ public class GroupService {
 
 		// 사용자 PK로 멤버 존재 검증
 		String userPk = user.getId();
-		if (!groupMemberRepository.existsByGroupIdAndUserId(groupId, userPk)) {
+		if (!groupMemberRepository.existsByGroupIdAndUserId(groupId, userPk))
+		{
 			throw new BusinessException(GroupErrorCode.MEMBER_NOT_FOUND);
 		}
 
+		//----------------------------------------------------------------------------------------------------------------------
+		// 시스템 그룹 보호
+		//----------------------------------------------------------------------------------------------------------------------
+
 		// 시스템 그룹의 멤버 제거 방지
-		if (group.isSystemGroup()) {
+		if (group.isSystemGroup())
+		{
 			throw new BusinessException(GroupErrorCode.SYSTEM_GROUP_MEMBER_PROTECTED);
 		}
+
+		//----------------------------------------------------------------------------------------------------------------------
+		// 멤버 제거 (PK 기반)
+		//----------------------------------------------------------------------------------------------------------------------
 
 		// 멤버 제거 (PK 기반)
 		groupMemberRepository.deleteByGroupIdAndUserId(groupId, userPk);
 
 		log.info("그룹 멤버 제거: groupId={}, loginId={}, userPk={}", groupId, loginId, userPk);
 
+		//----------------------------------------------------------------------------------------------------------------------
+		// 감사 로그 기록
+		//----------------------------------------------------------------------------------------------------------------------
+
 		// 멤버 제거 감사 로그
 		auditLogService.logSuccess(null, AuditAction.MEMBER_REMOVE, AuditTarget.MEMBER, groupId,
 			"그룹 멤버 제거: " + loginId, Map.of("groupId", groupId, "loginId", loginId));
 	}
 
+	//======================================================================================================================
+	// [ 멤버 조회 ]
+	//======================================================================================================================
+
 	// 그룹 멤버 목록 조회 (사용자 정보 포함)
-	public List<GroupMemberResponseDto> getGroupMembers(String groupId) {
+	public List<GroupMemberResponseDto> getGroupMembers(String groupId)
+	{
 		// 그룹 존재 검증
 		groupRepository.findById(groupId)
 			.orElseThrow(() -> new BusinessException(GroupErrorCode.GROUP_NOT_FOUND));
@@ -237,7 +365,8 @@ public class GroupService {
 
 		// 각 멤버의 사용자 정보를 조회하여 응답 DTO 생성
 		return members.stream()
-			.map(member -> {
+			.map(member ->
+			{
 				// 사용자 정보 조회 (탈퇴 등으로 사용자가 없을 수 있으므로 Optional 처리)
 				UserEntity user = userRepository.findById(member.getUserId())
 					.orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
@@ -247,13 +376,15 @@ public class GroupService {
 	}
 
 	// 사용자 소속 그룹 목록 조회
-	public List<GroupResponseDto> getUserGroups(String userId) {
+	public List<GroupResponseDto> getUserGroups(String userId)
+	{
 		// 사용자의 멤버십 목록 조회
 		List<GroupMemberEntity> memberships = groupMemberRepository.findByUserId(userId);
 
 		// 각 멤버십의 그룹 정보를 조회하여 응답 DTO 생성
 		return memberships.stream()
-			.map(membership -> {
+			.map(membership ->
+			{
 				GroupEntity group = groupRepository.findById(membership.getGroupId())
 					.orElseThrow(() -> new BusinessException(GroupErrorCode.GROUP_NOT_FOUND));
 				long memberCount = groupMemberRepository.countByGroupId(group.getId());
@@ -262,14 +393,21 @@ public class GroupService {
 			.toList();
 	}
 
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 내부 헬퍼 ]
+	//----------------------------------------------------------------------------------------------------------------------
+
 	// 기본 그룹(user) 자동 배정 (회원가입 시 호출)
 	@Transactional
-	public void assignToDefaultGroup(String userId) {
+	public void assignToDefaultGroup(String userId)
+	{
 		// 기본 그룹(user) 조회 — DB에 시드 데이터가 없을 수 있으므로 graceful 처리
 		groupRepository.findByGroupCode(DEFAULT_GROUP_CODE).ifPresentOrElse(
-			group -> {
+			group ->
+			{
 				// 이미 소속되어 있으면 스킵
-				if (!groupMemberRepository.existsByGroupIdAndUserId(group.getId(), userId)) {
+				if (!groupMemberRepository.existsByGroupIdAndUserId(group.getId(), userId))
+				{
 					// 기본 그룹에 멤버 추가
 					GroupMemberEntity member = GroupMemberEntity.create(group.getId(), userId);
 					groupMemberRepository.save(member);

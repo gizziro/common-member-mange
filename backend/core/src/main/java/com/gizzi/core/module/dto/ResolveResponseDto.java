@@ -16,7 +16,12 @@ import java.util.Map;
 @Getter
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class ResolveResponseDto {
+public class ResolveResponseDto
+{
+
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 필드 ]
+	//----------------------------------------------------------------------------------------------------------------------
 
 	// 모듈 기본 정보
 	private final ModuleInfoDto module;

@@ -9,25 +9,25 @@ import java.time.LocalDateTime;
 // 그룹 멤버 응답 DTO
 @Getter
 @Builder
-public class GroupMemberResponseDto {
+public class GroupMemberResponseDto
+{
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 필드 ]
+	//----------------------------------------------------------------------------------------------------------------------
 
-	// 사용자 PK (UUID)
-	private final String        id;
+	private final String        id;			// 사용자 PK (UUID)
+	private final String        userId;		// 로그인 ID
+	private final String        username;	// 사용자 이름
+	private final String        email;		// 이메일 주소
+	private final LocalDateTime joinedAt;	// 그룹 가입 일시
 
-	// 로그인 ID
-	private final String        userId;
-
-	// 사용자 이름
-	private final String        username;
-
-	// 이메일 주소
-	private final String        email;
-
-	// 그룹 가입 일시
-	private final LocalDateTime joinedAt;
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 정적 팩토리 ]
+	//----------------------------------------------------------------------------------------------------------------------
 
 	// 사용자 엔티티 + 가입 일시로 응답 DTO 생성
-	public static GroupMemberResponseDto from(UserEntity user, LocalDateTime joinedAt) {
+	public static GroupMemberResponseDto from(UserEntity user, LocalDateTime joinedAt)
+	{
 		return GroupMemberResponseDto.builder()
 			.id(user.getId())
 			.userId(user.getUserId())

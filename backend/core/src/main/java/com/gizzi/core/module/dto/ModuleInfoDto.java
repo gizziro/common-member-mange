@@ -9,23 +9,17 @@ import lombok.Getter;
 @Getter
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class ModuleInfoDto {
+public class ModuleInfoDto
+{
 
-	// 모듈 코드 (예: "board")
-	private final String code;
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 필드 ]
+	//----------------------------------------------------------------------------------------------------------------------
 
-	// 모듈 표시명 (예: "게시판")
-	private final String name;
-
-	// URL 슬러그 (예: "board")
-	private final String slug;
-
-	// 모듈 설명 (예: "게시글, 댓글 관리")
-	private final String description;
-
-	// 모듈 유형 (SINGLE / MULTI)
-	private final String type;
-
-	// 활성화 여부
-	private final Boolean enabled;
+	private final String  code;          // 모듈 코드 (예: "board")
+	private final String  name;          // 모듈 표시명 (예: "게시판")
+	private final String  slug;          // URL 슬러그 (예: "board")
+	private final String  description;   // 모듈 설명 (예: "게시글, 댓글 관리")
+	private final String  type;          // 모듈 유형 (SINGLE / MULTI)
+	private final Boolean enabled;       // 활성화 여부
 }

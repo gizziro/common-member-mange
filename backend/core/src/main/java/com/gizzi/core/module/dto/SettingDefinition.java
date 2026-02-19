@@ -9,26 +9,18 @@ import lombok.Getter;
 // 기존 값이 있으면 스킵하여 관리자가 수정한 값을 보존한다
 @Getter
 @AllArgsConstructor
-public class SettingDefinition {
+public class SettingDefinition
+{
 
-	// 설정 그룹 (예: "general", "display")
-	private final String group;
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 필드 ]
+	//----------------------------------------------------------------------------------------------------------------------
 
-	// 설정 키 (예: "default_content_type", "max_pages")
-	private final String key;
-
-	// 기본 값 (문자열)
-	private final String defaultValue;
-
-	// 값 타입 (STRING/NUMBER/BOOLEAN/JSON)
-	private final SettingValueType valueType;
-
-	// 표시명 (관리자 UI에 표시)
-	private final String name;
-
-	// 설명 (관리자 UI 부가 정보)
-	private final String description;
-
-	// 그룹 내 정렬 순서
-	private final int sortOrder;
+	private final String           group;          // 설정 그룹 (예: "general", "display")
+	private final String           key;            // 설정 키 (예: "default_content_type", "max_pages")
+	private final String           defaultValue;   // 기본 값 (문자열)
+	private final SettingValueType valueType;       // 값 타입 (STRING/NUMBER/BOOLEAN/JSON)
+	private final String           name;           // 표시명 (관리자 UI에 표시)
+	private final String           description;    // 설명 (관리자 UI 부가 정보)
+	private final int              sortOrder;      // 그룹 내 정렬 순서
 }

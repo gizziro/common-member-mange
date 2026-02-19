@@ -19,7 +19,11 @@ import java.time.LocalDateTime;
 @IdClass(GroupMemberId.class)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class GroupMemberEntity {
+public class GroupMemberEntity
+{
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 복합 PK ]
+	//----------------------------------------------------------------------------------------------------------------------
 
 	// 그룹 PK (복합키 구성 요소)
 	@Id
@@ -31,21 +35,37 @@ public class GroupMemberEntity {
 	@Column(name = "user_id", length = 36)
 	private String userId;
 
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 가입 정보 ]
+	//----------------------------------------------------------------------------------------------------------------------
+
 	// 가입 일시
 	@Column(name = "joined_at", nullable = false)
 	private LocalDateTime joinedAt;
 
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 생명주기 콜백 ]
+	//----------------------------------------------------------------------------------------------------------------------
+
 	// 저장 전 가입 일시 자동 설정
 	@PrePersist
-	private void setJoinedAt() {
+	private void setJoinedAt()
+	{
 		// 가입 일시가 없을 때만 현재 시각으로 설정
-		if (this.joinedAt == null) {
+		if (this.joinedAt == null)
+		{
 			this.joinedAt = LocalDateTime.now();
 		}
 	}
 
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 정적 팩토리 ]
+	//----------------------------------------------------------------------------------------------------------------------
+
 	// 그룹 멤버 생성 팩토리 메서드
-	public static GroupMemberEntity create(String groupId, String userId) {
+	public static GroupMemberEntity create(String groupId, String userId)
+	{
+		// 새 그룹 멤버 엔티티 생성
 		GroupMemberEntity member = new GroupMemberEntity();
 		member.groupId           = groupId;
 		member.userId            = userId;

@@ -20,12 +20,21 @@ import java.util.UUID;
 @Table(name = "tb_module_permissions")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class ModulePermissionEntity {
+public class ModulePermissionEntity
+{
+
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ PK ]
+	//----------------------------------------------------------------------------------------------------------------------
 
 	// 모듈 권한 PK (UUID)
 	@Id
 	@Column(name = "id", length = 36)
 	private String id;
+
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 3단계 권한 정의 ]
+	//----------------------------------------------------------------------------------------------------------------------
 
 	// 모듈 코드 FK (tb_modules.code 참조)
 	@Column(name = "module_code", nullable = false, length = 50)
@@ -43,24 +52,40 @@ public class ModulePermissionEntity {
 	@Column(name = "name", nullable = false, length = 100)
 	private String name;
 
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 감사 ]
+	//----------------------------------------------------------------------------------------------------------------------
+
 	// 생성 일시
 	@Column(name = "created_at", nullable = false, updatable = false)
 	private LocalDateTime createdAt;
 
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 생명주기 콜백 ]
+	//----------------------------------------------------------------------------------------------------------------------
+
 	// 엔티티 저장 전 UUID PK + 생성 일시 자동 생성
 	@PrePersist
-	private void prePersist() {
-		if (this.id == null) {
+	private void prePersist()
+	{
+		if (this.id == null)
+		{
 			this.id = UUID.randomUUID().toString();
 		}
-		if (this.createdAt == null) {
+		if (this.createdAt == null)
+		{
 			this.createdAt = LocalDateTime.now();
 		}
 	}
 
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 정적 팩토리 메서드 ]
+	//----------------------------------------------------------------------------------------------------------------------
+
 	// 모듈 권한 생성 팩토리 메서드 (ModuleRegistry에서 사용)
 	public static ModulePermissionEntity create(String moduleCode, String resource,
-	                                            String action, String name) {
+	                                            String action, String name)
+	{
 		ModulePermissionEntity entity = new ModulePermissionEntity();
 		entity.moduleCode = moduleCode;
 		entity.resource   = resource;
@@ -69,9 +94,14 @@ public class ModulePermissionEntity {
 		return entity;
 	}
 
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 유틸리티 ]
+	//----------------------------------------------------------------------------------------------------------------------
+
 	// 플랫 문자열 권한 코드 생성 (런타임 비교용)
 	// 예: "BOARD_POST_WRITE"
-	public String toFlatPermissionString() {
+	public String toFlatPermissionString()
+	{
 		return (moduleCode + "_" + resource + "_" + action).toUpperCase();
 	}
 }

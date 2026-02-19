@@ -5,14 +5,16 @@ import lombok.Builder;
 import lombok.Getter;
 
 // SMS 발송 요청 DTO (내부 서비스용)
+// 수신 전화번호와 메시지 내용을 담는 불변 객체
 @Getter
 @Builder
 @AllArgsConstructor
-public class SendSmsRequestDto {
+public class SendSmsRequestDto
+{
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 필드 ]
+	//----------------------------------------------------------------------------------------------------------------------
 
-	// 수신 전화번호
-	private final String to;
-
-	// 발송 메시지 내용
-	private final String message;
+	private final String to;		// 수신 전화번호
+	private final String message;	// 발송 메시지 내용
 }

@@ -12,83 +12,88 @@ import lombok.NoArgsConstructor;
 
 import java.util.UUID;
 
+//----------------------------------------------------------------------------------------------------------------------
 // 인증 제공자 엔티티 (tb_auth_providers 테이블 매핑)
 // local, google, kakao, naver 등 OAuth2 제공자 정보를 관리한다
+//----------------------------------------------------------------------------------------------------------------------
 @Entity
 @Table(name = "tb_auth_providers")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class AuthProviderEntity extends BaseEntity {
-
-	// 제공자 PK (UUID)
+public class AuthProviderEntity extends BaseEntity
+{
+	// [ PK ]
+	//----------------------------------------------------------------------------------------------------------------------
 	@Id
 	@Column(name = "id", length = 36)
-	private String id;
+	private String id;											// 제공자 PK (UUID)
 
-	// 제공자 코드 (local, google, kakao, naver)
+	// [ 기본 정보 ]
+	//----------------------------------------------------------------------------------------------------------------------
 	@Column(name = "code", nullable = false, length = 50)
-	private String code;
+	private String  code;										// 제공자 코드 (local, google, kakao, naver)
 
-	// 제공자 표시명
 	@Column(name = "name", nullable = false, length = 100)
-	private String name;
+	private String  name;										// 제공자 표시명
 
-	// 사용 여부
 	@Column(name = "is_enabled", nullable = false)
-	private Boolean isEnabled;
+	private Boolean isEnabled;									// 사용 여부
 
-	// OAuth2 Client ID
+	// [ OAuth2 설정 ]
+	//----------------------------------------------------------------------------------------------------------------------
 	@Column(name = "client_id", length = 255)
-	private String clientId;
+	private String clientId;									// OAuth2 Client ID
 
-	// OAuth2 Client Secret
 	@Column(name = "client_secret", length = 255)
-	private String clientSecret;
+	private String clientSecret;								// OAuth2 Client Secret
 
-	// 인가 코드 콜백 URL
 	@Column(name = "redirect_uri", length = 500)
-	private String redirectUri;
+	private String redirectUri;									// 인가 코드 콜백 URL
 
-	// 인가 엔드포인트 URL
 	@Column(name = "authorization_uri", length = 500)
-	private String authorizationUri;
+	private String authorizationUri;							// 인가 엔드포인트 URL
 
-	// 토큰 교환 엔드포인트 URL
 	@Column(name = "token_uri", length = 500)
-	private String tokenUri;
+	private String tokenUri;									// 토큰 교환 엔드포인트 URL
 
-	// 사용자 정보 조회 엔드포인트 URL
 	@Column(name = "userinfo_uri", length = 500)
-	private String userinfoUri;
+	private String userinfoUri;									// 사용자 정보 조회 엔드포인트 URL
 
-	// 요청 Scope (공백 구분)
 	@Column(name = "scope", length = 500)
-	private String scope;
+	private String scope;										// 요청 Scope (공백 구분)
 
-	// 로그인 버튼 아이콘 URL
+	// [ 표시 설정 ]
+	//----------------------------------------------------------------------------------------------------------------------
 	@Column(name = "icon_url", length = 500)
-	private String iconUrl;
+	private String  iconUrl;									// 로그인 버튼 아이콘 URL
 
-	// 로그인 버튼 표시 순서
 	@Column(name = "display_order", nullable = false)
-	private Integer displayOrder;
+	private Integer displayOrder;								// 로그인 버튼 표시 순서
 
+	//----------------------------------------------------------------------------------------------------------------------
 	// 엔티티 저장 전 UUID PK 자동 생성
+	//----------------------------------------------------------------------------------------------------------------------
 	@PrePersist
-	private void generateId() {
+	private void generateId()
+	{
 		// ID가 없을 때만 새로 생성
-		if (this.id == null) {
+		if (this.id == null)
+		{
 			this.id = UUID.randomUUID().toString();
 		}
 	}
 
+	//----------------------------------------------------------------------------------------------------------------------
 	// 관리자에 의한 Provider 설정 수정
+	//----------------------------------------------------------------------------------------------------------------------
 	public void update(String clientId, String clientSecret, String redirectUri,
-	                   String scope, String iconUrl, Boolean isEnabled) {
+	                   String scope, String iconUrl, Boolean isEnabled)
+	{
 		// Client ID 설정
 		this.clientId     = clientId;
 		// clientSecret이 null이면 기존 값 유지 (프론트에서 빈 문자열 → null 전환)
-		if (clientSecret != null) {
+		if (clientSecret != null)
+		{
 			this.clientSecret = clientSecret;
 		}
 		// 콜백 URL 설정

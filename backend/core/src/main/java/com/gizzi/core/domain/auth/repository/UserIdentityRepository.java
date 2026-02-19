@@ -9,9 +9,11 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 import java.util.Optional;
 
+//----------------------------------------------------------------------------------------------------------------------
 // 소셜 로그인 연동 리포지토리 (tb_user_identities 테이블 접근)
-public interface UserIdentityRepository extends JpaRepository<UserIdentityEntity, String> {
-
+//----------------------------------------------------------------------------------------------------------------------
+public interface UserIdentityRepository extends JpaRepository<UserIdentityEntity, String>
+{
 	// 제공자 코드 + 제공자 사용자 키로 연동 조회 (소셜 로그인 시 기존 연동 확인)
 	@Query("SELECT ui FROM UserIdentityEntity ui " +
 		"JOIN ui.provider p " +

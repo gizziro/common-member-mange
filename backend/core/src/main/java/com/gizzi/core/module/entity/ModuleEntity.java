@@ -22,12 +22,21 @@ import java.util.UUID;
 @Table(name = "tb_modules")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class ModuleEntity extends BaseEntity {
+public class ModuleEntity extends BaseEntity
+{
+
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ PK ]
+	//----------------------------------------------------------------------------------------------------------------------
 
 	// 모듈 PK (UUID)
 	@Id
 	@Column(name = "id", length = 36)
 	private String id;
+
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 메타데이터 ]
+	//----------------------------------------------------------------------------------------------------------------------
 
 	// 모듈 코드 (영소문자, 프로그래밍 식별자)
 	@Column(name = "code", nullable = false, length = 50)
@@ -54,18 +63,29 @@ public class ModuleEntity extends BaseEntity {
 	@Column(name = "is_enabled", nullable = false)
 	private Boolean isEnabled;
 
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 생명주기 콜백 ]
+	//----------------------------------------------------------------------------------------------------------------------
+
 	// 엔티티 저장 전 UUID PK 자동 생성
 	@PrePersist
-	private void generateId() {
+	private void generateId()
+	{
 		// ID가 없을 때만 새로 생성 (수동 설정된 경우 유지)
-		if (this.id == null) {
+		if (this.id == null)
+		{
 			this.id = UUID.randomUUID().toString();
 		}
 	}
 
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 정적 팩토리 메서드 ]
+	//----------------------------------------------------------------------------------------------------------------------
+
 	// 모듈 생성 팩토리 메서드 (ModuleRegistry에서 사용)
 	public static ModuleEntity create(String code, String name, String slug,
-	                                  String description, ModuleType type) {
+	                                  String description, ModuleType type)
+	{
 		ModuleEntity entity = new ModuleEntity();
 		entity.code        = code;
 		entity.name        = name;
@@ -76,8 +96,13 @@ public class ModuleEntity extends BaseEntity {
 		return entity;
 	}
 
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 비즈니스 메서드 ]
+	//----------------------------------------------------------------------------------------------------------------------
+
 	// 모듈 메타데이터 갱신 (ModuleDefinition에서 변경된 정보 동기화)
-	public void updateMetadata(String name, String slug, String description, ModuleType type) {
+	public void updateMetadata(String name, String slug, String description, ModuleType type)
+	{
 		this.name        = name;
 		this.slug        = slug;
 		this.description = description;
@@ -85,7 +110,8 @@ public class ModuleEntity extends BaseEntity {
 	}
 
 	// 모듈 활성화/비활성화 토글
-	public void setEnabled(boolean enabled) {
+	public void setEnabled(boolean enabled)
+	{
 		this.isEnabled = enabled;
 	}
 }

@@ -19,12 +19,21 @@ import java.util.UUID;
 @Table(name = "tb_users")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class UserEntity extends BaseEntity {
+public class UserEntity extends BaseEntity
+{
+
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ PK ]
+	//----------------------------------------------------------------------------------------------------------------------
 
 	// 사용자 PK (UUID)
 	@Id
 	@Column(name = "id", length = 36)
 	private String id;
+
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 계정 정보 ]
+	//----------------------------------------------------------------------------------------------------------------------
 
 	// 로그인 ID
 	@Column(name = "user_id", nullable = false, length = 50)
@@ -42,6 +51,10 @@ public class UserEntity extends BaseEntity {
 	@Column(name = "provider_id", nullable = false, length = 255)
 	private String providerId;
 
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 비밀번호 ]
+	//----------------------------------------------------------------------------------------------------------------------
+
 	// 비밀번호 해시 (BCrypt)
 	@Column(name = "password_hash", nullable = false, length = 255)
 	private String passwordHash;
@@ -49,6 +62,10 @@ public class UserEntity extends BaseEntity {
 	// 비밀번호 변경 일시
 	@Column(name = "password_change_date", nullable = false)
 	private LocalDateTime passwordChangeDate;
+
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 이메일 ]
+	//----------------------------------------------------------------------------------------------------------------------
 
 	// 이메일 주소
 	@Column(name = "email", nullable = false, length = 320)
@@ -62,6 +79,10 @@ public class UserEntity extends BaseEntity {
 	@Column(name = "email_verified", nullable = false)
 	private Boolean emailVerified;
 
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 전화번호 / SMS ]
+	//----------------------------------------------------------------------------------------------------------------------
+
 	// 전화번호
 	@Column(name = "phone", length = 20)
 	private String phone;
@@ -74,6 +95,10 @@ public class UserEntity extends BaseEntity {
 	@Column(name = "is_sms_agree", nullable = false)
 	private Boolean isSmsAgree;
 
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 소셜 가입 ]
+	//----------------------------------------------------------------------------------------------------------------------
+
 	// 소셜 가입 인증 여부
 	@Column(name = "social_join_verified", nullable = false)
 	private Boolean socialJoinVerified;
@@ -82,6 +107,10 @@ public class UserEntity extends BaseEntity {
 	@Column(name = "social_join_token", length = 255)
 	private String socialJoinToken;
 
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ OTP ]
+	//----------------------------------------------------------------------------------------------------------------------
+
 	// OTP 사용 여부
 	@Column(name = "is_otp_use", nullable = false)
 	private Boolean isOtpUse;
@@ -89,6 +118,10 @@ public class UserEntity extends BaseEntity {
 	// OTP 비밀키 (암호화 저장)
 	@Column(name = "otp_secret", length = 255)
 	private String otpSecret;
+
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 로그인 실패 / 잠금 ]
+	//----------------------------------------------------------------------------------------------------------------------
 
 	// 로그인 실패 횟수
 	@Column(name = "login_fail_count", nullable = false)
@@ -102,6 +135,10 @@ public class UserEntity extends BaseEntity {
 	@Column(name = "locked_at")
 	private LocalDateTime lockedAt;
 
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 상태 / 감사 ]
+	//----------------------------------------------------------------------------------------------------------------------
+
 	// 사용자 상태 (PENDING, ACTIVE, SUSPENDED)
 	@Column(name = "user_status", nullable = false, length = 20)
 	private String userStatus;
@@ -114,20 +151,31 @@ public class UserEntity extends BaseEntity {
 	@Column(name = "updated_by", length = 100)
 	private String updatedBy;
 
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 생명주기 콜백 ]
+	//----------------------------------------------------------------------------------------------------------------------
+
 	// 엔티티 저장 전 UUID PK 자동 생성
 	@PrePersist
-	private void generateId() {
+	private void generateId()
+	{
 		// ID가 없을 때만 새로 생성 (수동 설정된 경우 유지)
-		if (this.id == null) {
+		if (this.id == null)
+		{
 			this.id = UUID.randomUUID().toString();
 		}
 	}
+
+	//======================================================================================================================
+	// 정적 팩토리 메서드
+	//======================================================================================================================
 
 	// 로컬 회원가입용 정적 팩토리 메서드
 	// initialStatus: 시스템 설정에서 결정된 초기 상태 (ACTIVE, PENDING 등)
 	public static UserEntity createLocalUser(String userId, String username,
 	                                         String email, String encodedPassword,
-	                                         String initialStatus) {
+	                                         String initialStatus)
+	{
 		// 새 사용자 엔티티 생성
 		UserEntity user          = new UserEntity();
 		user.userId              = userId;
@@ -154,7 +202,8 @@ public class UserEntity extends BaseEntity {
 	// providerCode: 소셜 제공자 코드 (GOOGLE, KAKAO, NAVER)
 	// providerSubject: 소셜 제공자 사용자 고유 키
 	public static UserEntity createSocialUser(String providerCode, String providerSubject,
-	                                          String email, String username, String encodedRandomPassword) {
+	                                          String email, String username, String encodedRandomPassword)
+	{
 		// 새 소셜 사용자 엔티티 생성
 		UserEntity user          = new UserEntity();
 		// 로그인 ID: {provider}_{subject} (소셜 사용자 고유 ID)
@@ -180,13 +229,19 @@ public class UserEntity extends BaseEntity {
 		return user;
 	}
 
+	//======================================================================================================================
+	// 비즈니스 메서드 — 로그인 실패 / 잠금
+	//======================================================================================================================
+
 	// 로그인 실패 횟수 증가 + 최대 횟수 초과 시 자동 잠금
 	// maxFailCount: 시스템 설정(auth.max_login_fail)에서 전달받은 최대 실패 허용 횟수
-	public void incrementLoginFailCount(int maxFailCount) {
+	public void incrementLoginFailCount(int maxFailCount)
+	{
 		// 실패 횟수 1 증가
 		this.loginFailCount++;
 		// 최대 실패 횟수 이상이면 계정 잠금
-		if (this.loginFailCount >= maxFailCount) {
+		if (this.loginFailCount >= maxFailCount)
+		{
 			this.isLocked = true;
 			this.lockedAt = LocalDateTime.now();
 		}
@@ -196,22 +251,27 @@ public class UserEntity extends BaseEntity {
 	// lockDurationMinutes: 시스템 설정(auth.lock_duration_min)에서 전달받은 잠금 유지 시간(분)
 	// 0 이하이면 자동 해제 비활성화 (관리자 수동 해제만 가능)
 	// 반환: true이면 잠금 해제됨, false이면 아직 잠금 유지 중
-	public boolean tryAutoUnlock(int lockDurationMinutes) {
+	public boolean tryAutoUnlock(int lockDurationMinutes)
+	{
 		// 잠금 상태가 아니면 해제 불필요
-		if (!Boolean.TRUE.equals(this.isLocked)) {
+		if (!Boolean.TRUE.equals(this.isLocked))
+		{
 			return true;
 		}
 		// 자동 해제 비활성화 (0 이하면 수동 해제만 가능)
-		if (lockDurationMinutes <= 0) {
+		if (lockDurationMinutes <= 0)
+		{
 			return false;
 		}
 		// 잠금 시각이 없으면 해제 불가 (비정상 상태)
-		if (this.lockedAt == null) {
+		if (this.lockedAt == null)
+		{
 			return false;
 		}
 		// 잠금 후 경과 시간이 설정된 잠금 유지 시간을 초과했는지 확인
 		LocalDateTime unlockTime = this.lockedAt.plusMinutes(lockDurationMinutes);
-		if (LocalDateTime.now().isAfter(unlockTime)) {
+		if (LocalDateTime.now().isAfter(unlockTime))
+		{
 			// 잠금 시간 경과 → 자동 해제 (실패 횟수 초기화 포함)
 			unlock();
 			return true;
@@ -221,28 +281,36 @@ public class UserEntity extends BaseEntity {
 	}
 
 	// 로그인 성공 시 실패 횟수 초기화
-	public void resetLoginFailCount() {
+	public void resetLoginFailCount()
+	{
 		// 실패 횟수를 0으로 리셋
 		this.loginFailCount = 0;
 	}
 
 	// 계정 잠금 해제
-	public void unlock() {
+	public void unlock()
+	{
 		// 잠금 상태 및 잠금 일시 초기화
-		this.isLocked = false;
-		this.lockedAt = null;
+		this.isLocked       = false;
+		this.lockedAt       = null;
 		// 실패 횟수도 함께 초기화
 		this.loginFailCount = 0;
 	}
 
+	//----------------------------------------------------------------------------------------------------------------------
+	// 비즈니스 메서드 — 상태 변경
+	//----------------------------------------------------------------------------------------------------------------------
+
 	// 사용자 상태를 ACTIVE로 변경
-	public void activate() {
+	public void activate()
+	{
 		// 사용자 상태를 활성으로 전환
 		this.userStatus = "ACTIVE";
 	}
 
 	// 관리자에 의한 사용자 정보 수정
-	public void updateByAdmin(String username, String email, String userStatus) {
+	public void updateByAdmin(String username, String email, String userStatus)
+	{
 		// 사용자 이름 변경
 		this.username   = username;
 		// 이메일 변경
@@ -251,33 +319,50 @@ public class UserEntity extends BaseEntity {
 		this.userStatus = userStatus;
 	}
 
+	//----------------------------------------------------------------------------------------------------------------------
+	// 비즈니스 메서드 — 비밀번호
+	//----------------------------------------------------------------------------------------------------------------------
+
 	// 비밀번호 변경 (관리자 또는 본인)
-	public void changePassword(String encodedPassword) {
+	public void changePassword(String encodedPassword)
+	{
 		// 새 비밀번호 해시로 교체
 		this.passwordHash       = encodedPassword;
 		// 비밀번호 변경 일시 갱신
 		this.passwordChangeDate = LocalDateTime.now();
 	}
 
+	//----------------------------------------------------------------------------------------------------------------------
+	// 비즈니스 메서드 — SMS / 전화번호
+	//----------------------------------------------------------------------------------------------------------------------
+
 	// SMS 수신 동의 상태 변경
-	public void updateSmsConsent(boolean agree) {
+	public void updateSmsConsent(boolean agree)
+	{
 		this.isSmsAgree = agree;
 	}
 
 	// 전화번호 변경 (인증 상태 초기화)
-	public void updatePhone(String phone) {
+	public void updatePhone(String phone)
+	{
 		this.phone         = phone;
 		this.phoneVerified = false;
 	}
 
 	// 전화번호 인증 완료 처리
-	public void verifyPhone() {
+	public void verifyPhone()
+	{
 		this.phoneVerified = true;
 	}
 
+	//----------------------------------------------------------------------------------------------------------------------
+	// 비즈니스 메서드 — 로컬 자격증명
+	//----------------------------------------------------------------------------------------------------------------------
+
 	// 소셜 전용 사용자에게 로컬 자격증명 설정 (로컬 ID + 비밀번호)
 	// 설정 후 provider가 LOCAL로 변경되어 소셜 연동 추가/해제가 가능해진다
-	public void setLocalCredentials(String newUserId, String encodedPassword) {
+	public void setLocalCredentials(String newUserId, String encodedPassword)
+	{
 		// 로컬 로그인 ID 설정
 		this.userId             = newUserId;
 		// 비밀번호 해시 설정

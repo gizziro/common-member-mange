@@ -14,23 +14,17 @@ import lombok.Getter;
 @Getter
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class ContentSummaryDto {
+public class ContentSummaryDto
+{
 
-	// 모듈 코드 (예: "board")
-	private final String moduleCode;
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 필드 ]
+	//----------------------------------------------------------------------------------------------------------------------
 
-	// 리소스 유형 (예: "post", "comment")
-	private final String resourceType;
-
-	// 리소스 PK (예: "post-uuid-123")
-	private final String resourceId;
-
-	// 콘텐츠 제목 (예: "공지사항")
-	private final String title;
-
-	// 콘텐츠 접근 URL (예: "/board/notice/posts/123")
-	private final String url;
-
-	// 콘텐츠 요약 (본문 미리보기 등, 선택)
-	private final String summary;
+	private final String moduleCode;     // 모듈 코드 (예: "board")
+	private final String resourceType;   // 리소스 유형 (예: "post", "comment")
+	private final String resourceId;     // 리소스 PK (예: "post-uuid-123")
+	private final String title;          // 콘텐츠 제목 (예: "공지사항")
+	private final String url;            // 콘텐츠 접근 URL (예: "/board/notice/posts/123")
+	private final String summary;        // 콘텐츠 요약 (본문 미리보기 등, 선택)
 }

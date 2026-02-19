@@ -12,7 +12,12 @@ import java.util.List;
 // 사용 예:
 //   @Component
 //   public class BoardModuleDefinition implements ModuleDefinition { ... }
-public interface ModuleDefinition {
+public interface ModuleDefinition
+{
+
+	//----------------------------------------------------------------------------------------------------------------------
+	// 모듈 메타데이터
+	//----------------------------------------------------------------------------------------------------------------------
 
 	// 모듈 코드 (영소문자, tb_modules.code와 일치)
 	// 예: "board", "blog", "accounting"
@@ -33,14 +38,23 @@ public interface ModuleDefinition {
 	// 모듈 유형 (SINGLE: 인스턴스 없음, MULTI: 인스턴스 생성 가능)
 	ModuleType getType();
 
+	//----------------------------------------------------------------------------------------------------------------------
+	// 권한 정의
+	//----------------------------------------------------------------------------------------------------------------------
+
 	// 모듈이 제공하는 리소스별 권한 액션 목록
 	// 예: [{resource: "post", action: "read", name: "게시글 읽기"}, ...]
 	List<ResourcePermissionDefinition> getPermissions();
 
+	//----------------------------------------------------------------------------------------------------------------------
+	// 스키마 / 설정 (기본 구현 제공)
+	//----------------------------------------------------------------------------------------------------------------------
+
 	// 모듈 스키마에서 존재 여부를 확인할 대표 테이블명 목록
 	// ModuleSchemaInitializer가 이 테이블의 존재 여부로 스키마 적용 여부를 판단한다
 	// 예: ["tb_board_posts", "tb_board_comments"]
-	default List<String> getRequiredTables() {
+	default List<String> getRequiredTables()
+	{
 		return List.of();
 	}
 
@@ -48,7 +62,8 @@ public interface ModuleDefinition {
 	// SettingsRegistry가 앱 시작 시 이 목록을 기반으로 tb_settings에 기본 설정을 등록한다
 	// DB에 이미 존재하면 스킵하여 관리자가 수정한 값을 보존한다
 	// 예: [SettingDefinition("general", "default_content_type", "HTML", STRING, "기본 콘텐츠 타입", "...", 0)]
-	default List<SettingDefinition> getDefaultSettings() {
+	default List<SettingDefinition> getDefaultSettings()
+	{
 		return List.of();
 	}
 }

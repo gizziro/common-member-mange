@@ -6,9 +6,14 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 // OTP 인증 검증 요청 DTO
+// 전화번호와 인증 코드를 검증한다
 @Getter
 @NoArgsConstructor
-public class VerifyOtpRequestDto {
+public class VerifyOtpRequestDto
+{
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 필드 ]
+	//----------------------------------------------------------------------------------------------------------------------
 
 	// 전화번호
 	@NotBlank(message = "전화번호는 필수입니다")

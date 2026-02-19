@@ -9,34 +9,28 @@ import java.time.LocalDateTime;
 // 그룹 응답 DTO
 @Getter
 @Builder
-public class GroupResponseDto {
+public class GroupResponseDto
+{
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 필드 ]
+	//----------------------------------------------------------------------------------------------------------------------
 
-	// 그룹 PK
-	private final String        id;
+	private final String        id;				// 그룹 PK
+	private final String        groupCode;		// 그룹 코드
+	private final String        name;			// 그룹 표시명
+	private final String        description;	// 그룹 설명
+	private final Boolean       isSystem;		// 시스템 그룹 여부
+	private final String        ownerUserId;	// 그룹 소유자 사용자 PK
+	private final long          memberCount;	// 그룹 소속 멤버 수
+	private final LocalDateTime createdAt;		// 생성 일시
 
-	// 그룹 코드
-	private final String        groupCode;
-
-	// 그룹 표시명
-	private final String        name;
-
-	// 그룹 설명
-	private final String        description;
-
-	// 시스템 그룹 여부
-	private final Boolean       isSystem;
-
-	// 그룹 소유자 사용자 PK
-	private final String        ownerUserId;
-
-	// 그룹 소속 멤버 수
-	private final long          memberCount;
-
-	// 생성 일시
-	private final LocalDateTime createdAt;
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 정적 팩토리 ]
+	//----------------------------------------------------------------------------------------------------------------------
 
 	// 엔티티 + 멤버 수로 응답 DTO 생성
-	public static GroupResponseDto from(GroupEntity entity, long memberCount) {
+	public static GroupResponseDto from(GroupEntity entity, long memberCount)
+	{
 		return GroupResponseDto.builder()
 			.id(entity.getId())
 			.groupCode(entity.getGroupCode())

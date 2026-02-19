@@ -22,47 +22,62 @@ import java.util.List;
 @Component
 @Order(3)
 @RequiredArgsConstructor
-public class SettingsRegistry implements ApplicationRunner {
+public class SettingsRegistry implements ApplicationRunner
+{
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 의존성 ]
+	//----------------------------------------------------------------------------------------------------------------------
+	private final SettingRepository      settingRepository;		// 설정 리포지토리
+	private final SettingCache           settingCache;			// 설정 캐시
+	private final List<ModuleDefinition> moduleDefinitions;		// 등록된 모든 모듈 정의 (Spring 자동 주입)
 
-	// 설정 리포지토리
-	private final SettingRepository settingRepository;
-
-	// 설정 캐시
-	private final SettingCache settingCache;
-
-	// 등록된 모든 모듈 정의 (Spring이 자동 주입, 없으면 빈 리스트)
-	private final List<ModuleDefinition> moduleDefinitions;
-
+	//======================================================================================================================
+	// 앱 시작 시 실행 — 시스템/모듈 기본 설정 등록 + 캐시 로딩
+	//======================================================================================================================
 	@Override
 	@Transactional
-	public void run(ApplicationArguments args) {
+	public void run(ApplicationArguments args)
+	{
 		log.info("설정 레지스트리 초기화 시작");
 
+		//----------------------------------------------------------------------------------------------------------------------
 		// 1. 시스템 기본 설정 등록
+		//----------------------------------------------------------------------------------------------------------------------
 		int systemCount = registerSystemDefaults();
 		log.info("시스템 기본 설정 등록: {}개", systemCount);
 
+		//----------------------------------------------------------------------------------------------------------------------
 		// 2. 모듈별 기본 설정 등록
-		for (ModuleDefinition definition : moduleDefinitions) {
+		//----------------------------------------------------------------------------------------------------------------------
+		for (ModuleDefinition definition : moduleDefinitions)
+		{
 			List<SettingDefinition> moduleSettings = definition.getDefaultSettings();
-			if (!moduleSettings.isEmpty()) {
+			if (!moduleSettings.isEmpty())
+			{
 				int count = registerModuleDefaults(definition.getCode(), moduleSettings);
 				log.info("모듈 [{}] 기본 설정 등록: {}개", definition.getCode(), count);
 			}
 		}
 
+		//----------------------------------------------------------------------------------------------------------------------
 		// 3. 전체 설정 캐시 로딩
+		//----------------------------------------------------------------------------------------------------------------------
 		List<SettingEntity> allSettings = settingRepository.findAll();
 		settingCache.loadAll(allSettings);
 
 		log.info("설정 레지스트리 초기화 완료: 총 {}개 설정 캐시 로딩", allSettings.size());
 	}
 
+	//----------------------------------------------------------------------------------------------------------------------
 	// 시스템 기본 설정 등록 (하드코딩 목록)
-	private int registerSystemDefaults() {
+	//----------------------------------------------------------------------------------------------------------------------
+	private int registerSystemDefaults()
+	{
 		int count = 0;
 
-		// ─── general 그룹: 사이트 기본 정보 ───
+		//----------------------------------------------------------------------------------------------------------------------
+		// general 그룹: 사이트 기본 정보
+		//----------------------------------------------------------------------------------------------------------------------
 		count += registerIfAbsent("system", "general", "site_name",
 				"Common CMS", SettingValueType.STRING,
 				"사이트 이름", "사이트 제목으로 사용됩니다", false, 0);
@@ -70,7 +85,9 @@ public class SettingsRegistry implements ApplicationRunner {
 				"", SettingValueType.STRING,
 				"사이트 설명", "사이트 부제목/설명으로 사용됩니다", false, 1);
 
-		// ─── signup 그룹: 회원가입 설정 ───
+		//----------------------------------------------------------------------------------------------------------------------
+		// signup 그룹: 회원가입 설정
+		//----------------------------------------------------------------------------------------------------------------------
 		count += registerIfAbsent("system", "signup", "enabled",
 				"true", SettingValueType.BOOLEAN,
 				"회원가입 허용", "비활성화 시 회원가입 API가 차단됩니다", false, 0);
@@ -84,7 +101,9 @@ public class SettingsRegistry implements ApplicationRunner {
 				"true", SettingValueType.BOOLEAN,
 				"소셜 로그인 허용", "비활성화 시 모든 소셜 로그인(OAuth2)이 차단됩니다", false, 3);
 
-		// ─── auth 그룹: 인증 보안 설정 ───
+		//----------------------------------------------------------------------------------------------------------------------
+		// auth 그룹: 인증 보안 설정
+		//----------------------------------------------------------------------------------------------------------------------
 		count += registerIfAbsent("system", "auth", "max_login_fail",
 				"5", SettingValueType.NUMBER,
 				"최대 로그인 실패 횟수", "이 횟수를 초과하면 계정이 잠깁니다", false, 0);
@@ -95,7 +114,9 @@ public class SettingsRegistry implements ApplicationRunner {
 				"false", SettingValueType.BOOLEAN,
 				"2FA 필수 여부", "활성화 시 모든 사용자에게 2FA를 요구합니다", false, 2);
 
-		// ─── sms 그룹: SMS 인증 설정 ───
+		//----------------------------------------------------------------------------------------------------------------------
+		// sms 그룹: SMS 인증 설정
+		//----------------------------------------------------------------------------------------------------------------------
 		count += registerIfAbsent("system", "sms", "enabled",
 				"false", SettingValueType.BOOLEAN,
 				"SMS 인증 활성화", "비활성화 시 SMS 인증 기능이 차단됩니다", false, 0);
@@ -109,7 +130,9 @@ public class SettingsRegistry implements ApplicationRunner {
 				"10", SettingValueType.NUMBER,
 				"번호당 일일 발송 한도", "하나의 전화번호로 하루에 보낼 수 있는 최대 SMS 건수", false, 3);
 
-		// ─── session 그룹: 토큰 만료 설정 ───
+		//----------------------------------------------------------------------------------------------------------------------
+		// session 그룹: 토큰 만료 설정
+		//----------------------------------------------------------------------------------------------------------------------
 		count += registerIfAbsent("system", "session", "access_token_exp",
 				"1800000", SettingValueType.NUMBER,
 				"Access Token 만료 (ms)", "Access Token 만료 시간 (밀리초, 기본 30분)", false, 0);
@@ -120,10 +143,14 @@ public class SettingsRegistry implements ApplicationRunner {
 		return count;
 	}
 
+	//----------------------------------------------------------------------------------------------------------------------
 	// 모듈별 기본 설정 등록
-	private int registerModuleDefaults(String moduleCode, List<SettingDefinition> definitions) {
+	//----------------------------------------------------------------------------------------------------------------------
+	private int registerModuleDefaults(String moduleCode, List<SettingDefinition> definitions)
+	{
 		int count = 0;
-		for (SettingDefinition def : definitions) {
+		for (SettingDefinition def : definitions)
+		{
 			count += registerIfAbsent(
 					moduleCode, def.getGroup(), def.getKey(),
 					def.getDefaultValue(), def.getValueType(),
@@ -134,15 +161,19 @@ public class SettingsRegistry implements ApplicationRunner {
 		return count;
 	}
 
+	//----------------------------------------------------------------------------------------------------------------------
 	// DB에 없으면 INSERT, 있으면 스킵 (기존 수정값 보존)
 	// 반환값: 실제 INSERT된 경우 1, 이미 존재해서 스킵된 경우 0
+	//----------------------------------------------------------------------------------------------------------------------
 	private int registerIfAbsent(String moduleCode, String settingGroup, String settingKey,
 								 String defaultValue, SettingValueType valueType,
 								 String name, String description,
-								 boolean readonly, int sortOrder) {
+								 boolean readonly, int sortOrder)
+	{
 		// 이미 존재하면 스킵
 		if (settingRepository.existsByModuleCodeAndSettingGroupAndSettingKey(
-				moduleCode, settingGroup, settingKey)) {
+				moduleCode, settingGroup, settingKey))
+		{
 			return 0;
 		}
 

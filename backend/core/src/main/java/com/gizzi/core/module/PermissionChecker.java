@@ -36,24 +36,27 @@ import java.util.stream.Collectors;
 @Component
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class PermissionChecker {
+public class PermissionChecker
+{
 
-	// 모듈 인스턴스 리포지토리 (소유자 확인용)
-	private final ModuleInstanceRepository         instanceRepository;
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 의존성 ]
+	//----------------------------------------------------------------------------------------------------------------------
 
-	// 모듈 권한 정의 리포지토리 (권한 ID → 플랫 문자열 변환용)
-	private final ModulePermissionRepository        permissionRepository;
+	private final ModuleInstanceRepository         instanceRepository;        // 모듈 인스턴스 리포지토리 (소유자 확인용)
+	private final ModulePermissionRepository        permissionRepository;      // 모듈 권한 정의 리포지토리 (권한 ID → 플랫 문자열 변환용)
+	private final UserModulePermissionRepository    userPermissionRepository;  // 사용자 직접 권한 리포지토리
+	private final GroupModulePermissionRepository   groupPermissionRepository; // 그룹 권한 리포지토리
 
-	// 사용자 직접 권한 리포지토리
-	private final UserModulePermissionRepository    userPermissionRepository;
-
-	// 그룹 권한 리포지토리
-	private final GroupModulePermissionRepository   groupPermissionRepository;
+	//======================================================================================================================
+	// 권한 확인
+	//======================================================================================================================
 
 	// 해당 인스턴스에 권한이 하나라도 부여되어 있는지 확인
 	// (그룹/사용자 무관, 어떤 권한이든 설정된 적이 있는지)
 	// 반환값: true → 권한이 설정되어 있음 (접근 제한 모드), false → 권한 미설정 (전체 공개)
-	public boolean hasAnyPermissionGranted(String instanceId) {
+	public boolean hasAnyPermissionGranted(String instanceId)
+	{
 		long groupCount = groupPermissionRepository.countByModuleInstanceId(instanceId);
 		long userCount  = userPermissionRepository.countByModuleInstanceId(instanceId);
 		return (groupCount + userCount) > 0;
@@ -61,9 +64,11 @@ public class PermissionChecker {
 
 	// 특정 권한 보유 여부 확인
 	// permission: 플랫 문자열 (예: "BOARD_POST_WRITE")
-	public boolean hasPermission(String userId, String instanceId, String permission) {
+	public boolean hasPermission(String userId, String instanceId, String permission)
+	{
 		// 1. 인스턴스 소유자 확인 — 소유자는 전체 권한
-		if (isOwner(userId, instanceId)) {
+		if (isOwner(userId, instanceId))
+		{
 			return true;
 		}
 
@@ -72,21 +77,28 @@ public class PermissionChecker {
 		return allPermissions.contains(permission.toUpperCase());
 	}
 
+	//======================================================================================================================
+	// 권한 맵 조회
+	//======================================================================================================================
+
 	// 리소스별 허용된 액션 목록 반환
 	// 메뉴 가시성 판단, Resolve API 응답, 프론트엔드 UI 제어에 사용
 	// 반환 예: {"post": ["read", "write"], "comment": ["read"]}
-	public Map<String, List<String>> getPermissionMap(String userId, String instanceId) {
+	public Map<String, List<String>> getPermissionMap(String userId, String instanceId)
+	{
 		// 인스턴스에서 모듈 코드 조회
 		Optional<ModuleInstanceEntity> instanceOpt = instanceRepository.findById(instanceId);
-		if (instanceOpt.isEmpty()) {
+		if (instanceOpt.isEmpty())
+		{
 			return Map.of();
 		}
 
-		ModuleInstanceEntity instance = instanceOpt.get();
-		String moduleCode = instance.getModuleCode();
+		ModuleInstanceEntity instance   = instanceOpt.get();
+		String               moduleCode = instance.getModuleCode();
 
 		// 소유자는 해당 모듈의 모든 권한 보유
-		if (userId != null && userId.equals(instance.getOwnerId())) {
+		if (userId != null && userId.equals(instance.getOwnerId()))
+		{
 			return buildFullPermissionMap(moduleCode);
 		}
 
@@ -97,9 +109,15 @@ public class PermissionChecker {
 		return buildPermissionMapFromIds(moduleCode, permissionIds);
 	}
 
+	//----------------------------------------------------------------------------------------------------------------------
+	// 헬퍼 — 소유자 확인
+	//----------------------------------------------------------------------------------------------------------------------
+
 	// 인스턴스 소유자 여부 확인
-	private boolean isOwner(String userId, String instanceId) {
-		if (userId == null) {
+	private boolean isOwner(String userId, String instanceId)
+	{
+		if (userId == null)
+		{
 			return false;
 		}
 		return instanceRepository.findById(instanceId)
@@ -107,14 +125,20 @@ public class PermissionChecker {
 				.orElse(false);
 	}
 
+	//----------------------------------------------------------------------------------------------------------------------
+	// 헬퍼 — 권한 수집
+	//----------------------------------------------------------------------------------------------------------------------
+
 	// 사용자 직접 + 그룹 권한 합산하여 플랫 문자열 Set 반환
-	private Set<String> collectAllPermissions(String userId, String instanceId) {
+	private Set<String> collectAllPermissions(String userId, String instanceId)
+	{
 		// 권한 ID 수집
 		Set<String> permissionIds = collectAllPermissionIds(userId, instanceId);
 
 		// 권한 ID → 플랫 문자열 변환
 		Set<String> flatPermissions = new HashSet<>();
-		for (String permId : permissionIds) {
+		for (String permId : permissionIds)
+		{
 			permissionRepository.findById(permId)
 					.ifPresent(perm -> flatPermissions.add(perm.toFlatPermissionString()));
 		}
@@ -123,10 +147,12 @@ public class PermissionChecker {
 	}
 
 	// 사용자 직접 + 그룹 권한 ID 합산
-	private Set<String> collectAllPermissionIds(String userId, String instanceId) {
+	private Set<String> collectAllPermissionIds(String userId, String instanceId)
+	{
 		Set<String> permissionIds = new HashSet<>();
 
-		if (userId == null) {
+		if (userId == null)
+		{
 			return permissionIds;
 		}
 
@@ -143,15 +169,21 @@ public class PermissionChecker {
 		return permissionIds;
 	}
 
+	//----------------------------------------------------------------------------------------------------------------------
+	// 헬퍼 — 권한 맵 빌드
+	//----------------------------------------------------------------------------------------------------------------------
+
 	// 모듈의 모든 권한을 리소스별 액션 맵으로 변환 (소유자용)
-	private Map<String, List<String>> buildFullPermissionMap(String moduleCode) {
+	private Map<String, List<String>> buildFullPermissionMap(String moduleCode)
+	{
 		List<ModulePermissionEntity> allPerms = permissionRepository.findByModuleCode(moduleCode);
 		return groupByResource(allPerms);
 	}
 
 	// 권한 ID Set에 해당하는 권한만 리소스별 액션 맵으로 변환
 	private Map<String, List<String>> buildPermissionMapFromIds(String moduleCode,
-	                                                            Set<String> permissionIds) {
+	                                                            Set<String> permissionIds)
+	{
 		// 해당 모듈의 모든 권한 정의에서 부여된 ID만 필터링
 		List<ModulePermissionEntity> granted = permissionRepository.findByModuleCode(moduleCode)
 				.stream()
@@ -163,10 +195,12 @@ public class PermissionChecker {
 
 	// 권한 엔티티 목록을 리소스별 액션 맵으로 그룹핑
 	// 예: [post:read, post:write, comment:read] → {post: [read, write], comment: [read]}
-	private Map<String, List<String>> groupByResource(List<ModulePermissionEntity> permissions) {
+	private Map<String, List<String>> groupByResource(List<ModulePermissionEntity> permissions)
+	{
 		Map<String, List<String>> map = new HashMap<>();
 
-		for (ModulePermissionEntity perm : permissions) {
+		for (ModulePermissionEntity perm : permissions)
+		{
 			map.computeIfAbsent(perm.getResource(), k -> new ArrayList<>())
 			   .add(perm.getAction());
 		}

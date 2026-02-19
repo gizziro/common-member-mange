@@ -27,68 +27,83 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class OtpService {
+public class OtpService
+{
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 의존성 ]
+	//----------------------------------------------------------------------------------------------------------------------
 
-	// Redis 문자열 작업 템플릿
-	private final StringRedisTemplate redisTemplate;
+	private final StringRedisTemplate redisTemplate;	// Redis 문자열 작업 템플릿
+	private final SmsService          smsService;		// SMS 발송 서비스
+	private final SettingService      settingService;	// 시스템 설정 서비스
+	private final AuditLogService     auditLogService;	// 감사 로그 서비스
 
-	// SMS 발송 서비스
-	private final SmsService          smsService;
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 상수 ]
+	//----------------------------------------------------------------------------------------------------------------------
 
-	// 시스템 설정 서비스
-	private final SettingService      settingService;
+	private static final String OTP_PREFIX      = "sms:otp:";		// OTP 코드 키 접두사
+	private static final String RATE_PREFIX     = "sms:rate:";		// 재발송 방지 키 접두사
+	private static final String DAILY_PREFIX    = "sms:daily:";		// 일일 카운터 키 접두사
+	private static final String VERIFIED_PREFIX = "sms:verified:";	// 인증 완료 키 접두사
 
-	// 감사 로그 서비스
-	private final AuditLogService     auditLogService;
-
-	// Redis 키 접두사
-	private static final String OTP_PREFIX      = "sms:otp:";
-	private static final String RATE_PREFIX     = "sms:rate:";
-	private static final String DAILY_PREFIX    = "sms:daily:";
-	private static final String VERIFIED_PREFIX = "sms:verified:";
-
-	// 재발송 방지 TTL (60초)
-	private static final long   RATE_LIMIT_TTL  = 60;
-
-	// 일일 한도 TTL (24시간)
-	private static final long   DAILY_LIMIT_TTL = 86400;
-
-	// 인증 완료 토큰 TTL (10분)
-	private static final long   VERIFIED_TTL    = 600;
+	private static final long   RATE_LIMIT_TTL  = 60;				// 재발송 방지 TTL (60초)
+	private static final long   DAILY_LIMIT_TTL = 86400;			// 일일 한도 TTL (24시간)
+	private static final long   VERIFIED_TTL    = 600;				// 인증 완료 토큰 TTL (10분)
 
 	// 보안 난수 생성기
-	private final SecureRandom  secureRandom    = new SecureRandom();
+	private final SecureRandom secureRandom = new SecureRandom();
+
+	//======================================================================================================================
+	// [ 핵심 비즈니스 메서드 ]
+	//======================================================================================================================
 
 	// OTP 생성 → 레이트 체크 → SMS 발송 → Redis 저장
-	public void generateAndSend(String phone) {
+	public void generateAndSend(String phone)
+	{
+		//----------------------------------------------------------------------------------------------------------------------
 		// 시스템 설정: SMS 인증 활성화 여부 확인
+		//----------------------------------------------------------------------------------------------------------------------
 		boolean smsEnabled = settingService.getSystemBoolean("sms", "enabled");
-		if (!smsEnabled) {
+		if (!smsEnabled)
+		{
 			throw new BusinessException(SmsErrorCode.SMS_DISABLED);
 		}
 
+		//----------------------------------------------------------------------------------------------------------------------
 		// 1분 내 재발송 차단 확인
-		if (isRateLimited(phone)) {
+		//----------------------------------------------------------------------------------------------------------------------
+		if (isRateLimited(phone))
+		{
 			throw new BusinessException(SmsErrorCode.SMS_RATE_LIMITED);
 		}
 
+		//----------------------------------------------------------------------------------------------------------------------
 		// 일일 발송 한도 확인
-		if (isDailyLimitExceeded(phone)) {
+		//----------------------------------------------------------------------------------------------------------------------
+		if (isDailyLimitExceeded(phone))
+		{
 			throw new BusinessException(SmsErrorCode.SMS_DAILY_LIMIT);
 		}
 
+		//----------------------------------------------------------------------------------------------------------------------
 		// OTP 코드 생성 (시스템 설정에서 길이 조회)
-		int otpLength = (int) settingService.getSystemNumber("sms", "otp_length");
-		String otpCode = generateOtpCode(otpLength);
+		//----------------------------------------------------------------------------------------------------------------------
+		int otpLength    = (int) settingService.getSystemNumber("sms", "otp_length");
+		String otpCode   = generateOtpCode(otpLength);
 
 		// OTP TTL 조회 (초)
 		long otpTtl = (long) settingService.getSystemNumber("sms", "otp_ttl_seconds");
 
+		//----------------------------------------------------------------------------------------------------------------------
 		// SMS 발송
+		//----------------------------------------------------------------------------------------------------------------------
 		String message = "[인증코드] " + otpCode + " (유효시간 " + (otpTtl / 60) + "분)";
 		smsService.send(phone, message);
 
+		//----------------------------------------------------------------------------------------------------------------------
 		// Redis에 OTP 코드 저장
+		//----------------------------------------------------------------------------------------------------------------------
 		redisTemplate.opsForValue().set(
 			OTP_PREFIX + phone, otpCode, otpTtl, TimeUnit.SECONDS
 		);
@@ -105,27 +120,36 @@ public class OtpService {
 	}
 
 	// OTP 코드 검증 → 성공 시 Redis 키 삭제 + 검증 토큰 발급
-	public VerifyOtpResponseDto verify(String phone, String code) {
+	public VerifyOtpResponseDto verify(String phone, String code)
+	{
+		//----------------------------------------------------------------------------------------------------------------------
 		// Redis에서 OTP 코드 조회
+		//----------------------------------------------------------------------------------------------------------------------
 		String storedCode = redisTemplate.opsForValue().get(OTP_PREFIX + phone);
 
 		// OTP 키가 없으면 만료
-		if (storedCode == null) {
+		if (storedCode == null)
+		{
 			// 인증 실패 감사 로그
 			auditLogService.logFailure(null, AuditAction.SMS_OTP_VERIFY, AuditTarget.SMS, null,
 				"OTP 만료: " + phone, null);
 			throw new BusinessException(SmsErrorCode.SMS_OTP_EXPIRED);
 		}
 
+		//----------------------------------------------------------------------------------------------------------------------
 		// OTP 코드 일치 확인
-		if (!storedCode.equals(code)) {
+		//----------------------------------------------------------------------------------------------------------------------
+		if (!storedCode.equals(code))
+		{
 			// 인증 실패 감사 로그
 			auditLogService.logFailure(null, AuditAction.SMS_OTP_VERIFY, AuditTarget.SMS, null,
 				"OTP 불일치: " + phone, null);
 			throw new BusinessException(SmsErrorCode.SMS_OTP_INVALID);
 		}
 
+		//----------------------------------------------------------------------------------------------------------------------
 		// 인증 성공 → OTP 키 삭제 (1회용)
+		//----------------------------------------------------------------------------------------------------------------------
 		redisTemplate.delete(OTP_PREFIX + phone);
 
 		// 검증 토큰 생성 → Redis에 저장 (회원가입/셋업에서 phoneVerified 증명용)
@@ -144,7 +168,8 @@ public class OtpService {
 	}
 
 	// 전화번호 인증 완료 여부 확인 (검증 토큰 유효성 체크)
-	public boolean isPhoneVerified(String phone, String verificationToken) {
+	public boolean isPhoneVerified(String phone, String verificationToken)
+	{
 		// Redis에서 검증 토큰 조회
 		String storedToken = redisTemplate.opsForValue().get(VERIFIED_PREFIX + phone);
 		// 저장된 토큰과 입력 토큰이 일치하면 인증 완료
@@ -152,43 +177,55 @@ public class OtpService {
 	}
 
 	// 인증 완료 토큰 삭제 (회원가입/셋업 완료 후 호출)
-	public void consumeVerification(String phone) {
+	public void consumeVerification(String phone)
+	{
 		redisTemplate.delete(VERIFIED_PREFIX + phone);
 	}
 
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 내부 헬퍼 메서드 ]
+	//----------------------------------------------------------------------------------------------------------------------
+
 	// 1분 내 재발송 여부 확인
-	private boolean isRateLimited(String phone) {
+	private boolean isRateLimited(String phone)
+	{
 		return Boolean.TRUE.equals(redisTemplate.hasKey(RATE_PREFIX + phone));
 	}
 
 	// 일일 발송 한도 초과 여부 확인
-	private boolean isDailyLimitExceeded(String phone) {
+	private boolean isDailyLimitExceeded(String phone)
+	{
 		// 시스템 설정: 일일 발송 한도
 		int dailyLimit = (int) settingService.getSystemNumber("sms", "daily_limit");
 		// Redis에서 현재 일일 발송 카운터 조회
 		String countStr = redisTemplate.opsForValue().get(DAILY_PREFIX + phone);
-		if (countStr == null) {
+		if (countStr == null)
+		{
 			return false;
 		}
 		return Integer.parseInt(countStr) >= dailyLimit;
 	}
 
 	// 일일 발송 카운터 증가
-	private void incrementDailyCount(String phone) {
+	private void incrementDailyCount(String phone)
+	{
 		String key = DAILY_PREFIX + phone;
 		// 카운터 1 증가 (키가 없으면 0에서 시작)
 		Long count = redisTemplate.opsForValue().increment(key);
 		// 첫 증가 시 TTL 설정 (24시간)
-		if (count != null && count == 1) {
+		if (count != null && count == 1)
+		{
 			redisTemplate.expire(key, DAILY_LIMIT_TTL, TimeUnit.SECONDS);
 		}
 	}
 
 	// OTP 코드 생성 (숫자만, 지정 길이)
-	private String generateOtpCode(int length) {
+	private String generateOtpCode(int length)
+	{
 		// SecureRandom으로 숫자 코드 생성
 		StringBuilder sb = new StringBuilder();
-		for (int i = 0; i < length; i++) {
+		for (int i = 0; i < length; i++)
+		{
 			sb.append(secureRandom.nextInt(10));
 		}
 		return sb.toString();

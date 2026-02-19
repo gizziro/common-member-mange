@@ -18,12 +18,20 @@ import java.util.UUID;
 @Table(name = "tb_sms_providers")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class SmsProviderEntity extends BaseEntity {
+public class SmsProviderEntity extends BaseEntity
+{
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ PK ]
+	//----------------------------------------------------------------------------------------------------------------------
 
 	// 프로바이더 PK (UUID)
 	@Id
 	@Column(name = "id", length = 36)
 	private String id;
+
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 기본 정보 ]
+	//----------------------------------------------------------------------------------------------------------------------
 
 	// 프로바이더 코드 (solapi, aws_sns)
 	@Column(name = "code", nullable = false, length = 50)
@@ -37,6 +45,10 @@ public class SmsProviderEntity extends BaseEntity {
 	@Column(name = "is_enabled", nullable = false)
 	private Boolean isEnabled;
 
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ API 자격증명 ]
+	//----------------------------------------------------------------------------------------------------------------------
+
 	// API Key
 	@Column(name = "api_key", length = 255)
 	private String apiKey;
@@ -49,6 +61,10 @@ public class SmsProviderEntity extends BaseEntity {
 	@Column(name = "sender_number", length = 20)
 	private String senderNumber;
 
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 설정 ]
+	//----------------------------------------------------------------------------------------------------------------------
+
 	// 추가 설정 JSON
 	@Column(name = "config_json", columnDefinition = "TEXT")
 	private String configJson;
@@ -57,22 +73,34 @@ public class SmsProviderEntity extends BaseEntity {
 	@Column(name = "display_order", nullable = false)
 	private Integer displayOrder;
 
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ JPA 콜백 ]
+	//----------------------------------------------------------------------------------------------------------------------
+
 	// 엔티티 저장 전 UUID PK 자동 생성
 	@PrePersist
-	private void generateId() {
+	private void generateId()
+	{
 		// ID가 없을 때만 새로 생성
-		if (this.id == null) {
+		if (this.id == null)
+		{
 			this.id = UUID.randomUUID().toString();
 		}
 	}
 
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 비즈니스 메서드 ]
+	//----------------------------------------------------------------------------------------------------------------------
+
 	// 관리자에 의한 프로바이더 설정 수정
 	public void update(String apiKey, String apiSecret, String senderNumber,
-	                   Boolean isEnabled, String configJson) {
+	                   Boolean isEnabled, String configJson)
+	{
 		// API Key 설정
 		this.apiKey       = apiKey;
 		// apiSecret이 null이면 기존 값 유지 (프론트에서 빈 문자열 → null 전환)
-		if (apiSecret != null) {
+		if (apiSecret != null)
+		{
 			this.apiSecret = apiSecret;
 		}
 		// 발신 번호 설정

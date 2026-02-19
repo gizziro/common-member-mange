@@ -9,20 +9,16 @@ import lombok.Getter;
 @Getter
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class InstanceInfoDto {
+public class InstanceInfoDto
+{
 
-	// 인스턴스 PK (UUID)
-	private final String instanceId;
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 필드 ]
+	//----------------------------------------------------------------------------------------------------------------------
 
-	// 인스턴스 표시명 (예: "공지사항")
-	private final String name;
-
-	// URL 슬러그 (예: "notice")
-	private final String slug;
-
-	// 인스턴스 설명
-	private final String description;
-
-	// 활성화 여부
-	private final Boolean enabled;
+	private final String  instanceId;    // 인스턴스 PK (UUID)
+	private final String  name;          // 인스턴스 표시명 (예: "공지사항")
+	private final String  slug;          // URL 슬러그 (예: "notice")
+	private final String  description;   // 인스턴스 설명
+	private final Boolean enabled;       // 활성화 여부
 }

@@ -16,15 +16,21 @@ import java.io.IOException;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
+public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint
+{
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 의존성 ]
+	//----------------------------------------------------------------------------------------------------------------------
+	private final FilterErrorResponseWriter filterErrorResponseWriter;		// 필터 에러 응답 유틸리티 (ApiResponseDto JSON 직렬화)
 
-	// 필터 에러 응답 유틸리티 (ApiResponseDto JSON 직렬화)
-	private final FilterErrorResponseWriter filterErrorResponseWriter;
-
+	//======================================================================================================================
+	// 인증 실패 시 401 Unauthorized 응답 반환
+	//======================================================================================================================
 	@Override
 	public void commence(HttpServletRequest request,
 	                     HttpServletResponse response,
-	                     AuthenticationException authException) throws IOException {
+	                     AuthenticationException authException) throws IOException
+	{
 		// 인증 실패 로그 기록
 		log.debug("인증 실패: uri={}, message={}", request.getRequestURI(), authException.getMessage());
 

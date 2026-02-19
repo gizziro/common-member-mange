@@ -15,7 +15,11 @@ import java.time.LocalDateTime;
 @Getter
 @MappedSuperclass
 @EntityListeners(AuditingEntityListener.class)
-public abstract class BaseEntity {
+public abstract class BaseEntity
+{
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 감사 필드 ]
+	//----------------------------------------------------------------------------------------------------------------------
 
 	// 생성 일시 (최초 저장 시 자동 설정, 이후 변경 불가)
 	@CreatedDate

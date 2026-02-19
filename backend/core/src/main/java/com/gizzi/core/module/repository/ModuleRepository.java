@@ -6,13 +6,22 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.Optional;
 
 // 모듈 리포지토리 (tb_modules 테이블 접근)
-public interface ModuleRepository extends JpaRepository<ModuleEntity, String> {
+public interface ModuleRepository extends JpaRepository<ModuleEntity, String>
+{
+
+	//----------------------------------------------------------------------------------------------------------------------
+	// 조회
+	//----------------------------------------------------------------------------------------------------------------------
 
 	// 모듈 코드로 조회
 	Optional<ModuleEntity> findByCode(String code);
 
 	// 슬러그로 조회
 	Optional<ModuleEntity> findBySlug(String slug);
+
+	//----------------------------------------------------------------------------------------------------------------------
+	// 존재 여부 확인
+	//----------------------------------------------------------------------------------------------------------------------
 
 	// 모듈 코드 존재 여부 확인
 	boolean existsByCode(String code);

@@ -22,10 +22,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 
 // 관리자 수동 SMS 대량 발송 서비스
@@ -34,46 +32,52 @@ import java.util.UUID;
 @Service
 @Transactional
 @RequiredArgsConstructor
-public class ManualSmsService {
+public class ManualSmsService
+{
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 의존성 ]
+	//----------------------------------------------------------------------------------------------------------------------
 
-	// SMS 발송 오케스트레이션 서비스
-	private final SmsService             smsService;
+	private final SmsService            smsService;				// SMS 발송 오케스트레이션 서비스
+	private final SmsLogRepository      smsLogRepository;		// SMS 로그 리포지토리
+	private final UserRepository        userRepository;			// 사용자 리포지토리
+	private final GroupRepository       groupRepository;		// 그룹 리포지토리
+	private final GroupMemberRepository groupMemberRepository;	// 그룹 멤버 리포지토리
+	private final AuditLogService       auditLogService;		// 감사 로그 서비스
 
-	// SMS 로그 리포지토리
-	private final SmsLogRepository       smsLogRepository;
-
-	// 사용자 리포지토리
-	private final UserRepository         userRepository;
-
-	// 그룹 리포지토리
-	private final GroupRepository         groupRepository;
-
-	// 그룹 멤버 리포지토리
-	private final GroupMemberRepository  groupMemberRepository;
-
-	// 감사 로그 서비스
-	private final AuditLogService        auditLogService;
+	//======================================================================================================================
+	// [ 핵심 비즈니스 메서드 ]
+	//======================================================================================================================
 
 	// 수동 SMS 대량 발송
 	// adminPk: 발송 요청 관리자 PK
-	public SmsSendResultDto sendManualSms(String adminPk, ManualSmsRequestDto request) {
+	public SmsSendResultDto sendManualSms(String adminPk, ManualSmsRequestDto request)
+	{
+		//----------------------------------------------------------------------------------------------------------------------
 		// 수신 대상 유형에 따라 수신자 목록 해석
+		//----------------------------------------------------------------------------------------------------------------------
 		List<UserEntity> recipients = resolveRecipients(request);
 
 		// 수신자가 0명이면 에러
-		if (recipients.isEmpty()) {
+		if (recipients.isEmpty())
+		{
 			throw new BusinessException(SmsErrorCode.SMS_NO_RECIPIENTS);
 		}
 
+		//----------------------------------------------------------------------------------------------------------------------
 		// 배치 ID 생성 (대량 발송 묶음 추적용)
+		//----------------------------------------------------------------------------------------------------------------------
 		String batchId = UUID.randomUUID().toString();
 
 		// 발송 카운터
 		int successCount = 0;
 		int failCount    = 0;
 
+		//----------------------------------------------------------------------------------------------------------------------
 		// 개별 발송 루프
-		for (UserEntity recipient : recipients) {
+		//----------------------------------------------------------------------------------------------------------------------
+		for (UserEntity recipient : recipients)
+		{
 			// SMS 로그 엔티티 생성
 			SmsLogEntity smsLog = SmsLogEntity.createManual(
 				adminPk, recipient.getPhone(),
@@ -81,14 +85,17 @@ public class ManualSmsService {
 				null, batchId
 			);
 
-			try {
+			try
+			{
 				// SMS 발송
 				smsService.sendAndGetProviderCode(recipient.getPhone(), request.getMessage());
 
 				// 발송 성공 처리
 				smsLog.markSuccess();
 				successCount++;
-			} catch (Exception e) {
+			}
+			catch (Exception e)
+			{
 				// 발송 실패 처리 (다음 수신자 계속 발송)
 				smsLog.markFailed(e.getMessage());
 				failCount++;
@@ -102,7 +109,9 @@ public class ManualSmsService {
 		log.info("수동 SMS 대량 발송 완료: batchId={}, total={}, success={}, fail={}",
 			batchId, recipients.size(), successCount, failCount);
 
+		//----------------------------------------------------------------------------------------------------------------------
 		// 감사 로그: SMS 대량 발송 요약
+		//----------------------------------------------------------------------------------------------------------------------
 		auditLogService.logSuccess(adminPk, AuditAction.SMS_BULK_SEND, AuditTarget.SMS, null,
 			"수동 SMS 대량 발송", Map.of(
 				"batchId", batchId,
@@ -121,44 +130,10 @@ public class ManualSmsService {
 			.build();
 	}
 
-	// 수신 대상 유형에 따라 수신자 목록을 해석한다
-	// 중복 제거: 여러 그룹에 동시 소속된 사용자는 한 번만 발송
-	private List<UserEntity> resolveRecipients(ManualSmsRequestDto request) {
-		String recipientType = request.getRecipientType();
-
-		switch (recipientType) {
-			case "ALL":
-				// 전체 SMS 수신 가능 사용자
-				return userRepository.findSmsEligibleUsers();
-
-			case "GROUP":
-				// 지정 그룹의 멤버 중 SMS 수신 가능 사용자
-				if (request.getGroupIds() == null || request.getGroupIds().isEmpty()) {
-					throw new BusinessException(SmsErrorCode.SMS_NO_RECIPIENTS);
-				}
-				// 그룹 멤버 사용자 ID 조회 (중복 제거)
-				List<String> groupUserIds = groupMemberRepository
-					.findDistinctUserIdsByGroupIds(request.getGroupIds());
-				if (groupUserIds.isEmpty()) {
-					return List.of();
-				}
-				// SMS 수신 가능 필터 적용
-				return userRepository.findSmsEligibleUsersByIds(groupUserIds);
-
-			case "INDIVIDUAL":
-				// 개별 지정 사용자 중 SMS 수신 가능 사용자 (로그인 ID로 조회)
-				if (request.getUserIds() == null || request.getUserIds().isEmpty()) {
-					throw new BusinessException(SmsErrorCode.SMS_NO_RECIPIENTS);
-				}
-				return userRepository.findSmsEligibleUsersByLoginIds(request.getUserIds());
-
-			default:
-				throw new BusinessException(SmsErrorCode.SMS_INVALID_RECIPIENT_TYPE);
-		}
-	}
-
 	// 전체 SMS 수신 가능 회원 수 조회
-	public SmsRecipientCountDto getRecipientCount() {
+	public SmsRecipientCountDto getRecipientCount()
+	{
+		// SMS 수신 가능 사용자 카운트 조회
 		long count = userRepository.countSmsEligibleUsers();
 		return SmsRecipientCountDto.builder()
 			.totalCount(count)
@@ -166,19 +141,22 @@ public class ManualSmsService {
 	}
 
 	// 그룹별 SMS 수신 가능 회원 수 조회
-	public List<GroupRecipientsDto> getGroupRecipients() {
+	public List<GroupRecipientsDto> getGroupRecipients()
+	{
 		// 전체 그룹 조회
 		List<GroupEntity> groups = groupRepository.findAll();
 
 		List<GroupRecipientsDto> result = new ArrayList<>();
-		for (GroupEntity group : groups) {
+		for (GroupEntity group : groups)
+		{
 			// 그룹 멤버 사용자 ID 목록 조회
 			List<String> memberUserIds = groupMemberRepository
 				.findDistinctUserIdsByGroupIds(List.of(group.getId()));
 
 			// SMS 수신 가능 필터 적용 후 카운트
 			long recipientCount = 0;
-			if (!memberUserIds.isEmpty()) {
+			if (!memberUserIds.isEmpty())
+			{
 				recipientCount = userRepository.findSmsEligibleUsersByIds(memberUserIds).size();
 			}
 
@@ -191,5 +169,52 @@ public class ManualSmsService {
 		}
 
 		return result;
+	}
+
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 내부 헬퍼 메서드 ]
+	//----------------------------------------------------------------------------------------------------------------------
+
+	// 수신 대상 유형에 따라 수신자 목록을 해석한다
+	// 중복 제거: 여러 그룹에 동시 소속된 사용자는 한 번만 발송
+	private List<UserEntity> resolveRecipients(ManualSmsRequestDto request)
+	{
+		// 수신 대상 유형
+		String recipientType = request.getRecipientType();
+
+		switch (recipientType)
+		{
+			case "ALL":
+				// 전체 SMS 수신 가능 사용자
+				return userRepository.findSmsEligibleUsers();
+
+			case "GROUP":
+				// 지정 그룹의 멤버 중 SMS 수신 가능 사용자
+				if (request.getGroupIds() == null || request.getGroupIds().isEmpty())
+				{
+					throw new BusinessException(SmsErrorCode.SMS_NO_RECIPIENTS);
+				}
+				// 그룹 멤버 사용자 ID 조회 (중복 제거)
+				List<String> groupUserIds = groupMemberRepository
+					.findDistinctUserIdsByGroupIds(request.getGroupIds());
+				if (groupUserIds.isEmpty())
+				{
+					return List.of();
+				}
+				// SMS 수신 가능 필터 적용
+				return userRepository.findSmsEligibleUsersByIds(groupUserIds);
+
+			case "INDIVIDUAL":
+				// 개별 지정 사용자 중 SMS 수신 가능 사용자 (로그인 ID로 조회)
+				if (request.getUserIds() == null || request.getUserIds().isEmpty())
+				{
+					throw new BusinessException(SmsErrorCode.SMS_NO_RECIPIENTS);
+				}
+				return userRepository.findSmsEligibleUsersByLoginIds(request.getUserIds());
+
+			default:
+				// 알 수 없는 수신 대상 유형
+				throw new BusinessException(SmsErrorCode.SMS_INVALID_RECIPIENT_TYPE);
+		}
 	}
 }

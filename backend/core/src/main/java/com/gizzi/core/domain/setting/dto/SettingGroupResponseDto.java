@@ -8,11 +8,11 @@ import java.util.List;
 // 설정 그룹 응답 DTO — 그룹 이름 + 해당 그룹의 설정 목록
 @Getter
 @Builder
-public class SettingGroupResponseDto {
-
-	// 설정 그룹 이름 (예: "general", "signup", "auth")
-	private final String group;
-
-	// 그룹에 속한 설정 목록
-	private final List<SettingResponseDto> settings;
+public class SettingGroupResponseDto
+{
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 그룹 정보 ]
+	//----------------------------------------------------------------------------------------------------------------------
+	private final String                    group;		// 설정 그룹 이름 (예: "general", "signup", "auth")
+	private final List<SettingResponseDto>  settings;	// 그룹에 속한 설정 목록
 }

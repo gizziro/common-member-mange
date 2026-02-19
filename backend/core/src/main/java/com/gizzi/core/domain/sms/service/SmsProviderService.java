@@ -19,13 +19,22 @@ import java.util.List;
 @Service
 @Transactional(readOnly = true)
 @RequiredArgsConstructor
-public class SmsProviderService {
+public class SmsProviderService
+{
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 의존성 ]
+	//----------------------------------------------------------------------------------------------------------------------
 
-	// SMS 프로바이더 리포지토리
-	private final SmsProviderRepository smsProviderRepository;
+	private final SmsProviderRepository smsProviderRepository;	// SMS 프로바이더 리포지토리
+
+	//======================================================================================================================
+	// [ 핵심 비즈니스 메서드 ]
+	//======================================================================================================================
 
 	// 전체 프로바이더 목록 조회 (표시 순서 정렬)
-	public List<SmsProviderResponseDto> getAllProviders() {
+	public List<SmsProviderResponseDto> getAllProviders()
+	{
+		// 전체 프로바이더 조회 후 DTO 변환
 		return smsProviderRepository.findAllByOrderByDisplayOrder().stream()
 			.map(SmsProviderResponseDto::from)
 			.toList();
@@ -33,12 +42,17 @@ public class SmsProviderService {
 
 	// 프로바이더 설정 수정
 	@Transactional
-	public SmsProviderResponseDto updateProvider(String id, UpdateSmsProviderRequestDto request) {
+	public SmsProviderResponseDto updateProvider(String id, UpdateSmsProviderRequestDto request)
+	{
+		//----------------------------------------------------------------------------------------------------------------------
 		// PK로 프로바이더 조회 (없으면 예외)
+		//----------------------------------------------------------------------------------------------------------------------
 		SmsProviderEntity provider = smsProviderRepository.findById(id)
 			.orElseThrow(() -> new BusinessException(SmsErrorCode.SMS_PROVIDER_NOT_FOUND));
 
+		//----------------------------------------------------------------------------------------------------------------------
 		// 프로바이더 설정 업데이트
+		//----------------------------------------------------------------------------------------------------------------------
 		provider.update(
 			request.getApiKey(),
 			request.getApiSecret(),

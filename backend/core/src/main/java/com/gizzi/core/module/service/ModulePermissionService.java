@@ -42,39 +42,33 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class ModulePermissionService {
+public class ModulePermissionService
+{
 
-	// 모듈 인스턴스 리포지토리
-	private final ModuleInstanceRepository         instanceRepository;
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 의존성 ]
+	//----------------------------------------------------------------------------------------------------------------------
 
-	// 모듈 권한 정의 리포지토리
-	private final ModulePermissionRepository        permissionRepository;
+	private final ModuleInstanceRepository         instanceRepository;        // 모듈 인스턴스 리포지토리
+	private final ModulePermissionRepository        permissionRepository;      // 모듈 권한 정의 리포지토리
+	private final GroupModulePermissionRepository   groupPermissionRepository; // 그룹 모듈 권한 리포지토리
+	private final UserModulePermissionRepository    userPermissionRepository;  // 사용자 모듈 권한 리포지토리
+	private final GroupRepository                   groupRepository;           // 그룹 리포지토리
+	private final UserRepository                    userRepository;            // 사용자 리포지토리
+	private final GroupMemberRepository             groupMemberRepository;     // 그룹 멤버 리포지토리
+	private final ModuleRepository                  moduleRepository;          // 모듈 리포지토리
 
-	// 그룹 모듈 권한 리포지토리
-	private final GroupModulePermissionRepository   groupPermissionRepository;
-
-	// 사용자 모듈 권한 리포지토리
-	private final UserModulePermissionRepository    userPermissionRepository;
-
-	// 그룹 리포지토리
-	private final GroupRepository                   groupRepository;
-
-	// 사용자 리포지토리
-	private final UserRepository                    userRepository;
-
-	// 그룹 멤버 리포지토리
-	private final GroupMemberRepository             groupMemberRepository;
-
-	// 모듈 리포지토리
-	private final ModuleRepository                  moduleRepository;
-
-	// ─── 그룹 권한 관리 ───
+	//======================================================================================================================
+	// 그룹 권한 관리
+	//======================================================================================================================
 
 	// 인스턴스의 그룹별 권한 현황 조회
 	// 모든 그룹에 대해 해당 인스턴스에 부여된 권한 ID 목록을 반환한다
-	public List<InstancePermissionDto> getGroupPermissions(String instanceId) {
+	public List<InstancePermissionDto> getGroupPermissions(String instanceId)
+	{
 		// 인스턴스 존재 확인
-		if (!instanceRepository.existsById(instanceId)) {
+		if (!instanceRepository.existsById(instanceId))
+		{
 			throw new BusinessException(ModuleErrorCode.MODULE_INSTANCE_NOT_FOUND);
 		}
 
@@ -83,7 +77,8 @@ public class ModulePermissionService {
 
 		// 각 그룹별 부여된 권한 조회
 		List<InstancePermissionDto> result = new ArrayList<>();
-		for (GroupEntity group : allGroups) {
+		for (GroupEntity group : allGroups)
+		{
 			List<GroupModulePermissionEntity> groupPerms =
 					groupPermissionRepository.findByGroupIdAndModuleInstanceId(
 							group.getId(), instanceId);
@@ -105,13 +100,19 @@ public class ModulePermissionService {
 
 	// 그룹별 권한 일괄 설정 (기존 삭제 후 재설정)
 	@Transactional
-	public void setGroupPermissions(String instanceId, SetPermissionsRequestDto request) {
+	public void setGroupPermissions(String instanceId, SetPermissionsRequestDto request)
+	{
 		// 인스턴스 존재 확인
-		if (!instanceRepository.existsById(instanceId)) {
+		if (!instanceRepository.existsById(instanceId))
+		{
 			throw new BusinessException(ModuleErrorCode.MODULE_INSTANCE_NOT_FOUND);
 		}
 
 		String groupId = request.getGroupId();
+
+		//----------------------------------------------------------------------------------------------------------------------
+		// 기존 권한 삭제 후 새 권한 부여
+		//----------------------------------------------------------------------------------------------------------------------
 
 		// 기존 권한 전체 삭제
 		List<GroupModulePermissionEntity> existing =
@@ -119,7 +120,8 @@ public class ModulePermissionService {
 		groupPermissionRepository.deleteAll(existing);
 
 		// 새 권한 부여
-		for (String permissionId : request.getPermissionIds()) {
+		for (String permissionId : request.getPermissionIds())
+		{
 			GroupModulePermissionEntity entity = GroupModulePermissionEntity.create(
 					groupId, instanceId, permissionId
 			);
@@ -130,13 +132,17 @@ public class ModulePermissionService {
 				groupId, instanceId, request.getPermissionIds().size());
 	}
 
-	// ─── 사용자 권한 관리 ───
+	//======================================================================================================================
+	// 사용자 권한 관리
+	//======================================================================================================================
 
 	// 인스턴스의 개별 사용자 권한 현황 조회
 	// 직접 권한이 부여된 사용자만 반환한다
-	public List<UserInstancePermissionDto> getUserPermissions(String instanceId) {
+	public List<UserInstancePermissionDto> getUserPermissions(String instanceId)
+	{
 		// 인스턴스 존재 확인
-		if (!instanceRepository.existsById(instanceId)) {
+		if (!instanceRepository.existsById(instanceId))
+		{
 			throw new BusinessException(ModuleErrorCode.MODULE_INSTANCE_NOT_FOUND);
 		}
 
@@ -144,20 +150,27 @@ public class ModulePermissionService {
 		List<UserModulePermissionEntity> allPerms =
 				userPermissionRepository.findByModuleInstanceId(instanceId);
 
+		//----------------------------------------------------------------------------------------------------------------------
+		// 사용자별 권한 그룹핑 + DTO 변환
+		//----------------------------------------------------------------------------------------------------------------------
+
 		// 사용자별로 권한 그룹핑 (순서 보장용 LinkedHashMap)
 		Map<String, List<String>> userPermMap = new LinkedHashMap<>();
-		for (UserModulePermissionEntity perm : allPerms) {
+		for (UserModulePermissionEntity perm : allPerms)
+		{
 			userPermMap.computeIfAbsent(perm.getUserId(), k -> new ArrayList<>())
 					.add(perm.getModulePermissionId());
 		}
 
 		// 사용자 정보 조회 후 DTO 변환
 		List<UserInstancePermissionDto> result = new ArrayList<>();
-		for (Map.Entry<String, List<String>> entry : userPermMap.entrySet()) {
+		for (Map.Entry<String, List<String>> entry : userPermMap.entrySet())
+		{
 			String userPk = entry.getKey();
 			// 사용자 정보 조회
 			UserEntity user = userRepository.findById(userPk).orElse(null);
-			if (user == null) {
+			if (user == null)
+			{
 				continue;  // 삭제된 사용자는 건너뜀
 			}
 
@@ -174,13 +187,19 @@ public class ModulePermissionService {
 
 	// 사용자별 권한 일괄 설정 (기존 삭제 후 재설정)
 	@Transactional
-	public void setUserPermissions(String instanceId, SetUserPermissionsRequestDto request) {
+	public void setUserPermissions(String instanceId, SetUserPermissionsRequestDto request)
+	{
 		// 인스턴스 존재 확인
-		if (!instanceRepository.existsById(instanceId)) {
+		if (!instanceRepository.existsById(instanceId))
+		{
 			throw new BusinessException(ModuleErrorCode.MODULE_INSTANCE_NOT_FOUND);
 		}
 
 		String userId = request.getUserId();
+
+		//----------------------------------------------------------------------------------------------------------------------
+		// 기존 권한 삭제 후 새 권한 부여
+		//----------------------------------------------------------------------------------------------------------------------
 
 		// 기존 권한 전체 삭제
 		List<UserModulePermissionEntity> existing =
@@ -188,7 +207,8 @@ public class ModulePermissionService {
 		userPermissionRepository.deleteAll(existing);
 
 		// 새 권한 부여
-		for (String permissionId : request.getPermissionIds()) {
+		for (String permissionId : request.getPermissionIds())
+		{
 			UserModulePermissionEntity entity = UserModulePermissionEntity.create(
 					userId, instanceId, permissionId
 			);
@@ -199,34 +219,47 @@ public class ModulePermissionService {
 				userId, instanceId, request.getPermissionIds().size());
 	}
 
-	// ─── 권한 요약 (읽기 전용) ───
+	//======================================================================================================================
+	// 권한 요약 — 사용자
+	//======================================================================================================================
 
 	// 사용자의 전체 모듈 권한 요약 조회
 	// 직접 부여된 권한 + 그룹을 통한 권한을 인스턴스별로 집계한다
-	public List<PermissionSummaryDto> getUserPermissionSummary(String userPk) {
+	public List<PermissionSummaryDto> getUserPermissionSummary(String userPk)
+	{
 		List<PermissionSummaryDto> result = new ArrayList<>();
 
+		//----------------------------------------------------------------------------------------------------------------------
 		// 1. 직접 부여된 권한 조회
+		//----------------------------------------------------------------------------------------------------------------------
+
 		List<UserModulePermissionEntity> directPerms = userPermissionRepository.findByUserId(userPk);
 		// 인스턴스별로 그룹핑
 		Map<String, List<String>> directPermsByInstance = new LinkedHashMap<>();
-		for (UserModulePermissionEntity perm : directPerms) {
+		for (UserModulePermissionEntity perm : directPerms)
+		{
 			directPermsByInstance.computeIfAbsent(perm.getModuleInstanceId(), k -> new ArrayList<>())
 					.add(perm.getModulePermissionId());
 		}
 
 		// 직접 권한 → PermissionSummaryDto 변환
-		for (Map.Entry<String, List<String>> entry : directPermsByInstance.entrySet()) {
+		for (Map.Entry<String, List<String>> entry : directPermsByInstance.entrySet())
+		{
 			PermissionSummaryDto summary = buildPermissionSummary(
 					entry.getKey(), entry.getValue(), "DIRECT");
-			if (summary != null) {
+			if (summary != null)
+			{
 				result.add(summary);
 			}
 		}
 
+		//----------------------------------------------------------------------------------------------------------------------
 		// 2. 소속 그룹을 통한 권한 조회
+		//----------------------------------------------------------------------------------------------------------------------
+
 		List<GroupMemberEntity> memberships = groupMemberRepository.findByUserId(userPk);
-		for (GroupMemberEntity membership : memberships) {
+		for (GroupMemberEntity membership : memberships)
+		{
 			String groupId = membership.getGroupId();
 			// 그룹명 조회
 			GroupEntity group = groupRepository.findById(groupId).orElse(null);
@@ -238,17 +271,20 @@ public class ModulePermissionService {
 
 			// 인스턴스별로 그룹핑
 			Map<String, List<String>> groupPermsByInstance = new LinkedHashMap<>();
-			for (GroupModulePermissionEntity perm : groupPerms) {
+			for (GroupModulePermissionEntity perm : groupPerms)
+			{
 				groupPermsByInstance.computeIfAbsent(perm.getModuleInstanceId(), k -> new ArrayList<>())
 						.add(perm.getModulePermissionId());
 			}
 
 			// 그룹 권한 → PermissionSummaryDto 변환
 			String source = "GROUP:" + group.getName();
-			for (Map.Entry<String, List<String>> entry : groupPermsByInstance.entrySet()) {
+			for (Map.Entry<String, List<String>> entry : groupPermsByInstance.entrySet())
+			{
 				PermissionSummaryDto summary = buildPermissionSummary(
 						entry.getKey(), entry.getValue(), source);
-				if (summary != null) {
+				if (summary != null)
+				{
 					result.add(summary);
 				}
 			}
@@ -257,8 +293,13 @@ public class ModulePermissionService {
 		return result;
 	}
 
+	//======================================================================================================================
+	// 권한 요약 — 그룹
+	//======================================================================================================================
+
 	// 그룹의 전체 모듈 권한 요약 조회
-	public List<PermissionSummaryDto> getGroupPermissionSummary(String groupId) {
+	public List<PermissionSummaryDto> getGroupPermissionSummary(String groupId)
+	{
 		List<PermissionSummaryDto> result = new ArrayList<>();
 
 		// 그룹의 전체 인스턴스 권한 조회
@@ -267,16 +308,19 @@ public class ModulePermissionService {
 
 		// 인스턴스별로 그룹핑
 		Map<String, List<String>> permsByInstance = new LinkedHashMap<>();
-		for (GroupModulePermissionEntity perm : groupPerms) {
+		for (GroupModulePermissionEntity perm : groupPerms)
+		{
 			permsByInstance.computeIfAbsent(perm.getModuleInstanceId(), k -> new ArrayList<>())
 					.add(perm.getModulePermissionId());
 		}
 
 		// 인스턴스별 PermissionSummaryDto 변환
-		for (Map.Entry<String, List<String>> entry : permsByInstance.entrySet()) {
+		for (Map.Entry<String, List<String>> entry : permsByInstance.entrySet())
+		{
 			PermissionSummaryDto summary = buildPermissionSummary(
 					entry.getKey(), entry.getValue(), "DIRECT");
-			if (summary != null) {
+			if (summary != null)
+			{
 				result.add(summary);
 			}
 		}
@@ -284,37 +328,45 @@ public class ModulePermissionService {
 		return result;
 	}
 
-	// ─── 공통 메서드 ───
+	//======================================================================================================================
+	// 공통 조회 메서드
+	//======================================================================================================================
 
 	// 해당 모듈의 사용 가능한 권한 목록 조회
-	public List<ModulePermissionEntity> getAvailablePermissions(String moduleCode) {
+	public List<ModulePermissionEntity> getAvailablePermissions(String moduleCode)
+	{
 		return permissionRepository.findByModuleCode(moduleCode);
 	}
 
 	// 인스턴스의 모듈 코드 조회
-	public String getModuleCode(String instanceId) {
+	public String getModuleCode(String instanceId)
+	{
 		return instanceRepository.findById(instanceId)
 				.map(ModuleInstanceEntity::getModuleCode)
 				.orElseThrow(() -> new BusinessException(ModuleErrorCode.MODULE_INSTANCE_NOT_FOUND));
 	}
 
-	// ─── 헬퍼 메서드 ───
+	//----------------------------------------------------------------------------------------------------------------------
+	// 헬퍼 메서드
+	//----------------------------------------------------------------------------------------------------------------------
 
 	// 인스턴스 ID + 권한 ID 목록 → PermissionSummaryDto 빌드
 	private PermissionSummaryDto buildPermissionSummary(String instanceId,
 	                                                   List<String> permissionIds,
-	                                                   String source) {
+	                                                   String source)
+	{
 		// 인스턴스 조회
 		ModuleInstanceEntity instance = instanceRepository.findById(instanceId).orElse(null);
 		if (instance == null) return null;
 
 		// 모듈 정보 조회
-		ModuleEntity module = moduleRepository.findByCode(instance.getModuleCode()).orElse(null);
-		String moduleName = (module != null) ? module.getName() : instance.getModuleCode();
+		ModuleEntity module     = moduleRepository.findByCode(instance.getModuleCode()).orElse(null);
+		String       moduleName = (module != null) ? module.getName() : instance.getModuleCode();
 
 		// 권한 정의 조회 후 PermissionItemDto 변환
 		List<PermissionItemDto> permissionItems = new ArrayList<>();
-		for (String permId : permissionIds) {
+		for (String permId : permissionIds)
+		{
 			ModulePermissionEntity permEntity = permissionRepository.findById(permId).orElse(null);
 			if (permEntity == null) continue;
 

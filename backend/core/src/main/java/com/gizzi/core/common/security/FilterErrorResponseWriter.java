@@ -13,16 +13,21 @@ import java.io.IOException;
 // GlobalExceptionHandler(@ControllerAdvice)는 컨트롤러 이후에서만 동작하므로
 // 필터 레벨 에러는 이 유틸리티를 통해 일관된 JSON 응답을 보장한다
 @Component
-public class FilterErrorResponseWriter {
-
-	// ApiResponseDto 에러 응답 JSON 템플릿
+public class FilterErrorResponseWriter
+{
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ JSON 템플릿 ]
+	//----------------------------------------------------------------------------------------------------------------------
 	// ApiResponseDto의 @JsonInclude(NON_NULL) 동작과 동일: success=false, data 필드 제외
 	private static final String ERROR_JSON_TEMPLATE =
 		"{\"success\":false,\"error\":{\"code\":\"%s\",\"message\":\"%s\",\"description\":\"%s\"}}";
 
+	//======================================================================================================================
 	// ErrorCode 기반 에러 응답 작성
 	// HTTP 상태 코드는 ErrorCode.getHttpStatus()에서 자동 추출
-	public void writeError(HttpServletResponse response, ErrorCode errorCode) throws IOException {
+	//======================================================================================================================
+	public void writeError(HttpServletResponse response, ErrorCode errorCode) throws IOException
+	{
 		// HTTP 상태 코드 설정 (ErrorCode에 정의된 값 사용)
 		response.setStatus(errorCode.getHttpStatus().value());
 
@@ -36,12 +41,19 @@ public class FilterErrorResponseWriter {
 			escapeJson(errorCode.getMessage()),
 			escapeJson(errorCode.getDescription()));
 
+		// 응답 본문에 JSON 문자열 작성
 		response.getWriter().write(json);
 	}
 
+	//----------------------------------------------------------------------------------------------------------------------
 	// JSON 문자열 내 특수문자 이스케이프 (인젝션 방지)
-	private static String escapeJson(String value) {
+	//----------------------------------------------------------------------------------------------------------------------
+	private static String escapeJson(String value)
+	{
+		// null 값은 빈 문자열로 처리
 		if (value == null) return "";
+
+		// 백슬래시, 따옴표, 줄바꿈, 캐리지리턴, 탭 이스케이프
 		return value
 			.replace("\\", "\\\\")
 			.replace("\"", "\\\"")

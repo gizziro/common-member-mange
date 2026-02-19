@@ -19,7 +19,12 @@ import java.time.LocalDateTime;
 @IdClass(UserModulePermissionId.class)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class UserModulePermissionEntity {
+public class UserModulePermissionEntity
+{
+
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 복합 PK ]
+	//----------------------------------------------------------------------------------------------------------------------
 
 	// 사용자 PK
 	@Id
@@ -36,13 +41,22 @@ public class UserModulePermissionEntity {
 	@Column(name = "module_permission_id", length = 36)
 	private String modulePermissionId;
 
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 감사 ]
+	//----------------------------------------------------------------------------------------------------------------------
+
 	// 권한 부여 일시
 	@Column(name = "granted_at", nullable = false)
 	private LocalDateTime grantedAt;
 
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 정적 팩토리 메서드 ]
+	//----------------------------------------------------------------------------------------------------------------------
+
 	// 사용자 모듈 권한 생성 팩토리 메서드
 	public static UserModulePermissionEntity create(String userId, String moduleInstanceId,
-	                                                String modulePermissionId) {
+	                                                String modulePermissionId)
+	{
 		UserModulePermissionEntity entity = new UserModulePermissionEntity();
 		entity.userId             = userId;
 		entity.moduleInstanceId   = moduleInstanceId;

@@ -20,32 +20,53 @@ import java.util.UUID;
 // 인증: HMAC-SHA256 서명 기반 Authorization 헤더
 @Slf4j
 @Component
-public class SolapiSender implements SmsProviderSender {
+public class SolapiSender implements SmsProviderSender
+{
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 상수 ]
+	//----------------------------------------------------------------------------------------------------------------------
 
-	// SOLAPI 메시지 발송 API 엔드포인트
-	private static final String SOLAPI_API_URL = "https://api.solapi.com/messages/v4/send";
+	private static final String SOLAPI_API_URL = "https://api.solapi.com/messages/v4/send";	// SOLAPI 메시지 발송 API 엔드포인트
+	private static final String HMAC_SHA256    = "HmacSHA256";								// HMAC 알고리즘
 
-	// HMAC 알고리즘
-	private static final String HMAC_SHA256    = "HmacSHA256";
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 의존성 ]
+	//----------------------------------------------------------------------------------------------------------------------
 
 	// RestClient 인스턴스 (Spring Boot 4.0 권장)
 	private final RestClient restClient = RestClient.create();
 
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 인터페이스 구현 ]
+	//----------------------------------------------------------------------------------------------------------------------
+
 	@Override
-	public String getProviderCode() {
+	public String getProviderCode()
+	{
 		return "solapi";
 	}
 
+	//======================================================================================================================
+	// [ 핵심 비즈니스 메서드 ]
+	//======================================================================================================================
+
 	// SOLAPI REST API를 호출하여 SMS 발송
 	@Override
-	public void send(SmsProviderEntity provider, String to, String message) {
+	public void send(SmsProviderEntity provider, String to, String message)
+	{
+		//----------------------------------------------------------------------------------------------------------------------
 		// API Key, Secret 미설정 시 에러
-		if (provider.getApiKey() == null || provider.getApiSecret() == null) {
+		//----------------------------------------------------------------------------------------------------------------------
+		if (provider.getApiKey() == null || provider.getApiSecret() == null)
+		{
 			throw new BusinessException(SmsErrorCode.SMS_SEND_FAILED);
 		}
 
-		try {
+		try
+		{
+			//----------------------------------------------------------------------------------------------------------------------
 			// HMAC-SHA256 서명 생성 (date는 ISO 8601 형식 필수)
+			//----------------------------------------------------------------------------------------------------------------------
 			String date      = Instant.now().toString();
 			String salt      = UUID.randomUUID().toString();
 			String signature = generateSignature(provider.getApiSecret(), date, salt);
@@ -56,14 +77,18 @@ public class SolapiSender implements SmsProviderSender {
 				+ ", salt=" + salt
 				+ ", signature=" + signature;
 
+			//----------------------------------------------------------------------------------------------------------------------
 			// 요청 바디 JSON (수동 빌더 — ObjectMapper 미사용)
+			//----------------------------------------------------------------------------------------------------------------------
 			// JSON 특수문자 이스케이프 (줄바꿈, 탭, 따옴표, 백슬래시 등)
 			String requestBody = String.format(
 				"{\"message\":{\"to\":\"%s\",\"from\":\"%s\",\"text\":\"%s\"}}",
 				escapeJson(to), escapeJson(provider.getSenderNumber()), escapeJson(message)
 			);
 
+			//----------------------------------------------------------------------------------------------------------------------
 			// SOLAPI API 호출
+			//----------------------------------------------------------------------------------------------------------------------
 			String response = restClient.post()
 				.uri(SOLAPI_API_URL)
 				.header("Authorization", authorization)
@@ -73,36 +98,51 @@ public class SolapiSender implements SmsProviderSender {
 				.body(String.class);
 
 			log.info("SOLAPI SMS 발송 성공: to={}, response={}", to, response);
-
-		} catch (BusinessException e) {
+		}
+		catch (BusinessException e)
+		{
 			throw e;
-		} catch (HttpStatusCodeException e) {
+		}
+		catch (HttpStatusCodeException e)
+		{
 			// SOLAPI API가 HTTP 에러 응답을 반환한 경우 — 상세 에러 메시지 추출
-			String responseBody = e.getResponseBodyAsString();
+			String responseBody  = e.getResponseBodyAsString();
 			String detailMessage = extractSolapiErrorMessage(responseBody);
 			log.error("SOLAPI SMS 발송 실패: to={}, status={}, body={}", to, e.getStatusCode(), responseBody);
 			throw new BusinessException(SmsErrorCode.SMS_SEND_FAILED, detailMessage);
-		} catch (Exception e) {
+		}
+		catch (Exception e)
+		{
 			log.error("SOLAPI SMS 발송 실패: to={}, error={}", to, e.getMessage(), e);
 			throw new BusinessException(SmsErrorCode.SMS_SEND_FAILED);
 		}
 	}
 
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 내부 헬퍼 메서드 ]
+	//----------------------------------------------------------------------------------------------------------------------
+
 	// SOLAPI 응답 바디에서 에러 메시지 추출 (ObjectMapper 미사용, 수동 파싱)
 	// 응답 예시: {"errorCode":"FailedToAddMessage","errorMessage":"발신번호 미등록"}
-	private String extractSolapiErrorMessage(String responseBody) {
-		try {
+	private String extractSolapiErrorMessage(String responseBody)
+	{
+		try
+		{
 			// "errorMessage":"..." 패턴에서 메시지 추출
 			String marker = "\"errorMessage\":\"";
-			int start = responseBody.indexOf(marker);
-			if (start >= 0) {
+			int start     = responseBody.indexOf(marker);
+			if (start >= 0)
+			{
 				start += marker.length();
 				int end = responseBody.indexOf("\"", start);
-				if (end > start) {
+				if (end > start)
+				{
 					return "SOLAPI: " + responseBody.substring(start, end);
 				}
 			}
-		} catch (Exception ignored) {
+		}
+		catch (Exception ignored)
+		{
 			// 파싱 실패 시 기본 메시지 사용
 		}
 		// 파싱 실패 시 원본 응답 바디 포함
@@ -111,7 +151,8 @@ public class SolapiSender implements SmsProviderSender {
 
 	// JSON 문자열 값에 포함될 특수문자를 이스케이프한다
 	// 줄바꿈, 탭, 따옴표, 백슬래시 등을 JSON 호환 형태로 변환
-	private String escapeJson(String value) {
+	private String escapeJson(String value)
+	{
 		if (value == null) return "";
 		return value
 			.replace("\\", "\\\\")   // 백슬래시 (가장 먼저)
@@ -122,8 +163,10 @@ public class SolapiSender implements SmsProviderSender {
 	}
 
 	// HMAC-SHA256 서명 생성 (date + salt를 Secret Key로 서명)
-	private String generateSignature(String apiSecret, String date, String salt) {
-		try {
+	private String generateSignature(String apiSecret, String date, String salt)
+	{
+		try
+		{
 			// 서명 대상 문자열: date + salt
 			String data = date + salt;
 			// HMAC-SHA256 Mac 인스턴스 생성
@@ -136,7 +179,9 @@ public class SolapiSender implements SmsProviderSender {
 			// 서명 생성 후 16진수 문자열로 변환
 			byte[] hash = mac.doFinal(data.getBytes(StandardCharsets.UTF_8));
 			return HexFormat.of().formatHex(hash);
-		} catch (Exception e) {
+		}
+		catch (Exception e)
+		{
 			log.error("HMAC 서명 생성 실패: {}", e.getMessage(), e);
 			throw new BusinessException(SmsErrorCode.SMS_SEND_FAILED);
 		}

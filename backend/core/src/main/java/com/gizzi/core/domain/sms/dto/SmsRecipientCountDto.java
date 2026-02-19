@@ -4,10 +4,14 @@ import lombok.Builder;
 import lombok.Getter;
 
 // SMS 수신 가능 회원 수 응답 DTO
+// 전체 수신 가능 회원 수를 담는 불변 객체
 @Getter
 @Builder
-public class SmsRecipientCountDto {
+public class SmsRecipientCountDto
+{
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 필드 ]
+	//----------------------------------------------------------------------------------------------------------------------
 
-	// 전체 수신 가능 회원 수
-	private final long totalCount;
+	private final long totalCount;		// 전체 수신 가능 회원 수
 }

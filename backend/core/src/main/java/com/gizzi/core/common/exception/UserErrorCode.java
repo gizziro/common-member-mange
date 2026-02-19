@@ -8,38 +8,36 @@ import org.springframework.http.HttpStatus;
 // 회원가입, 프로필 등 사용자 도메인에서 발생하는 비즈니스 에러
 @Getter
 @AllArgsConstructor
-public enum UserErrorCode implements ErrorCode {
+public enum UserErrorCode implements ErrorCode
+{
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 중복 검증 에러 ]
+	//----------------------------------------------------------------------------------------------------------------------
+	DUPLICATE_USER_ID     ("USER_DUPLICATE_ID",       "이미 사용 중인 아이디입니다",                    "userId 중복 검증 실패",                   HttpStatus.CONFLICT),		// 아이디 중복
+	DUPLICATE_EMAIL       ("USER_DUPLICATE_EMAIL",    "이미 사용 중인 이메일입니다",                    "email 중복 검증 실패",                    HttpStatus.CONFLICT),		// 이메일 중복
 
-	// 아이디 중복 (회원가입 시 userId 중복 검증 실패)
-	DUPLICATE_USER_ID("USER_DUPLICATE_ID",    "이미 사용 중인 아이디입니다", "userId 중복 검증 실패",          HttpStatus.CONFLICT),
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 사용자 조회/상태 에러 ]
+	//----------------------------------------------------------------------------------------------------------------------
+	USER_NOT_FOUND        ("USER_NOT_FOUND",          "사용자를 찾을 수 없습니다",                      "PK 또는 userId로 조회 실패",              HttpStatus.NOT_FOUND),		// 사용자 조회 실패
+	USER_NOT_LOCKED       ("USER_NOT_LOCKED",         "잠금 상태가 아닌 계정입니다",                    "잠금 해제 대상이 아닌 사용자",             HttpStatus.BAD_REQUEST),	// 잠금 해제 대상 아님
 
-	// 이메일 중복 (회원가입 시 email 중복 검증 실패)
-	DUPLICATE_EMAIL  ("USER_DUPLICATE_EMAIL", "이미 사용 중인 이메일입니다", "email 중복 검증 실패",           HttpStatus.CONFLICT),
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 삭제 보호 에러 ]
+	//----------------------------------------------------------------------------------------------------------------------
+	SELF_DELETE           ("USER_SELF_DELETE",        "자기 자신은 삭제할 수 없습니다",                  "로그인한 사용자 본인 삭제 시도",           HttpStatus.BAD_REQUEST),	// 자기 삭제 방지
+	ADMIN_USER_UNDELETABLE("USER_ADMIN_UNDELETABLE",  "관리자 그룹 소속 사용자는 삭제할 수 없습니다",      "administrator 그룹 소속 사용자 삭제 시도", HttpStatus.BAD_REQUEST),	// 관리자 삭제 방지
 
-	// 사용자 조회 실패 (PK 또는 userId로 조회 시 존재하지 않음)
-	USER_NOT_FOUND   ("USER_NOT_FOUND",       "사용자를 찾을 수 없습니다",   "PK 또는 userId로 조회 실패",    HttpStatus.NOT_FOUND),
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 회원가입 에러 ]
+	//----------------------------------------------------------------------------------------------------------------------
+	SIGNUP_DISABLED       ("USER_SIGNUP_DISABLED",    "회원가입이 비활성화되어 있습니다",                  "시스템 설정에 의한 회원가입 차단",          HttpStatus.FORBIDDEN);		// 회원가입 비활성화
 
-	// 잠금 상태가 아닌 계정에 대한 잠금 해제 시도
-	USER_NOT_LOCKED  ("USER_NOT_LOCKED",      "잠금 상태가 아닌 계정입니다", "잠금 해제 대상이 아닌 사용자",  HttpStatus.BAD_REQUEST),
-
-	// 자기 자신 삭제 시도 방지
-	SELF_DELETE      ("USER_SELF_DELETE",     "자기 자신은 삭제할 수 없습니다",          "로그인한 사용자 본인 삭제 시도",          HttpStatus.BAD_REQUEST),
-
-	// 관리자 그룹 소속 사용자 삭제 시도 방지
-	ADMIN_USER_UNDELETABLE("USER_ADMIN_UNDELETABLE", "관리자 그룹 소속 사용자는 삭제할 수 없습니다", "administrator 그룹 소속 사용자 삭제 시도", HttpStatus.BAD_REQUEST),
-
-	// 회원가입 비활성화 (시스템 설정 signup.enabled=false)
-	SIGNUP_DISABLED       ("USER_SIGNUP_DISABLED",    "회원가입이 비활성화되어 있습니다",             "시스템 설정에 의한 회원가입 차단",          HttpStatus.FORBIDDEN);
-
-	// 에러 코드 문자열 (예: "USER_DUPLICATE_ID")
-	private final String     code;
-
-	// 사용자에게 표시할 에러 메시지
-	private final String     message;
-
-	// 개발자용 상세 설명 (로깅/디버깅 용도)
-	private final String     description;
-
-	// HTTP 상태 코드
-	private final HttpStatus httpStatus;
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 필드 ]
+	//----------------------------------------------------------------------------------------------------------------------
+	private final String     code;			// 에러 코드 문자열 (예: "USER_DUPLICATE_ID")
+	private final String     message;		// 사용자에게 표시할 에러 메시지
+	private final String     description;	// 개발자용 상세 설명 (로깅/디버깅 용도)
+	private final HttpStatus httpStatus;	// HTTP 상태 코드
 }

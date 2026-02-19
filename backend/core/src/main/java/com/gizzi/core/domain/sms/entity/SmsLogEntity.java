@@ -18,12 +18,20 @@ import java.util.UUID;
 @Table(name = "tb_sms_logs")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class SmsLogEntity {
+public class SmsLogEntity
+{
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ PK ]
+	//----------------------------------------------------------------------------------------------------------------------
 
 	// SMS 로그 PK (UUID)
 	@Id
 	@Column(name = "id", length = 36)
 	private String id;
+
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 발송 정보 ]
+	//----------------------------------------------------------------------------------------------------------------------
 
 	// 발송 유형 (MANUAL: 관리자 수동 / AUTO: 시스템 자동)
 	@Column(name = "send_type", nullable = false, length = 20)
@@ -32,6 +40,10 @@ public class SmsLogEntity {
 	// AUTO 전용: 트리거 유형 (PASSWORD_RESET 등)
 	@Column(name = "trigger_type", length = 50)
 	private String triggerType;
+
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 발송자/수신자 ]
+	//----------------------------------------------------------------------------------------------------------------------
 
 	// 발송자(관리자) PK (AUTO 발송 시 null 가능)
 	@Column(name = "sender_user_id", length = 36)
@@ -45,6 +57,10 @@ public class SmsLogEntity {
 	@Column(name = "recipient_user_id", length = 36)
 	private String recipientUserId;
 
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 메시지/프로바이더 ]
+	//----------------------------------------------------------------------------------------------------------------------
+
 	// 메시지 내용
 	@Column(name = "message", nullable = false, columnDefinition = "TEXT")
 	private String message;
@@ -52,6 +68,10 @@ public class SmsLogEntity {
 	// 사용 프로바이더 코드
 	@Column(name = "provider_code", length = 50)
 	private String providerCode;
+
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 상태/에러 ]
+	//----------------------------------------------------------------------------------------------------------------------
 
 	// 발송 상태 (PENDING / SUCCESS / FAILED)
 	@Column(name = "send_status", nullable = false, length = 20)
@@ -61,6 +81,10 @@ public class SmsLogEntity {
 	@Column(name = "error_message", length = 500)
 	private String errorMessage;
 
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 배치/타임스탬프 ]
+	//----------------------------------------------------------------------------------------------------------------------
+
 	// 대량 발송 묶음 ID
 	@Column(name = "batch_id", length = 36)
 	private String batchId;
@@ -69,56 +93,79 @@ public class SmsLogEntity {
 	@Column(name = "created_at", nullable = false, updatable = false)
 	private LocalDateTime createdAt;
 
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ JPA 콜백 ]
+	//----------------------------------------------------------------------------------------------------------------------
+
 	// 영속화 직전 UUID + 생성 일시 자동 설정
 	@PrePersist
-	protected void onCreate() {
-		if (this.id == null) {
+	protected void onCreate()
+	{
+		// PK가 없으면 UUID 자동 생성
+		if (this.id == null)
+		{
 			this.id = UUID.randomUUID().toString();
 		}
-		if (this.createdAt == null) {
+		// 생성 일시가 없으면 현재 시간 설정
+		if (this.createdAt == null)
+		{
 			this.createdAt = LocalDateTime.now();
 		}
 	}
 
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 정적 팩토리 메서드 ]
+	//----------------------------------------------------------------------------------------------------------------------
+
 	// 수동 발송 SMS 로그 생성 팩토리 메서드
 	public static SmsLogEntity createManual(String senderUserId, String recipientPhone,
 	                                        String recipientUserId, String message,
-	                                        String providerCode, String batchId) {
-		SmsLogEntity entity    = new SmsLogEntity();
-		entity.sendType        = "MANUAL";
-		entity.senderUserId    = senderUserId;
-		entity.recipientPhone  = recipientPhone;
-		entity.recipientUserId = recipientUserId;
-		entity.message         = message;
-		entity.providerCode    = providerCode;
-		entity.sendStatus      = "PENDING";
-		entity.batchId         = batchId;
+	                                        String providerCode, String batchId)
+	{
+		// 새 엔티티 생성 후 각 필드 직접 할당
+		SmsLogEntity entity		= new SmsLogEntity();
+		entity.sendType			= "MANUAL";
+		entity.senderUserId		= senderUserId;
+		entity.recipientPhone	= recipientPhone;
+		entity.recipientUserId	= recipientUserId;
+		entity.message			= message;
+		entity.providerCode		= providerCode;
+		entity.sendStatus		= "PENDING";
+		entity.batchId			= batchId;
 		return entity;
 	}
 
 	// 자동 발송 SMS 로그 생성 팩토리 메서드
 	public static SmsLogEntity createAuto(String triggerType, String senderUserId,
 	                                      String recipientPhone, String recipientUserId,
-	                                      String message, String providerCode) {
-		SmsLogEntity entity    = new SmsLogEntity();
-		entity.sendType        = "AUTO";
-		entity.triggerType     = triggerType;
-		entity.senderUserId    = senderUserId;
-		entity.recipientPhone  = recipientPhone;
-		entity.recipientUserId = recipientUserId;
-		entity.message         = message;
-		entity.providerCode    = providerCode;
-		entity.sendStatus      = "PENDING";
+	                                      String message, String providerCode)
+	{
+		// 새 엔티티 생성 후 각 필드 직접 할당
+		SmsLogEntity entity		= new SmsLogEntity();
+		entity.sendType			= "AUTO";
+		entity.triggerType		= triggerType;
+		entity.senderUserId		= senderUserId;
+		entity.recipientPhone	= recipientPhone;
+		entity.recipientUserId	= recipientUserId;
+		entity.message			= message;
+		entity.providerCode		= providerCode;
+		entity.sendStatus		= "PENDING";
 		return entity;
 	}
 
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 비즈니스 메서드 ]
+	//----------------------------------------------------------------------------------------------------------------------
+
 	// 발송 성공 처리
-	public void markSuccess() {
+	public void markSuccess()
+	{
 		this.sendStatus = "SUCCESS";
 	}
 
 	// 발송 실패 처리
-	public void markFailed(String errorMessage) {
+	public void markFailed(String errorMessage)
+	{
 		this.sendStatus   = "FAILED";
 		this.errorMessage = errorMessage;
 	}

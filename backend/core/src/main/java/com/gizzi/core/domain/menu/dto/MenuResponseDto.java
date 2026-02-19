@@ -12,41 +12,30 @@ import java.util.List;
 @Getter
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class MenuResponseDto {
+public class MenuResponseDto
+{
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 메뉴 기본 정보 ]
+	//----------------------------------------------------------------------------------------------------------------------
+	private final String	id;					// 메뉴 PK
+	private final String	name;				// 메뉴 표시명
+	private final String	icon;				// 아이콘 식별자
+	private final String	menuType;			// 메뉴 유형 (MODULE / LINK / SEPARATOR)
 
-	// 메뉴 PK
-	private final String id;
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ URL 및 경로 ]
+	//----------------------------------------------------------------------------------------------------------------------
+	private final String	url;				// URL (MODULE: slug 조합, LINK: customUrl, SEPARATOR: null)
+	private final String	moduleInstanceId;	// 모듈 인스턴스 ID (MODULE 타입에서만, 관리자 편집용)
+	private final String	customUrl;			// 커스텀 URL (LINK 타입에서만, 관리자 편집용)
+	private final String	aliasPath;			// 외부 단축 경로 (예: "test", "free")
+	private final String	contentPath;		// SINGLE 모듈 콘텐츠 경로 (예: "test" → /page/test)
 
-	// 메뉴 표시명
-	private final String name;
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 표시 및 트리 구조 ]
+	//----------------------------------------------------------------------------------------------------------------------
+	private final Integer	sortOrder;			// 정렬 순서
+	private final Boolean	isVisible;			// 가시성 여부
 
-	// 아이콘 식별자
-	private final String icon;
-
-	// 메뉴 유형 (MODULE / LINK / SEPARATOR)
-	private final String menuType;
-
-	// URL (MODULE: slug 조합, LINK: customUrl, SEPARATOR: null)
-	private final String url;
-
-	// 모듈 인스턴스 ID (MODULE 타입에서만, 관리자 편집용)
-	private final String moduleInstanceId;
-
-	// 커스텀 URL (LINK 타입에서만, 관리자 편집용)
-	private final String customUrl;
-
-	// 외부 단축 경로 (예: "test", "free")
-	private final String aliasPath;
-
-	// SINGLE 모듈 콘텐츠 경로 (예: "test" → /page/test)
-	private final String contentPath;
-
-	// 정렬 순서
-	private final Integer sortOrder;
-
-	// 가시성 여부
-	private final Boolean isVisible;
-
-	// 하위 메뉴 (트리 구조)
-	private final List<MenuResponseDto> children;
+	private final List<MenuResponseDto> children;	// 하위 메뉴 (트리 구조)
 }

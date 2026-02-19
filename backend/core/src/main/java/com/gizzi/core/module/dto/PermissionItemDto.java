@@ -9,14 +9,14 @@ import lombok.Getter;
 @Getter
 @Builder
 @AllArgsConstructor
-public class PermissionItemDto {
+public class PermissionItemDto
+{
 
-	// 리소스명 (예: "page", "admin")
-	private final String resource;
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 필드 ]
+	//----------------------------------------------------------------------------------------------------------------------
 
-	// 액션명 (예: "read", "write", "access")
-	private final String action;
-
-	// 권한 표시명 (예: "페이지 읽기", "관리 패널 조회")
-	private final String name;
+	private final String resource;   // 리소스명 (예: "page", "admin")
+	private final String action;     // 액션명 (예: "read", "write", "access")
+	private final String name;       // 권한 표시명 (예: "페이지 읽기", "관리 패널 조회")
 }

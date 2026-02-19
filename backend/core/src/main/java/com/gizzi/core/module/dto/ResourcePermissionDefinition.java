@@ -8,14 +8,14 @@ import lombok.Getter;
 // 예: resource="post", action="write", name="게시글 작성"
 @Getter
 @AllArgsConstructor
-public class ResourcePermissionDefinition {
+public class ResourcePermissionDefinition
+{
 
-	// 리소스 코드 (예: "post", "comment", "category")
-	private final String resource;
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 필드 ]
+	//----------------------------------------------------------------------------------------------------------------------
 
-	// 액션 코드 (예: "read", "write", "delete")
-	private final String action;
-
-	// 권한 표시명 (예: "게시글 작성", "댓글 삭제")
-	private final String name;
+	private final String resource;   // 리소스 코드 (예: "post", "comment", "category")
+	private final String action;     // 액션 코드 (예: "read", "write", "delete")
+	private final String name;       // 권한 표시명 (예: "게시글 작성", "댓글 삭제")
 }

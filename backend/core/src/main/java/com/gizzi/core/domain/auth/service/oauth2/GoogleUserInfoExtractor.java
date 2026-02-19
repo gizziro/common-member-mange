@@ -5,20 +5,28 @@ import org.springframework.stereotype.Component;
 
 import java.util.Map;
 
+//----------------------------------------------------------------------------------------------------------------------
 // Google OAuth2 사용자 정보 파서
 // Google userinfo API 응답: { sub, email, name, picture, ... }
+//----------------------------------------------------------------------------------------------------------------------
 @Component
-public class GoogleUserInfoExtractor implements OAuth2UserInfoExtractor {
-
+public class GoogleUserInfoExtractor implements OAuth2UserInfoExtractor
+{
+	//----------------------------------------------------------------------------------------------------------------------
 	// Provider 코드 반환
+	//----------------------------------------------------------------------------------------------------------------------
 	@Override
-	public String getProviderCode() {
+	public String getProviderCode()
+	{
 		return "google";
 	}
 
+	//----------------------------------------------------------------------------------------------------------------------
 	// Google 응답 → 공통 OAuth2UserInfo 변환
+	//----------------------------------------------------------------------------------------------------------------------
 	@Override
-	public OAuth2UserInfo extract(Map<String, Object> attributes) {
+	public OAuth2UserInfo extract(Map<String, Object> attributes)
+	{
 		return OAuth2UserInfo.builder()
 			.providerCode("google")
 			// Google의 사용자 고유 식별자

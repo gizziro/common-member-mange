@@ -34,7 +34,12 @@ import java.util.stream.Collectors;
 @Component
 @Order(1)
 @RequiredArgsConstructor
-public class ModuleSchemaInitializer implements ApplicationRunner {
+public class ModuleSchemaInitializer implements ApplicationRunner
+{
+
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 의존성 ]
+	//----------------------------------------------------------------------------------------------------------------------
 
 	// JDBC 직접 사용 (JPA보다 먼저 스키마를 준비해야 하므로)
 	private final JdbcTemplate jdbcTemplate;
@@ -42,44 +47,63 @@ public class ModuleSchemaInitializer implements ApplicationRunner {
 	// 등록된 모든 모듈 정의 (Spring이 자동 주입, 없으면 빈 리스트)
 	private final List<ModuleDefinition> moduleDefinitions;
 
+	//======================================================================================================================
+	// 초기화 실행
+	//======================================================================================================================
+
 	@Override
-	public void run(ApplicationArguments args) {
+	public void run(ApplicationArguments args)
+	{
 		log.info("모듈 스키마 초기화 시작: {}개 모듈 정의 발견", moduleDefinitions.size());
 
 		// 각 모듈 정의를 순회하며 스키마 존재 여부 확인 및 적용
-		for (ModuleDefinition definition : moduleDefinitions) {
+		for (ModuleDefinition definition : moduleDefinitions)
+		{
 			initializeModuleSchema(definition);
 		}
 
 		log.info("모듈 스키마 초기화 완료");
 	}
 
+	//----------------------------------------------------------------------------------------------------------------------
+	// 개별 모듈 스키마 초기화
+	//----------------------------------------------------------------------------------------------------------------------
+
 	// 단일 모듈의 스키마 초기화 처리
-	private void initializeModuleSchema(ModuleDefinition definition) {
+	private void initializeModuleSchema(ModuleDefinition definition)
+	{
 		String moduleCode = definition.getCode();
 
 		// 대표 테이블이 정의되지 않은 모듈은 스키마 초기화 불필요
 		List<String> requiredTables = definition.getRequiredTables();
-		if (requiredTables.isEmpty()) {
+		if (requiredTables.isEmpty())
+		{
 			log.debug("모듈 [{}]: 필수 테이블 정의 없음 — 스키마 초기화 스킵", moduleCode);
 			return;
 		}
 
 		// 대표 테이블 존재 여부 확인 (첫 번째 테이블만 검사)
 		String checkTable = requiredTables.get(0);
-		if (isTableExists(checkTable)) {
+		if (isTableExists(checkTable))
+		{
 			log.debug("모듈 [{}]: 테이블 '{}' 이미 존재 — 스키마 초기화 스킵", moduleCode, checkTable);
 			return;
 		}
 
+		//----------------------------------------------------------------------------------------------------------------------
+		// SQL 파일 로드 및 실행
+		//----------------------------------------------------------------------------------------------------------------------
+
 		// classpath에서 스키마 SQL 파일 로드
 		String resourcePath = "classpath:db/" + moduleCode + "-schema.sql";
-		try {
+		try
+		{
 			PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
 			Resource resource = resolver.getResource(resourcePath);
 
 			// 리소스가 존재하지 않으면 경고 로그
-			if (!resource.exists()) {
+			if (!resource.exists())
+			{
 				log.warn("모듈 [{}]: 스키마 파일 '{}' 을 찾을 수 없습니다", moduleCode, resourcePath);
 				return;
 			}
@@ -91,24 +115,32 @@ public class ModuleSchemaInitializer implements ApplicationRunner {
 			log.info("모듈 [{}]: 스키마 SQL 실행 — {}", moduleCode, resourcePath);
 			jdbcTemplate.execute(sql);
 			log.info("모듈 [{}]: 스키마 초기화 성공", moduleCode);
-
-		} catch (Exception e) {
+		}
+		catch (Exception e)
+		{
 			log.error("모듈 [{}]: 스키마 초기화 실패 — {}", moduleCode, e.getMessage(), e);
 		}
 	}
 
+	//----------------------------------------------------------------------------------------------------------------------
+	// 헬퍼 메서드
+	//----------------------------------------------------------------------------------------------------------------------
+
 	// information_schema를 조회하여 테이블 존재 여부 확인
-	private boolean isTableExists(String tableName) {
-		String sql = "SELECT COUNT(*) FROM information_schema.TABLES " +
-		             "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?";
+	private boolean isTableExists(String tableName)
+	{
+		String  sql   = "SELECT COUNT(*) FROM information_schema.TABLES " +
+		                "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?";
 		Integer count = jdbcTemplate.queryForObject(sql, Integer.class, tableName);
 		return count != null && count > 0;
 	}
 
 	// Resource에서 텍스트 내용 읽기
-	private String readResourceContent(Resource resource) throws Exception {
+	private String readResourceContent(Resource resource) throws Exception
+	{
 		try (BufferedReader reader = new BufferedReader(
-				new InputStreamReader(resource.getInputStream(), StandardCharsets.UTF_8))) {
+				new InputStreamReader(resource.getInputStream(), StandardCharsets.UTF_8)))
+		{
 			return reader.lines().collect(Collectors.joining("\n"));
 		}
 	}

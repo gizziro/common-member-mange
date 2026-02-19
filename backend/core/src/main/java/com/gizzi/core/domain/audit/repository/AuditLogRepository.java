@@ -10,9 +10,12 @@ import org.springframework.data.repository.query.Param;
 import java.time.LocalDateTime;
 
 // 감사 로그 리포지토리 — 복합 필터 + 페이지네이션 지원
-public interface AuditLogRepository extends JpaRepository<AuditLogEntity, String> {
-
+public interface AuditLogRepository extends JpaRepository<AuditLogEntity, String>
+{
+	//----------------------------------------------------------------------------------------------------------------------
 	// 복합 필터 조회 (각 파라미터가 null이면 해당 조건 무시)
+	//----------------------------------------------------------------------------------------------------------------------
+
 	@Query("SELECT a FROM AuditLogEntity a WHERE "
 		+ "(:actorUserId IS NULL OR a.actorUserId = :actorUserId) "
 		+ "AND (:actionType IS NULL OR a.actionType = :actionType) "

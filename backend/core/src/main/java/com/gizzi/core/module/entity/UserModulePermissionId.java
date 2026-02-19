@@ -13,14 +13,14 @@ import java.io.Serializable;
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode
-public class UserModulePermissionId implements Serializable {
+public class UserModulePermissionId implements Serializable
+{
 
-	// 사용자 PK
-	private String userId;
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 복합 키 구성 요소 ]
+	//----------------------------------------------------------------------------------------------------------------------
 
-	// 모듈 인스턴스 PK
-	private String moduleInstanceId;
-
-	// 모듈 권한 PK
-	private String modulePermissionId;
+	private String userId;               // 사용자 PK
+	private String moduleInstanceId;     // 모듈 인스턴스 PK
+	private String modulePermissionId;   // 모듈 권한 PK
 }

@@ -12,7 +12,12 @@ import java.util.Optional;
 // 순환 의존성 해결 패턴:
 //   module-board ──→ core ←── module-accounting
 //   (BoardContentProvider)     (core의 ModuleContentRegistry를 통해 board 콘텐츠 조회)
-public interface ModuleContentProvider {
+public interface ModuleContentProvider
+{
+
+	//----------------------------------------------------------------------------------------------------------------------
+	// 모듈 식별
+	//----------------------------------------------------------------------------------------------------------------------
 
 	// 이 제공자가 담당하는 모듈 코드
 	// 예: "board", "blog"
@@ -21,6 +26,10 @@ public interface ModuleContentProvider {
 	// 특정 리소스 유형을 지원하는지 확인
 	// 예: supports("post") → true
 	boolean supports(String resourceType);
+
+	//----------------------------------------------------------------------------------------------------------------------
+	// 콘텐츠 조회
+	//----------------------------------------------------------------------------------------------------------------------
 
 	// 특정 리소스의 요약 정보 조회
 	// 예: getContent("post", "post-uuid-123") → 게시글 제목, URL 등

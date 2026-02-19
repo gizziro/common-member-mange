@@ -13,11 +13,12 @@ import java.io.Serializable;
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode
-public class GroupMemberId implements Serializable {
+public class GroupMemberId implements Serializable
+{
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 복합 키 필드 ]
+	//----------------------------------------------------------------------------------------------------------------------
 
-	// 그룹 PK
-	private String groupId;
-
-	// 사용자 PK
-	private String userId;
+	private String groupId;		// 그룹 PK
+	private String userId;		// 사용자 PK
 }

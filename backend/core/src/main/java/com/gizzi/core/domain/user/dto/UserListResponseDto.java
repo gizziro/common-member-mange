@@ -10,34 +10,29 @@ import java.time.LocalDateTime;
 // 관리자 회원 목록 테이블에서 사용
 @Getter
 @Builder
-public class UserListResponseDto {
+public class UserListResponseDto
+{
 
-	// 사용자 PK (UUID)
-	private final String        id;
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 필드 ]
+	//----------------------------------------------------------------------------------------------------------------------
 
-	// 로그인 ID
-	private final String        userId;
+	private final String        id;              // 사용자 PK (UUID)
+	private final String        userId;          // 로그인 ID
+	private final String        username;        // 사용자 이름
+	private final String        email;           // 이메일 주소
+	private final String        provider;        // 가입/로그인 제공자 (LOCAL, GOOGLE 등)
+	private final String        userStatus;      // 사용자 상태 (PENDING, ACTIVE, SUSPENDED)
+	private final Boolean       isLocked;        // 계정 잠금 여부
+	private final LocalDateTime createdAt;       // 생성 일시
 
-	// 사용자 이름
-	private final String        username;
-
-	// 이메일 주소
-	private final String        email;
-
-	// 가입/로그인 제공자 (LOCAL, GOOGLE 등)
-	private final String        provider;
-
-	// 사용자 상태 (PENDING, ACTIVE, SUSPENDED)
-	private final String        userStatus;
-
-	// 계정 잠금 여부
-	private final Boolean       isLocked;
-
-	// 생성 일시
-	private final LocalDateTime createdAt;
+	//----------------------------------------------------------------------------------------------------------------------
+	// [ 정적 팩토리 메서드 ]
+	//----------------------------------------------------------------------------------------------------------------------
 
 	// UserEntity로부터 목록용 DTO를 생성하는 정적 팩토리 메서드
-	public static UserListResponseDto from(UserEntity user) {
+	public static UserListResponseDto from(UserEntity user)
+	{
 		return UserListResponseDto.builder()
 			.id(user.getId())
 			.userId(user.getUserId())
