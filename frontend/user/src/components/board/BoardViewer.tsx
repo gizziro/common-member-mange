@@ -346,7 +346,7 @@ function PostListView({
         }
         setTotalPages(res.data.totalPages);
         setTotalElements(res.data.totalElements);
-        setPage(res.data.number);
+        setPage(res.data.page);
       }
     } catch {
       // 로드 실패

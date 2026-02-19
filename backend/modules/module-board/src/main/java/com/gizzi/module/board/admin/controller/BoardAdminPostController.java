@@ -1,6 +1,7 @@
 package com.gizzi.module.board.admin.controller;
 
 import com.gizzi.core.common.dto.ApiResponseDto;
+import com.gizzi.core.common.dto.PageResponseDto;
 import com.gizzi.module.board.dto.post.PostListResponseDto;
 import com.gizzi.module.board.dto.post.PostResponseDto;
 import com.gizzi.module.board.service.BoardPostService;
@@ -36,12 +37,15 @@ public class BoardAdminPostController {
 
 	// 관리자용 게시글 목록 조회 (임시저장 포함, 소프트삭제 제외)
 	@GetMapping("/{id}/posts")
-	public ResponseEntity<ApiResponseDto<Page<PostListResponseDto>>> getAdminPosts(
+	public ResponseEntity<ApiResponseDto<PageResponseDto<PostListResponseDto>>> getAdminPosts(
 			@PathVariable String id,
 			Pageable pageable) {
 		// 관리자 전용 목록 — 임시저장(isDraft) 포함하여 전체 조회
 		Page<PostListResponseDto> posts = postService.getAdminPosts(id, pageable);
-		return ResponseEntity.ok(ApiResponseDto.ok(posts));
+
+		// Page → PageResponseDto 변환
+		PageResponseDto<PostListResponseDto> response = PageResponseDto.from(posts, dto -> dto);
+		return ResponseEntity.ok(ApiResponseDto.ok(response));
 	}
 
 	// 게시글 상세 조회

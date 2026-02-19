@@ -56,11 +56,11 @@ export interface LoginResponse {
 	email: string;
 }
 
-// Spring Page 응답 공통 타입
+// 백엔드 PageResponseDto 매핑 (페이지네이션 응답 공통 타입)
 export interface PageResponse<T> {
 	content: T[];
+	page: number;
+	size: number;
 	totalElements: number;
 	totalPages: number;
-	number: number;
-	size: number;
 }

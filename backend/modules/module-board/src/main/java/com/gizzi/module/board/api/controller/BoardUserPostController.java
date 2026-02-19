@@ -1,6 +1,7 @@
 package com.gizzi.module.board.api.controller;
 
 import com.gizzi.core.common.dto.ApiResponseDto;
+import com.gizzi.core.common.dto.PageResponseDto;
 import com.gizzi.core.common.exception.AuthErrorCode;
 import com.gizzi.core.common.exception.BusinessException;
 import com.gizzi.module.board.dto.post.CreatePostRequestDto;
@@ -56,7 +57,7 @@ public class BoardUserPostController {
 
 	// 게시글 목록 조회 (카테고리/태그 필터 + 동적 정렬 + 페이징 지원)
 	@GetMapping("/{id}/posts")
-	public ResponseEntity<ApiResponseDto<Page<PostListResponseDto>>> getPosts(
+	public ResponseEntity<ApiResponseDto<PageResponseDto<PostListResponseDto>>> getPosts(
 			@PathVariable String id,
 			@RequestParam(required = false) String categoryId,
 			@RequestParam(required = false) String tagId,
@@ -73,7 +74,10 @@ public class BoardUserPostController {
 
 		// 게시글 목록 조회 (카테고리/태그 필터, 동적 정렬, 페이징)
 		Page<PostListResponseDto> posts = postService.getPosts(id, categoryId, tagId, sort, pageable);
-		return ResponseEntity.ok(ApiResponseDto.ok(posts));
+
+		// Page → PageResponseDto 변환
+		PageResponseDto<PostListResponseDto> response = PageResponseDto.from(posts, dto -> dto);
+		return ResponseEntity.ok(ApiResponseDto.ok(response));
 	}
 
 	// ─── 게시글 작성 ───
@@ -189,7 +193,7 @@ public class BoardUserPostController {
 
 	// 게시글 검색 (검색 유형별: all / title / author)
 	@GetMapping("/{id}/posts/search")
-	public ResponseEntity<ApiResponseDto<Page<PostListResponseDto>>> searchPosts(
+	public ResponseEntity<ApiResponseDto<PageResponseDto<PostListResponseDto>>> searchPosts(
 			@PathVariable String id,
 			@RequestParam String keyword,
 			@RequestParam(required = false, defaultValue = "all") String searchType,
@@ -205,7 +209,10 @@ public class BoardUserPostController {
 
 		// 게시글 키워드 검색 (검색 유형, 페이징)
 		Page<PostListResponseDto> results = postService.searchPosts(id, keyword, searchType, pageable);
-		return ResponseEntity.ok(ApiResponseDto.ok(results));
+
+		// Page → PageResponseDto 변환
+		PageResponseDto<PostListResponseDto> response = PageResponseDto.from(results, dto -> dto);
+		return ResponseEntity.ok(ApiResponseDto.ok(response));
 	}
 
 	// ─── Private 헬퍼 ───

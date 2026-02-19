@@ -145,13 +145,13 @@ interface BoardAdmin {
   createdAt: string;
 }
 
-/** 페이징 응답 */
+/** 페이징 응답 (백엔드 PageResponseDto 매핑) */
 interface PageResponse<T> {
   content: T[];
+  page: number;
+  size: number;
   totalElements: number;
   totalPages: number;
-  number: number;
-  size: number;
 }
 
 /* ===========================
@@ -400,7 +400,7 @@ export default function BoardDetailPage() {
       if (res.success && res.data) {
         setPosts(res.data.content);
         setPostTotalPages(res.data.totalPages);
-        setPostPage(res.data.number);
+        setPostPage(res.data.page);
         setPostsLoaded(true);
       }
     } catch {
